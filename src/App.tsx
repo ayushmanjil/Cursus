@@ -34,6 +34,7 @@ const viewMeta: Record<ViewKey, { title: string; subtitle: string }> = {
 
 function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const { books, addBook, updateBook, deleteBook, setStatus, toggleFavorite, importBooks, genres } =
     useBooks(currentUser?.id);
   const { theme, toggleTheme } = useTheme();
@@ -53,6 +54,7 @@ function App() {
       } else {
         setCurrentUser(null);
       }
+      setAuthLoading(false);
     });
     return unsubscribe;
   }, []);
@@ -211,6 +213,17 @@ function App() {
 
   const isListView = view === 'on-shelf' || view === 'wishlist' || view === 'reading' || view === 'read' || view === 'favorites';
   const meta = viewMeta[view];
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-bgdark-soft dark:bg-bgdark">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-brass-500 border-t-transparent" />
+          <p className="text-sm font-medium text-ink-muted dark:text-paper/60">Syncing library...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!currentUser) {
     return <Login onLoginSuccess={(user) => setCurrentUser(user)} />;
