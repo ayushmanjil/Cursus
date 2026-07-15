@@ -89,7 +89,7 @@ export function StreakManager({ log, onUpdateLog }: StreakManagerProps) {
     }
   };
 
-  const handleUpdateNumber = (field: 'pages', val: number) => {
+  const handleUpdateNumber = (_field: 'pages', val: number) => {
     setEditPages(val);
     if (val > 0) {
       setEditRead(true);

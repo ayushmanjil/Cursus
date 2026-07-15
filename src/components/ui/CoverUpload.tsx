@@ -9,10 +9,6 @@ interface CoverUploadProps {
   heightClass?: string;
   /** When true, cover cannot be changed (view-only mode) */
   disabled?: boolean;
-  /** Focal point X 0-100 for object-position preview */
-  focusX?: number;
-  /** Focal point Y 0-100 for object-position preview */
-  focusY?: number;
 }
 
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -27,7 +23,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
-export function CoverUpload({ value, onChange, heightClass = 'h-36', disabled = false, focusX = 50, focusY = 50 }: CoverUploadProps) {
+export function CoverUpload({ value, onChange, heightClass = 'h-36', disabled = false }: CoverUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState('');

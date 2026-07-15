@@ -13,7 +13,6 @@ interface BookDetailsModalProps {
   onClose: () => void;
   onUpdate: (id: string, patch: Partial<Book>) => void;
   onSetStatus: (id: string, status: BookStatus) => void;
-  onToggleFavorite: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
@@ -28,7 +27,6 @@ export function BookDetailsModal({
   onClose,
   onUpdate,
   onSetStatus,
-  onToggleFavorite,
   onDelete,
 }: BookDetailsModalProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -107,8 +105,6 @@ export function BookDetailsModal({
                 onChange={(dataUrl) => isEditing && commitLocal({ coverUrl: dataUrl, coverFocusX: 50, coverFocusY: 50 })}
                 heightClass="h-40 sm:h-52"
                 disabled={!isEditing}
-                focusX={local.coverFocusX ?? 50}
-                focusY={local.coverFocusY ?? 50}
               />
               {isEditing && local.coverUrl && (
                 <FocalPointPicker

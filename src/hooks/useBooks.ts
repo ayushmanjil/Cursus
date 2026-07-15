@@ -4,7 +4,8 @@ import type { Book, BookStatus } from '../types/book';
 import { generateId, todayIso } from '../utils/helpers';
 import { seedBooks } from '../data/seed';
 
-const STORAGE_KEY = 'my-library:books';
+
+
 
 export type NewBookInput = Pick<
   Book,

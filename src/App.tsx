@@ -15,7 +15,6 @@ import { Plus } from 'lucide-react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { StreakManager } from './components/StreakManager';
 import type { StreakLog } from './components/StreakManager';
-import { useUsers } from './hooks/useUsers';
 import { Login } from './components/Login';
 import type { User } from './types/user';
 
@@ -39,7 +38,6 @@ function App() {
     currentUser ? 'my-library:streaks:' + currentUser.id : 'my-library:streaks:guest',
     {}
   );
-  const { users } = useUsers();
 
   const [view, setView] = useState<ViewKey>('dashboard');
   const [search, setSearch] = useState('');
@@ -266,7 +264,6 @@ function App() {
         onClose={() => setSelectedBookId(null)}
         onUpdate={updateBook}
         onSetStatus={handleSetStatus}
-        onToggleFavorite={toggleFavorite}
         onDelete={deleteBook}
       />
 
