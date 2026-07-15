@@ -152,7 +152,7 @@ function App() {
         importBooks(valid, 'merge');
         alert(`Imported ${valid.length} book(s).`);
       } catch (err) {
-        alert('Could not import this file. Please make sure it is a valid My Library JSON export.');
+        alert('Could not import this file. Please make sure it is a valid Cursus JSON export.');
       }
     };
     reader.readAsText(file);
@@ -176,6 +176,7 @@ function App() {
         mobileOpen={mobileMenuOpen}
         onCloseMobile={() => setMobileMenuOpen(false)}
         onLogout={() => setCurrentUser(null)}
+        userName={currentUser?.name}
       />
 
       <div className="flex min-h-screen flex-1 flex-col lg:pl-0">

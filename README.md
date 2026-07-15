@@ -1,4 +1,4 @@
-# My Library
+# Cursus
 
 A modern, responsive personal book-tracking app. Single-page application built with React, TypeScript, Tailwind CSS, and Framer Motion. All data is stored locally in your browser via `localStorage` — no backend, no account, no database.
 

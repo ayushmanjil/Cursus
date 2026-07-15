@@ -32,6 +32,7 @@ interface SidebarProps {
   mobileOpen: boolean;
   onCloseMobile: () => void;
   onLogout?: () => void;
+  userName?: string;
 }
 
 export function Sidebar({
@@ -43,6 +44,7 @@ export function Sidebar({
   mobileOpen,
   onCloseMobile,
   onLogout,
+  userName,
 }: SidebarProps) {
   const primaryItems: NavItem[] = [
     { key: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
@@ -106,7 +108,7 @@ export function Sidebar({
       )}
       <aside
         className={classNames(
-          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-ink/10 bg-paper-soft/80 backdrop-blur-sm px-3 py-4 dark:border-paper/10 dark:bg-bgdark-soft transition-transform lg:static lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-ink/10 bg-paper-soft/80 backdrop-blur-sm px-3 py-4 dark:border-paper/10 dark:bg-bgdark-soft transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -116,7 +118,7 @@ export function Sidebar({
               <Library size={17} />
             </div>
             <span className="font-display text-[17px] font-semibold text-ink dark:text-paper">
-              Curcus
+              Cursus
             </span>
           </div>
           <button
@@ -127,7 +129,7 @@ export function Sidebar({
           </button>
         </div>
 
-        <nav className="flex-1 space-y-5 overflow-y-auto scrollbar-thin">
+        <nav className="flex-1 space-y-5">
           <div className="space-y-1">{primaryItems.map(renderItem)}</div>
           <div>
             <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-faint dark:text-paper/40">
@@ -153,13 +155,24 @@ export function Sidebar({
           </button>
 
           {onLogout && (
-            <button
-              onClick={onLogout}
-              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-burgundy-500 hover:bg-burgundy-500/10 transition-colors"
-            >
-              <LogOut size={16} />
-              Sign Out
-            </button>
+            <div className="flex items-center justify-between rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink/10 text-xs font-semibold text-ink dark:bg-brass-500/20 dark:text-brass-400">
+                  {userName ? userName.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <span className="truncate text-sm font-medium text-ink dark:text-paper" title={userName}>
+                  {userName || 'User'}
+                </span>
+              </div>
+              <button
+                onClick={onLogout}
+                className="group/btn flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-muted hover:bg-burgundy-500/10 hover:text-burgundy-500 transition-colors"
+                title="Sign Out"
+                aria-label="Sign Out"
+              >
+                <LogOut size={16} className="transition-transform group-hover/btn:translate-x-0.5" />
+              </button>
+            </div>
           )}
         </div>
       </aside>
