@@ -1,0 +1,168 @@
+import {
+  LayoutGrid,
+  BookMarked,
+  BookOpen,
+  CheckCircle2,
+  Heart,
+  BarChart3,
+  Library,
+  Sun,
+  Moon,
+  ShoppingBag,
+  Flame,
+  LogOut,
+  X,
+} from 'lucide-react';
+import type { ViewKey } from '../types/book';
+import { classNames } from '../utils/helpers';
+
+interface NavItem {
+  key: ViewKey;
+  label: string;
+  icon: React.ElementType;
+  count?: number;
+}
+
+interface SidebarProps {
+  active: ViewKey;
+  onSelect: (v: ViewKey) => void;
+  counts: Record<ViewKey, number>;
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
+  mobileOpen: boolean;
+  onCloseMobile: () => void;
+  onLogout?: () => void;
+}
+
+export function Sidebar({
+  active,
+  onSelect,
+  counts,
+  theme,
+  onToggleTheme,
+  mobileOpen,
+  onCloseMobile,
+  onLogout,
+}: SidebarProps) {
+  const primaryItems: NavItem[] = [
+    { key: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
+  ];
+  const shelfItems: NavItem[] = [
+    { key: 'on-shelf', label: 'On Shelf', icon: BookMarked, count: counts['on-shelf'] },
+    { key: 'wishlist', label: 'The Hunt List', icon: ShoppingBag, count: counts['wishlist'] },
+    { key: 'reading', label: 'Reading', icon: BookOpen, count: counts['reading'] },
+    { key: 'read', label: 'Read', icon: CheckCircle2, count: counts['read'] },
+  ];
+  const otherItems: NavItem[] = [
+    { key: 'streaks', label: 'Reading Streaks', icon: Flame },
+    { key: 'favorites', label: 'Favorites', icon: Heart, count: counts['favorites'] },
+    { key: 'stats', label: 'Statistics', icon: BarChart3 },
+  ];
+
+  const renderItem = (item: NavItem) => {
+    const ActiveIcon = item.icon;
+    const isActive = active === item.key;
+    return (
+      <button
+        key={item.key}
+        onClick={() => {
+          onSelect(item.key);
+          onCloseMobile();
+        }}
+        className={classNames(
+          'group flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors',
+          isActive
+            ? 'bg-ink text-paper dark:bg-brass-500/90 dark:text-bgdark font-medium'
+            : 'text-ink-muted hover:bg-ink/5 hover:text-ink dark:text-paper/60 dark:hover:bg-paper/10 dark:hover:text-paper'
+        )}
+      >
+        <span className="flex items-center gap-2.5">
+          <ActiveIcon size={16} strokeWidth={isActive ? 2.4 : 2} />
+          {item.label}
+        </span>
+        {typeof item.count === 'number' && (
+          <span
+            className={classNames(
+              'rounded-full px-1.5 py-0.5 text-[11px] tabular-nums',
+              isActive
+                ? 'bg-paper/20 text-paper dark:bg-bgdark/20 dark:text-bgdark'
+                : 'bg-ink/5 text-ink-faint dark:bg-paper/10 dark:text-paper/50'
+            )}
+          >
+            {item.count}
+          </span>
+        )}
+      </button>
+    );
+  };
+
+  return (
+    <>
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-ink/30 backdrop-blur-sm lg:hidden"
+          onClick={onCloseMobile}
+        />
+      )}
+      <aside
+        className={classNames(
+          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-ink/10 bg-paper-soft/80 backdrop-blur-sm px-3 py-4 dark:border-paper/10 dark:bg-bgdark-soft transition-transform lg:static lg:translate-x-0',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
+        <div className="mb-6 flex items-center justify-between px-2">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-ink text-paper dark:bg-brass-500 dark:text-bgdark">
+              <Library size={17} />
+            </div>
+            <span className="font-display text-[17px] font-semibold text-ink dark:text-paper">
+              Curcus
+            </span>
+          </div>
+          <button
+            onClick={onCloseMobile}
+            className="rounded-md p-1 text-ink-muted hover:bg-ink/5 lg:hidden dark:text-paper/60"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <nav className="flex-1 space-y-5 overflow-y-auto scrollbar-thin">
+          <div className="space-y-1">{primaryItems.map(renderItem)}</div>
+          <div>
+            <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-faint dark:text-paper/40">
+              Shelves
+            </p>
+            <div className="space-y-1">{shelfItems.map(renderItem)}</div>
+          </div>
+          <div>
+            <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-faint dark:text-paper/40">
+              More
+            </p>
+            <div className="space-y-1">{otherItems.map(renderItem)}</div>
+          </div>
+        </nav>
+
+        <div className="mt-4 flex flex-col gap-1 border-t border-ink/5 pt-3 dark:border-paper/5">
+          <button
+            onClick={onToggleTheme}
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-ink-muted hover:bg-ink/5 hover:text-ink dark:text-paper/60 dark:hover:bg-paper/10 dark:hover:text-paper transition-colors"
+          >
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+          </button>
+
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-burgundy-500 hover:bg-burgundy-500/10 transition-colors"
+            >
+              <LogOut size={16} />
+              Sign Out
+            </button>
+          )}
+        </div>
+      </aside>
+    </>
+  );
+}
