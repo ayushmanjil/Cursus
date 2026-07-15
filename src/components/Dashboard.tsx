@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Library,
@@ -17,16 +17,18 @@ import {
 import type { Book, ViewKey } from '../types/book';
 import { formatDate, calculateStreaks, getHighestPagesRecord } from '../utils/helpers';
 import { StatusBadge } from './ui/Badge';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+import { db } from '../firebase';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 
 interface DashboardProps {
   books: Book[];
   onOpen: (book: Book) => void;
   onSelectView?: (view: ViewKey) => void;
   streakLog?: Record<string, { read: boolean; pages?: number; hours?: number }>;
+  userId?: string;
 }
 
-export function Dashboard({ books, onOpen, onSelectView, streakLog = {} }: DashboardProps) {
+export function Dashboard({ books, onOpen, onSelectView, streakLog = {}, userId }: DashboardProps) {
   const total = books.length;
   const onShelf = books.filter((b) => b.status === 'on-shelf').length;
   const wishlist = books.filter((b) => b.status === 'wishlist').length;
@@ -43,10 +45,30 @@ export function Dashboard({ books, onOpen, onSelectView, streakLog = {} }: Dashb
   const { currentStreak, highestStreak } = calculateStreaks(streakLog);
   const { maxPages, recordDate } = getHighestPagesRecord(streakLog);
 
-  // Reading goal
-  const [goal, setGoal] = useLocalStorage<number>('my-library:yearly-goal', 24);
+  // Reading goal (synchronized via Firestore settings document)
+  const [goal, setGoalState] = useState<number>(24);
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState(String(goal));
+
+  useEffect(() => {
+    if (!userId) return;
+    const docRef = doc(db, 'users', userId, 'settings', 'goal');
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists() && typeof docSnap.data().yearlyGoal === 'number') {
+        const val = docSnap.data().yearlyGoal;
+        setGoalState(val);
+        setGoalInput(String(val));
+      }
+    });
+    return unsubscribe;
+  }, [userId]);
+
+  const setGoal = async (newGoal: number) => {
+    setGoalState(newGoal);
+    if (userId) {
+      await setDoc(doc(db, 'users', userId, 'settings', 'goal'), { yearlyGoal: newGoal });
+    }
+  };
   const currentYear = new Date().getFullYear();
   const readThisYear = useMemo(
     () =>

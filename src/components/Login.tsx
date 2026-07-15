@@ -1,46 +1,75 @@
 import { useState } from 'react';
-import { Library, Lock, User as UserIcon, Loader2, LogIn } from 'lucide-react';
+import { Library, Lock, User as UserIcon, Loader2, LogIn, UserPlus } from 'lucide-react';
 import { Button } from './ui/Button';
-import { useUsers } from '../hooks/useUsers';
-import type { User } from '../types/user';
+import { auth } from '../firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 
 interface LoginProps {
-  onLoginSuccess: (user: User) => void;
+  onLoginSuccess: (user: { id: string; name: string; username: string }) => void;
 }
 
 export function Login({ onLoginSuccess }: LoginProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState(''); // Only used for Sign Up
+  const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { users } = useUsers();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!username.trim() || !password.trim()) {
+    const trimmedUsername = username.trim().toLowerCase();
+    const trimmedPassword = password;
+    const trimmedName = name.trim();
+
+    if (!trimmedUsername || !trimmedPassword || (isSignUp && !trimmedName)) {
       setError('Please fill in all fields.');
       return;
     }
 
     setLoading(true);
+    const virtualEmail = `${trimmedUsername}@cursus.app`;
 
-    // Simulate a brief premium loading animation for UX
-    setTimeout(() => {
-      const matchedUser = users.find(
-        (u) =>
-          u.username.trim().toLowerCase() === username.trim().toLowerCase() &&
-          u.password === password
-      );
-
-      if (matchedUser) {
-        onLoginSuccess(matchedUser);
+    try {
+      if (isSignUp) {
+        // Create user in Firebase Authentication
+        const userCredential = await createUserWithEmailAndPassword(auth, virtualEmail, trimmedPassword);
+        // Set display name
+        if (userCredential.user) {
+          await updateProfile(userCredential.user, { displayName: trimmedName });
+          onLoginSuccess({
+            id: userCredential.user.uid,
+            name: trimmedName,
+            username: trimmedUsername,
+          });
+        }
       } else {
-        setError('Invalid username or password. Please try again.');
-        setLoading(false);
+        // Sign in via Firebase Authentication
+        const userCredential = await signInWithEmailAndPassword(auth, virtualEmail, trimmedPassword);
+        if (userCredential.user) {
+          onLoginSuccess({
+            id: userCredential.user.uid,
+            name: userCredential.user.displayName || username,
+            username: trimmedUsername,
+          });
+        }
       }
-    }, 700);
+    } catch (err: any) {
+      console.error(err);
+      if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+        setError('Invalid username or password. Please try again.');
+      } else if (err.code === 'auth/email-already-in-use') {
+        setError('Username is already taken. Please choose another one.');
+      } else if (err.code === 'auth/weak-password') {
+        setError('Password should be at least 6 characters.');
+      } else {
+        setError('An error occurred. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -60,11 +89,29 @@ export function Login({ onLoginSuccess }: LoginProps) {
               Cursus
             </h2>
             <p className="mt-1 text-xs text-ink-muted dark:text-paper/50">
-              Enter your credentials to unlock your collection
+              {isSignUp ? 'Create a new account to sync your books' : 'Enter your credentials to unlock your collection'}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            {/* Display Name Input (Only on Sign Up) */}
+            {isSignUp && (
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-paper/40">
+                  <UserIcon size={13} />
+                  Display Name
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={loading}
+                  placeholder="e.g. Ayush Manjil"
+                  className="w-full rounded-lg border border-ink/10 bg-paper px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 dark:bg-bgdark dark:text-paper disabled:opacity-50"
+                />
+              </div>
+            )}
+
             {/* Username input */}
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-paper/40">
@@ -76,6 +123,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 disabled={loading}
+                placeholder="e.g. ayushmanjil"
                 className="w-full rounded-lg border border-ink/10 bg-paper px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 dark:bg-bgdark dark:text-paper disabled:opacity-50"
               />
             </div>
@@ -101,16 +149,30 @@ export function Login({ onLoginSuccess }: LoginProps) {
               {loading ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  Signing In...
+                  {isSignUp ? 'Signing Up...' : 'Signing In...'}
                 </>
               ) : (
                 <>
-                  <LogIn size={16} />
-                  Sign In
+                  {isSignUp ? <UserPlus size={16} /> : <LogIn size={16} />}
+                  {isSignUp ? 'Sign Up' : 'Sign In'}
                 </>
               )}
             </Button>
           </form>
+
+          {/* Toggle between Sign In and Sign Up */}
+          <div className="mt-4 text-center">
+            <button
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setError('');
+              }}
+              disabled={loading}
+              className="text-xs text-brass-600 hover:underline dark:text-brass-400 font-semibold"
+            >
+              {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+            </button>
+          </div>
         </div>
       </div>
 

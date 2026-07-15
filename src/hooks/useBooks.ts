@@ -1,11 +1,8 @@
-import { useCallback, useMemo } from 'react';
-import { useLocalStorage } from './useLocalStorage';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { db } from '../firebase';
+import { collection, query, orderBy, onSnapshot, doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import type { Book, BookStatus } from '../types/book';
 import { generateId, todayIso } from '../utils/helpers';
-import { seedBooks } from '../data/seed';
-
-
-
 
 export type NewBookInput = Pick<
   Book,
@@ -13,13 +10,41 @@ export type NewBookInput = Pick<
 >;
 
 export function useBooks(userId: string | undefined) {
-  const storageKey = userId ? `my-library:books:${userId}` : 'my-library:books:guest';
-  const [books, setBooks] = useLocalStorage<Book[]>(storageKey, seedBooks);
+  const [books, setBooks] = useState<Book[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!userId) {
+      setBooks([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const booksRef = collection(db, 'users', userId, 'books');
+    const q = query(booksRef, orderBy('dateAdded', 'desc'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data()
+      } as Book));
+      setBooks(list);
+      setLoading(false);
+    }, (error) => {
+      console.error("Firestore onSnapshot error:", error);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, [userId]);
 
   const addBook = useCallback(
-    (input: NewBookInput) => {
+    async (input: NewBookInput) => {
+      if (!userId) return;
+      const id = generateId();
       const newBook: Book = {
-        id: generateId(),
+        id,
         title: input.title.trim(),
         author: input.author.trim(),
         genre: input.genre.trim() || 'Uncategorized',
@@ -33,72 +58,80 @@ export function useBooks(userId: string | undefined) {
         totalPages: input.totalPages || undefined,
         currentPage: input.status === 'reading' ? 0 : undefined,
       };
-      setBooks((prev) => [newBook, ...prev]);
+      await setDoc(doc(db, 'users', userId, 'books', id), newBook);
       return newBook;
     },
-    [setBooks]
+    [userId]
   );
 
   const updateBook = useCallback(
-    (id: string, patch: Partial<Book>) => {
-      setBooks((prev) =>
-        prev.map((b) => (b.id === id ? { ...b, ...patch } : b))
-      );
+    async (id: string, patch: Partial<Book>) => {
+      if (!userId) return;
+      await updateDoc(doc(db, 'users', userId, 'books', id), patch);
     },
-    [setBooks]
+    [userId]
   );
 
   const deleteBook = useCallback(
-    (id: string) => {
-      setBooks((prev) => prev.filter((b) => b.id !== id));
+    async (id: string) => {
+      if (!userId) return;
+      await deleteDoc(doc(db, 'users', userId, 'books', id));
     },
-    [setBooks]
+    [userId]
   );
 
   const setStatus = useCallback(
-    (id: string, status: BookStatus, rating?: number) => {
-      setBooks((prev) =>
-        prev.map((b) => {
-          if (b.id !== id) return b;
-          const patch: Partial<Book> = { status };
-          if (status === 'read') {
-            patch.dateFinished = todayIso();
-            if (rating !== undefined) patch.rating = rating;
-            patch.currentPage = b.totalPages || b.currentPage;
-          } else if (status === 'reading') {
-            patch.dateFinished = undefined;
-            patch.currentPage = b.currentPage && b.currentPage > 0 ? b.currentPage : 0;
-          } else if (status === 'on-shelf' || status === 'wishlist') {
-            patch.dateFinished = undefined;
-            patch.rating = undefined;
-            patch.currentPage = undefined;
-          }
-          return { ...b, ...patch };
-        })
-      );
+    async (id: string, status: BookStatus, rating?: number) => {
+      if (!userId) return;
+      const b = books.find((x) => x.id === id);
+      if (!b) return;
+
+      const patch: Partial<Book> = { status };
+      if (status === 'read') {
+        patch.dateFinished = todayIso();
+        if (rating !== undefined) patch.rating = rating;
+        patch.currentPage = b.totalPages || b.currentPage;
+      } else if (status === 'reading') {
+        patch.dateFinished = undefined;
+        patch.currentPage = b.currentPage && b.currentPage > 0 ? b.currentPage : 0;
+      } else if (status === 'on-shelf' || status === 'wishlist') {
+        patch.dateFinished = undefined;
+        patch.rating = undefined;
+        patch.currentPage = undefined;
+      }
+      await updateDoc(doc(db, 'users', userId, 'books', id), patch);
     },
-    [setBooks]
+    [userId, books]
   );
 
   const toggleFavorite = useCallback(
-    (id: string) => {
-      setBooks((prev) =>
-        prev.map((b) => (b.id === id ? { ...b, favorite: !b.favorite } : b))
-      );
+    async (id: string) => {
+      if (!userId) return;
+      const b = books.find((x) => x.id === id);
+      if (!b) return;
+      await updateDoc(doc(db, 'users', userId, 'books', id), { favorite: !b.favorite });
     },
-    [setBooks]
+    [userId, books]
   );
 
   const importBooks = useCallback(
-    (incoming: Book[], mode: 'merge' | 'replace') => {
-      setBooks((prev) => {
-        if (mode === 'replace') return incoming;
-        const byId = new Map(prev.map((b) => [b.id, b]));
-        for (const b of incoming) byId.set(b.id, b);
-        return Array.from(byId.values());
-      });
+    async (incoming: Book[], mode: 'merge' | 'replace') => {
+      if (!userId) return;
+      const batch = writeBatch(db);
+
+      if (mode === 'replace') {
+        for (const b of books) {
+          batch.delete(doc(db, 'users', userId, 'books', b.id));
+        }
+      }
+
+      for (const b of incoming) {
+        batch.set(doc(db, 'users', userId, 'books', b.id), b);
+      }
+
+      await batch.commit();
     },
-    [setBooks]
+    [userId, books]
   );
 
   const genres = useMemo(() => {
@@ -108,6 +141,7 @@ export function useBooks(userId: string | undefined) {
 
   return {
     books,
+    loading,
     addBook,
     updateBook,
     deleteBook,

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import type { Book, BookStatus, FilterState, SortState, ViewKey } from './types/book';
 import { emptyFilter } from './types/book';
 import { useBooks } from './hooks/useBooks';
@@ -12,11 +12,14 @@ import { BookDetailsModal } from './components/BookDetailsModal';
 import { RatingPromptModal } from './components/RatingPromptModal';
 import { Button } from './components/ui/Button';
 import { Plus } from 'lucide-react';
-import { useLocalStorage } from './hooks/useLocalStorage';
+
+
 import { StreakManager } from './components/StreakManager';
 import type { StreakLog } from './components/StreakManager';
 import { Login } from './components/Login';
 import type { User } from './types/user';
+import { auth, db } from './firebase';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 
 const viewMeta: Record<ViewKey, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'Your library at a glance' },
@@ -30,13 +33,62 @@ const viewMeta: Record<ViewKey, { title: string; subtitle: string }> = {
 };
 
 function App() {
-  const [currentUser, setCurrentUser] = useLocalStorage<User | null>('my-library:current-user', null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { books, addBook, updateBook, deleteBook, setStatus, toggleFavorite, importBooks, genres } =
     useBooks(currentUser?.id);
   const { theme, toggleTheme } = useTheme();
-  const [streakLog, setStreakLog] = useLocalStorage<StreakLog>(
-    currentUser ? 'my-library:streaks:' + currentUser.id : 'my-library:streaks:guest',
-    {}
+
+  const [streakLog, setStreakLogState] = useState<StreakLog>({});
+
+  // Sync user authentication state
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
+      if (firebaseUser) {
+        const username = firebaseUser.email?.split('@')[0] || '';
+        setCurrentUser({
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName || username,
+          username: username,
+        });
+      } else {
+        setCurrentUser(null);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  // Sync streak log with Firestore
+  useEffect(() => {
+    if (!currentUser) {
+      setStreakLogState({});
+      return;
+    }
+    const docRef = doc(db, 'users', currentUser.id, 'streaks', 'log');
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setStreakLogState(docSnap.data().log || {});
+      } else {
+        setStreakLogState({});
+      }
+    });
+    return unsubscribe;
+  }, [currentUser]);
+
+  const setStreakLog = useCallback(
+    async (newLog: StreakLog | ((prev: StreakLog) => StreakLog)) => {
+      if (!currentUser) return;
+      const docRef = doc(db, 'users', currentUser.id, 'streaks', 'log');
+      
+      let nextLog: StreakLog;
+      if (typeof newLog === 'function') {
+        nextLog = newLog(streakLog);
+      } else {
+        nextLog = newLog;
+      }
+      
+      await setDoc(docRef, { log: nextLog });
+    },
+    [currentUser, streakLog]
   );
 
   const [view, setView] = useState<ViewKey>('dashboard');
@@ -152,6 +204,11 @@ function App() {
     reader.readAsText(file);
   };
 
+  const handleLogout = () => {
+    auth.signOut();
+    setCurrentUser(null);
+  };
+
   const isListView = view === 'on-shelf' || view === 'wishlist' || view === 'reading' || view === 'read' || view === 'favorites';
   const meta = viewMeta[view];
 
@@ -169,7 +226,7 @@ function App() {
         onToggleTheme={toggleTheme}
         mobileOpen={mobileMenuOpen}
         onCloseMobile={() => setMobileMenuOpen(false)}
-        onLogout={() => setCurrentUser(null)}
+        onLogout={handleLogout}
         userName={currentUser?.name}
       />
 
@@ -210,6 +267,7 @@ function App() {
               onOpen={(b) => setSelectedBookId(b.id)}
               onSelectView={setView}
               streakLog={streakLog}
+              userId={currentUser?.id}
             />
           )}
 
