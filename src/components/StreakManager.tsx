@@ -145,6 +145,8 @@ export function StreakManager({ log, onUpdateLog }: StreakManagerProps) {
         </div>
       </div>
 
+      <hr className="border-ink/10 dark:border-paper/10" />
+
       {/* Sheet Layout: Calendar vs Log Detail */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Left Side: Monthly Calendar Sheet */}

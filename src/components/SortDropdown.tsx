@@ -9,7 +9,6 @@ interface SortDropdownProps {
 const fieldLabels: Record<SortField, string> = {
   title: 'Title',
   author: 'Author',
-  dateAdded: 'Date added',
   dateFinished: 'Date finished',
   rating: 'Rating',
 };

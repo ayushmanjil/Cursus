@@ -4,7 +4,6 @@ import {
   BookOpen,
   CheckCircle2,
   Heart,
-  BarChart3,
   Library,
   Sun,
   Moon,
@@ -58,7 +57,6 @@ export function Sidebar({
   const otherItems: NavItem[] = [
     { key: 'streaks', label: 'Reading Streaks', icon: Flame },
     { key: 'favorites', label: 'Favorites', icon: Heart, count: counts['favorites'] },
-    { key: 'stats', label: 'Statistics', icon: BarChart3 },
   ];
 
   const renderItem = (item: NavItem) => {

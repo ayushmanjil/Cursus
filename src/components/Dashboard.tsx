@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Library,
@@ -7,16 +7,17 @@ import {
   CheckCircle2,
   Heart,
   Flame,
-  Sparkles,
   ShoppingBag,
   ArrowRight,
   BookText,
   ChevronLeft,
   ChevronRight,
+  Target,
 } from 'lucide-react';
 import type { Book, ViewKey } from '../types/book';
 import { formatDate, calculateStreaks, getHighestPagesRecord } from '../utils/helpers';
 import { StatusBadge } from './ui/Badge';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 
 interface DashboardProps {
   books: Book[];
@@ -42,6 +43,20 @@ export function Dashboard({ books, onOpen, onSelectView, streakLog = {} }: Dashb
   const { currentStreak, highestStreak } = calculateStreaks(streakLog);
   const { maxPages, recordDate } = getHighestPagesRecord(streakLog);
 
+  // Reading goal
+  const [goal, setGoal] = useLocalStorage<number>('my-library:yearly-goal', 24);
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [goalInput, setGoalInput] = useState(String(goal));
+  const currentYear = new Date().getFullYear();
+  const readThisYear = useMemo(
+    () =>
+      books.filter(
+        (b) => b.status === 'read' && b.dateFinished && new Date(b.dateFinished).getFullYear() === currentYear
+      ).length,
+    [books, currentYear]
+  );
+  const goalPct = goal > 0 ? Math.min(100, Math.round((readThisYear / goal) * 100)) : 0;
+
   // Compute pages read till date
   const totalPagesRead = books.reduce((sum, b) => {
     if (b.status === 'read') {
@@ -52,14 +67,11 @@ export function Dashboard({ books, onOpen, onSelectView, streakLog = {} }: Dashb
     return sum;
   }, 0);
 
-  const recentlyAdded = [...books]
-    .sort((a, b) => b.dateAdded.localeCompare(a.dateAdded))
-    .slice(0, 5);
-
   const recentlyFinished = [...books]
     .filter((b) => b.status === 'read' && b.dateFinished)
     .sort((a, b) => (b.dateFinished ?? '').localeCompare(a.dateFinished ?? ''))
     .slice(0, 5);
+
 
   const stats = [
     { label: 'Total Books', value: total, icon: Library, tone: 'ink' as const },
@@ -123,6 +135,7 @@ export function Dashboard({ books, onOpen, onSelectView, streakLog = {} }: Dashb
                         src={activeBook.coverUrl}
                         alt={activeBook.title}
                         className="h-full w-full object-cover"
+                        style={{ objectPosition: `${activeBook.coverFocusX ?? 50}% ${activeBook.coverFocusY ?? 50}%` }}
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center">
@@ -266,7 +279,7 @@ export function Dashboard({ books, onOpen, onSelectView, streakLog = {} }: Dashb
                 </p>
               </div>
             </div>
-             <div className="mt-6 border-t border-ink/5 pt-4 dark:border-paper/5 text-xs text-ink-muted dark:text-paper/60 space-y-2">
+            <div className="mt-6 border-t border-ink/5 pt-4 dark:border-paper/5 text-xs text-ink-muted dark:text-paper/60 space-y-2">
               <div className="flex justify-between">
                 <span>Personal Best Streak:</span>
                 <span className="font-semibold text-ink dark:text-paper">{highestStreak} days</span>
@@ -329,22 +342,81 @@ export function Dashboard({ books, onOpen, onSelectView, streakLog = {} }: Dashb
         </div>
       </div>
 
-      {/* Main Grid: Row 2 - Recently Added & Recently Finished */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {/* Card 3: Recently Added */}
-        <div className="rounded-xl2 border border-ink/10 bg-surface p-5 shadow-card dark:border-paper/10 dark:bg-surface-dark">
-          <h3 className="mb-4 flex items-center gap-1.5 font-display text-base font-medium text-ink dark:text-paper">
-            <Sparkles size={15} className="text-brass-500" /> Recently Added
-          </h3>
-          <ActivityList books={recentlyAdded} onOpen={onOpen} dateField="dateAdded" />
-        </div>
-
-        {/* Card 4: Recently Finished */}
-        <div className="rounded-xl2 border border-ink/10 bg-surface p-5 shadow-card dark:border-paper/10 dark:bg-surface-dark">
-          <h3 className="mb-4 flex items-center gap-1.5 font-display text-base font-medium text-ink dark:text-paper">
+      {/* Row 2: Recently Finished (2/3) + Reading Goal (1/3) — same grid as Row 1 */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Recently Finished — 2 cols */}
+        <div className="rounded-xl2 border border-ink/10 bg-surface p-5 shadow-card dark:border-paper/10 dark:bg-surface-dark lg:col-span-2">
+          <h3 className="mb-3 flex items-center gap-1.5 font-display text-base font-medium text-ink dark:text-paper">
             <CheckCircle2 size={15} className="text-forest-500" /> Recently Finished
           </h3>
-          <ActivityList books={recentlyFinished} onOpen={onOpen} dateField="dateFinished" />
+          <ActivityList books={recentlyFinished} onOpen={onOpen} />
+        </div>
+
+        {/* Reading Goal — 1 col */}
+        <div className="rounded-xl2 border border-ink/10 bg-surface p-5 shadow-card dark:border-paper/10 dark:bg-surface-dark lg:col-span-1 flex flex-col justify-between">
+          <div>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="flex items-center gap-1.5 font-display text-base font-medium text-ink dark:text-paper">
+                <Target size={15} className="text-brass-500" /> {currentYear} Goal
+              </h3>
+              <button
+                onClick={() => {
+                  setEditingGoal((v) => !v);
+                  setGoalInput(String(goal));
+                }}
+                className="text-xs font-medium text-brass-600 hover:underline dark:text-brass-300"
+              >
+                {editingGoal ? 'Close' : 'Edit'}
+              </button>
+            </div>
+
+            {editingGoal ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const n = Math.max(1, Number(goalInput) || 1);
+                  setGoal(n);
+                  setEditingGoal(false);
+                }}
+                className="flex items-center gap-2"
+              >
+                <input
+                  type="number"
+                  min={1}
+                  value={goalInput}
+                  onChange={(e) => setGoalInput(e.target.value)}
+                  className="w-24 rounded-lg border border-ink/10 bg-paper px-2.5 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 dark:bg-bgdark dark:text-paper"
+                />
+                <button
+                  type="submit"
+                  className="rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-paper dark:bg-brass-500 dark:text-bgdark"
+                >
+                  Save
+                </button>
+              </form>
+            ) : (
+              <>
+                <p className="font-display text-3xl font-bold text-ink dark:text-paper">
+                  {readThisYear}
+                  <span className="text-base font-normal text-ink-faint dark:text-paper/40"> / {goal} books</span>
+                </p>
+                <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-ink/10 dark:bg-paper/10">
+                  <div className="h-full rounded-full bg-brass-500 transition-all" style={{ width: `${goalPct}%` }} />
+                </div>
+                <p className="mt-2 text-xs text-ink-muted dark:text-paper/50">
+                  {goalPct}% of your {currentYear} goal.
+                </p>
+              </>
+            )}
+          </div>
+
+          <div className="mt-5 rounded-lg bg-paper-soft px-3 py-2.5 dark:bg-paper/5">
+            <p className="text-xs text-ink-muted dark:text-paper/60">
+              {readThisYear >= goal
+                ? '🎉 Goal reached! Set a new one.'
+                : `${goal - readThisYear} more book${goal - readThisYear === 1 ? '' : 's'} to go.`}
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -354,11 +426,9 @@ export function Dashboard({ books, onOpen, onSelectView, streakLog = {} }: Dashb
 function ActivityList({
   books,
   onOpen,
-  dateField,
 }: {
   books: Book[];
   onOpen: (book: Book) => void;
-  dateField: 'dateAdded' | 'dateFinished';
 }) {
   if (books.length === 0) {
     return <p className="text-sm text-ink-faint dark:text-paper/40 py-4">Nothing here yet.</p>;
@@ -378,7 +448,7 @@ function ActivityList({
             <div className="flex shrink-0 items-center gap-2">
               <StatusBadge status={b.status} />
               <span className="text-[11px] text-ink-faint dark:text-paper/40 font-mono">
-                {formatDate(b[dateField])}
+                {formatDate(b.dateFinished)}
               </span>
             </div>
           </button>

@@ -104,15 +104,17 @@ export function AddBookModal({ open, onClose, onAdd, defaultStatus = 'on-shelf' 
             heightClass="h-32"
           />
         </Field>
-        <Field label="Notes" optionalHint="optional">
-          <textarea
-            value={form.notes}
-            onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            placeholder="Why this book? First impressions, recommendation source…"
-            rows={3}
-            className={inputClass}
-          />
-        </Field>
+        {form.status === 'read' && (
+          <Field label="Review" optionalHint="optional">
+            <textarea
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              placeholder="Write your review of this book..."
+              rows={3}
+              className={inputClass}
+            />
+          </Field>
+        )}
 
         {error && <p className="text-sm text-burgundy-500">{error}</p>}
 

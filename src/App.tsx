@@ -7,7 +7,6 @@ import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { BookGrid } from './components/BookGrid';
 import { Dashboard } from './components/Dashboard';
-import { StatsPage } from './components/StatsPage';
 import { AddBookModal } from './components/AddBookModal';
 import { BookDetailsModal } from './components/BookDetailsModal';
 import { RatingPromptModal } from './components/RatingPromptModal';
@@ -44,7 +43,7 @@ function App() {
 
   const [view, setView] = useState<ViewKey>('dashboard');
   const [search, setSearch] = useState('');
-  const [sort, setSort] = useState<SortState>({ field: 'dateAdded', order: 'desc' });
+  const [sort, setSort] = useState<SortState>({ field: 'title', order: 'asc' });
   const [filter, setFilter] = useState<FilterState>(emptyFilter);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -110,9 +109,6 @@ function App() {
           break;
         case 'author':
           cmp = a.author.localeCompare(b.author);
-          break;
-        case 'dateAdded':
-          cmp = a.dateAdded.localeCompare(b.dateAdded);
           break;
         case 'dateFinished':
           cmp = (a.dateFinished ?? '').localeCompare(b.dateFinished ?? '');
@@ -219,7 +215,6 @@ function App() {
             />
           )}
 
-          {view === 'stats' && <StatsPage books={books} />}
 
           {view === 'streaks' && (
             <StreakManager

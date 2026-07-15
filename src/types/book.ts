@@ -5,6 +5,10 @@ export interface Book {
   title: string;
   author: string;
   coverUrl?: string;
+  /** Focal point X (0–100). Used for object-position in cards. Defaults to 50. */
+  coverFocusX?: number;
+  /** Focal point Y (0–100). Used for object-position in cards. Defaults to 50. */
+  coverFocusY?: number;
   genre: string;
   status: BookStatus;
   rating?: number; // 1-5, only meaningful when status === 'read'
@@ -19,7 +23,6 @@ export interface Book {
 export type SortField =
   | 'title'
   | 'author'
-  | 'dateAdded'
   | 'dateFinished'
   | 'rating';
 

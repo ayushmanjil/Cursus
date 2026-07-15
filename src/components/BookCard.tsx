@@ -55,6 +55,7 @@ export function BookCard({ book, onOpen, onToggleFavorite, onSetStatus, onDelete
               src={book.coverUrl}
               alt={`${book.title} cover`}
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+              style={{ objectPosition: `${book.coverFocusX ?? 50}% ${book.coverFocusY ?? 50}%` }}
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = 'none';
               }}
