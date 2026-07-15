@@ -56,10 +56,10 @@ export function TopBar({
         </div>
         <div className="hidden items-center gap-2 sm:flex">
           <Button variant="ghost" size="sm" onClick={onImportClick} title="Import JSON backup">
-            <Upload size={14} /> Import
+            <Download size={14} /> Import
           </Button>
           <Button variant="ghost" size="sm" onClick={onExport} title="Export library as JSON">
-            <Download size={14} /> Export
+            <Upload size={14} /> Export
           </Button>
         </div>
         <Button variant="primary" size="sm" onClick={onAddBook}>
