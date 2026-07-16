@@ -46,36 +46,66 @@ export function Dashboard({ books, onOpen, onSelectView, streakLog = {}, userId 
   const { maxPages, recordDate } = getHighestPagesRecord(streakLog);
 
   // Reading goal (synchronized via Firestore settings document)
-  const [goal, setGoalState] = useState<number>(24);
+  const [goal, setGoalState] = useState<number | null>(null);
   const [editingGoal, setEditingGoal] = useState(false);
-  const [goalInput, setGoalInput] = useState(String(goal));
+  const [goalInput, setGoalInput] = useState('');
+
+  const currentYear = new Date().getFullYear();
+  const todayStr = getLocalDateString(new Date());
 
   useEffect(() => {
     if (!userId) return;
     const docRef = doc(db, 'users', userId, 'settings', 'goal');
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists() && typeof docSnap.data().yearlyGoal === 'number') {
-        const val = docSnap.data().yearlyGoal;
-        setGoalState(val);
-        setGoalInput(String(val));
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.yearlyGoalYear === currentYear && typeof data.yearlyGoal === 'number') {
+          setGoalState(data.yearlyGoal);
+          setGoalInput(String(data.yearlyGoal));
+        } else {
+          setGoalState(null);
+          setGoalInput('');
+        }
+      } else {
+        setGoalState(null);
+        setGoalInput('');
       }
     });
     return unsubscribe;
-  }, [userId]);
+  }, [userId, currentYear]);
+
+  const setGoal = async (newGoal: number) => {
+    setGoalState(newGoal);
+    if (userId) {
+      await setDoc(doc(db, 'users', userId, 'settings', 'goal'), {
+        yearlyGoal: newGoal,
+        yearlyGoalYear: currentYear
+      });
+    }
+  };
 
   // Daily goal (synchronized via Firestore settings document)
-  const [dailyGoal, setDailyGoalState] = useState<number>(20);
+  const [dailyGoal, setDailyGoalState] = useState<number | null>(null);
   const [editingDailyGoal, setEditingDailyGoal] = useState(false);
-  const [dailyGoalInput, setDailyGoalInput] = useState(String(dailyGoal));
+  const [dailyGoalInput, setDailyGoalInput] = useState('');
 
   useEffect(() => {
     if (!userId) return;
     const docRef = doc(db, 'users', userId, 'settings', 'dailyGoal');
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists() && typeof docSnap.data().dailyGoal === 'number') {
-        const val = docSnap.data().dailyGoal;
-        setDailyGoalState(val);
-        setDailyGoalInput(String(val));
+      const todayStrVal = getLocalDateString(new Date());
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.dailyGoalDate === todayStrVal && typeof data.dailyGoal === 'number') {
+          setDailyGoalState(data.dailyGoal);
+          setDailyGoalInput(String(data.dailyGoal));
+        } else {
+          setDailyGoalState(null);
+          setDailyGoalInput('');
+        }
+      } else {
+        setDailyGoalState(null);
+        setDailyGoalInput('');
       }
     });
     return unsubscribe;
@@ -83,22 +113,18 @@ export function Dashboard({ books, onOpen, onSelectView, streakLog = {}, userId 
 
   const setDailyGoal = async (newGoal: number) => {
     setDailyGoalState(newGoal);
+    const todayStrVal = getLocalDateString(new Date());
     if (userId) {
-      await setDoc(doc(db, 'users', userId, 'settings', 'dailyGoal'), { dailyGoal: newGoal });
+      await setDoc(doc(db, 'users', userId, 'settings', 'dailyGoal'), {
+        dailyGoal: newGoal,
+        dailyGoalDate: todayStrVal
+      });
     }
   };
 
-  const todayStr = getLocalDateString(new Date());
   const pagesReadToday = streakLog[todayStr]?.pages || 0;
-  const dailyGoalPct = dailyGoal > 0 ? Math.min(100, Math.round((pagesReadToday / dailyGoal) * 100)) : 0;
+  const dailyGoalPct = dailyGoal && dailyGoal > 0 ? Math.min(100, Math.round((pagesReadToday / dailyGoal) * 100)) : 0;
 
-  const setGoal = async (newGoal: number) => {
-    setGoalState(newGoal);
-    if (userId) {
-      await setDoc(doc(db, 'users', userId, 'settings', 'goal'), { yearlyGoal: newGoal });
-    }
-  };
-  const currentYear = new Date().getFullYear();
   const readThisYear = useMemo(
     () =>
       books.filter(
@@ -106,7 +132,7 @@ export function Dashboard({ books, onOpen, onSelectView, streakLog = {}, userId 
       ).length,
     [books, currentYear]
   );
-  const goalPct = goal > 0 ? Math.min(100, Math.round((readThisYear / goal) * 100)) : 0;
+  const goalPct = goal && goal > 0 ? Math.min(100, Math.round((readThisYear / goal) * 100)) : 0;
 
   // Compute pages read till date
   const totalPagesRead = books.reduce((sum, b) => {
@@ -415,7 +441,7 @@ export function Dashboard({ books, onOpen, onSelectView, streakLog = {}, userId 
               <button
                 onClick={() => {
                   setEditingDailyGoal((v) => !v);
-                  setDailyGoalInput(String(dailyGoal));
+                  setDailyGoalInput(dailyGoal ? String(dailyGoal) : '');
                 }}
                 className="text-xs font-medium text-purple-600 hover:underline dark:text-purple-300"
               >
@@ -431,22 +457,55 @@ export function Dashboard({ books, onOpen, onSelectView, streakLog = {}, userId 
                   setDailyGoal(n);
                   setEditingDailyGoal(false);
                 }}
-                className="flex items-center gap-2"
+                className="flex flex-col gap-3 mt-2"
               >
-                <input
-                  type="number"
-                  min={1}
-                  value={dailyGoalInput}
-                  onChange={(e) => setDailyGoalInput(e.target.value)}
-                  className="w-24 rounded-lg border border-ink/10 bg-paper px-2.5 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-purple-400 dark:border-paper/10 dark:bg-bgdark dark:text-paper"
-                />
-                <button
-                  type="submit"
-                  className="rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-paper dark:bg-purple-500 dark:text-bgdark"
-                >
-                  Save
-                </button>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    value={dailyGoalInput}
+                    onChange={(e) => setDailyGoalInput(e.target.value)}
+                    placeholder="e.g. 20"
+                    className="w-full rounded-lg border border-ink/10 bg-paper px-2.5 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-purple-400 dark:border-paper/10 dark:bg-bgdark dark:text-paper"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-paper dark:bg-purple-500 dark:text-bgdark shrink-0"
+                  >
+                    Save
+                  </button>
+                </div>
+                <p className="text-[10px] text-ink-faint dark:text-paper/40 leading-relaxed">
+                  Set how many pages you want to finish before midnight.
+                </p>
               </form>
+            ) : dailyGoal === null ? (
+              <div className="flex items-center gap-4 mt-2">
+                <div className="relative flex items-center justify-center shrink-0">
+                  <svg height={80} width={80} className="rotate-[-90deg]">
+                    <circle
+                      stroke="currentColor"
+                      fill="transparent"
+                      strokeWidth={6}
+                      r={32}
+                      cx={40}
+                      cy={40}
+                      className="text-ink/10 dark:text-paper/10 stroke-dashed"
+                    />
+                  </svg>
+                  <div className="absolute flex flex-col items-center justify-center">
+                    <Target size={18} className="text-ink-faint dark:text-paper/30" />
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <h4 className="font-display text-sm font-semibold text-purple-600 dark:text-purple-400">
+                    No Daily Goal
+                  </h4>
+                  <p className="text-xs text-ink-muted dark:text-paper/50 mt-0.5 leading-snug">
+                    "Step by step, page by page." Set a target for today!
+                  </p>
+                </div>
+              </div>
             ) : (
               <div className="flex items-center gap-5 mt-2">
                 {/* SVG Progress Ring */}
@@ -492,9 +551,11 @@ export function Dashboard({ books, onOpen, onSelectView, streakLog = {}, userId 
             )}
           </div>
 
-          <div className="mt-5 rounded-lg bg-paper-soft px-3 py-2.5 dark:bg-paper/5">
+          <div className="mt-5 rounded-lg bg-paper-soft px-3 py-2.5 dark:bg-paper/5 min-h-[38px] flex items-center justify-start">
             <p className="text-xs text-ink-muted dark:text-paper/60">
-              {pagesReadToday >= dailyGoal
+              {dailyGoal === null
+                ? "🎯 Click 'Edit' to set today's goal."
+                : pagesReadToday >= dailyGoal
                 ? "🎉 Today's goal achieved! Keep reading."
                 : `${Math.max(0, dailyGoal - pagesReadToday)} more page${Math.max(0, dailyGoal - pagesReadToday) === 1 ? '' : 's'} to go today.`}
             </p>
@@ -511,7 +572,7 @@ export function Dashboard({ books, onOpen, onSelectView, streakLog = {}, userId 
               <button
                 onClick={() => {
                   setEditingGoal((v) => !v);
-                  setGoalInput(String(goal));
+                  setGoalInput(goal ? String(goal) : '');
                 }}
                 className="text-xs font-medium text-brass-600 hover:underline dark:text-brass-300"
               >
@@ -527,22 +588,37 @@ export function Dashboard({ books, onOpen, onSelectView, streakLog = {}, userId 
                   setGoal(n);
                   setEditingGoal(false);
                 }}
-                className="flex items-center gap-2"
+                className="flex flex-col gap-3 mt-2"
               >
-                <input
-                  type="number"
-                  min={1}
-                  value={goalInput}
-                  onChange={(e) => setGoalInput(e.target.value)}
-                  className="w-24 rounded-lg border border-ink/10 bg-paper px-2.5 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 dark:bg-bgdark dark:text-paper"
-                />
-                <button
-                  type="submit"
-                  className="rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-paper dark:bg-brass-500 dark:text-bgdark"
-                >
-                  Save
-                </button>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    value={goalInput}
+                    onChange={(e) => setGoalInput(e.target.value)}
+                    placeholder="e.g. 12"
+                    className="w-full rounded-lg border border-ink/10 bg-paper px-2.5 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 dark:bg-bgdark dark:text-paper"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-paper dark:bg-brass-500 dark:text-bgdark shrink-0"
+                  >
+                    Save
+                  </button>
+                </div>
+                <p className="text-[10px] text-ink-faint dark:text-paper/40 leading-relaxed">
+                  How many books do you aim to complete in {currentYear}?
+                </p>
               </form>
+            ) : goal === null ? (
+              <div className="mt-2 space-y-2">
+                <h4 className="font-display text-sm font-semibold text-brass-600 dark:text-brass-400">
+                  No Annual Goal
+                </h4>
+                <p className="text-xs text-ink-muted dark:text-paper/50 leading-relaxed">
+                  "A book is a dream that you hold in your hand." Set your yearly reading target.
+                </p>
+              </div>
             ) : (
               <>
                 <p className="font-display text-3xl font-bold text-ink dark:text-paper">
@@ -559,9 +635,11 @@ export function Dashboard({ books, onOpen, onSelectView, streakLog = {}, userId 
             )}
           </div>
 
-          <div className="mt-5 rounded-lg bg-paper-soft px-3 py-2.5 dark:bg-paper/5">
+          <div className="mt-5 rounded-lg bg-paper-soft px-3 py-2.5 dark:bg-paper/5 min-h-[38px] flex items-center justify-start">
             <p className="text-xs text-ink-muted dark:text-paper/60">
-              {readThisYear >= goal
+              {goal === null
+                ? "🎯 Click 'Edit' to set your yearly target."
+                : readThisYear >= goal
                 ? '🎉 Goal reached! Set a new one.'
                 : `${goal - readThisYear} more book${goal - readThisYear === 1 ? '' : 's'} to go.`}
             </p>
