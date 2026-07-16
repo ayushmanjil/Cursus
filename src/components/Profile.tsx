@@ -221,42 +221,51 @@ const getFilledBadgeColor = (id: string) => {
   }
 };
 
-// Canvas-free lightweight high-performance Confetti Particle System
+// Canvas-free lightweight high-performance Confetti Particle System (pop once)
 function ConfettiEffect() {
   const [particles, setParticles] = useState<any[]>([]);
 
   useEffect(() => {
-    const arr = Array.from({ length: 70 }).map((_, i) => ({
-      id: i,
-      x: Math.random() * window.innerWidth,
-      y: -20 - Math.random() * 150,
-      size: 5 + Math.random() * 8,
-      color: ['#B8863F', '#A855F7', '#EC4899', '#3B82F6', '#10B981', '#F59E0B'][Math.floor(Math.random() * 6)],
-      rotation: Math.random() * 360,
-      speedY: 2 + Math.random() * 3.5,
-      speedX: -1.2 + Math.random() * 2.4,
-      rotationSpeed: -2.5 + Math.random() * 5
-    }));
+    // Generate a burst of particles starting around the center of the screen
+    const arr = Array.from({ length: 90 }).map((_, i) => {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 2 + Math.random() * 8;
+      return {
+        id: i,
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2 - 50,
+        size: 5 + Math.random() * 7,
+        color: ['#B8863F', '#A855F7', '#EC4899', '#3B82F6', '#10B981', '#F59E0B'][Math.floor(Math.random() * 6)],
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 4, // Initial upward velocity burst
+        rotation: Math.random() * 360,
+        rotationSpeed: -3.5 + Math.random() * 7,
+        opacity: 1
+      };
+    });
     setParticles(arr);
 
     let frameId: number;
     const update = () => {
-      setParticles((prev) =>
-        prev.map((p) => {
-          let nextY = p.y + p.speedY;
-          let nextX = p.x + p.speedX;
-          if (nextY > window.innerHeight) {
-            nextY = -25;
-            nextX = Math.random() * window.innerWidth;
-          }
+      setParticles((prev) => {
+        const active = prev.map((p) => {
+          const nextX = p.x + p.vx;
+          const nextVy = p.vy + 0.18; // Gravity pulls it down
+          const nextY = p.y + nextVy;
+          const nextOpacity = Math.max(0, p.opacity - 0.012); // Smooth decay opacity
           return {
             ...p,
-            y: nextY,
             x: nextX,
-            rotation: p.rotation + p.rotationSpeed,
+            y: nextY,
+            vy: nextVy,
+            vx: p.vx * 0.98, // Air drag friction
+            opacity: nextOpacity,
+            rotation: p.rotation + p.rotationSpeed
           };
-        })
-      );
+        }).filter(p => p.opacity > 0);
+
+        return active;
+      });
       frameId = requestAnimationFrame(update);
     };
     frameId = requestAnimationFrame(update);
@@ -268,14 +277,15 @@ function ConfettiEffect() {
       {particles.map((p) => (
         <div
           key={p.id}
-          className="absolute rounded-sm opacity-75 shadow-sm"
+          className="absolute rounded-sm shadow-sm"
           style={{
             left: p.x,
             top: p.y,
             width: p.size,
-            height: p.size * 1.6,
+            height: p.size * 1.5,
             backgroundColor: p.color,
             transform: `rotate(${p.rotation}deg)`,
+            opacity: p.opacity,
           }}
         />
       ))}

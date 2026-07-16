@@ -163,8 +163,7 @@ export function Sidebar({
                 }}
                 className={classNames(
                   'flex flex-1 items-center gap-2.5 min-w-0 text-left rounded-lg p-1 transition-colors hover:bg-ink/5 dark:hover:bg-paper/10 mr-1.5 focus:outline-none focus:ring-1 focus:ring-brass-400 relative',
-                  active === 'profile' && 'bg-ink/5 dark:bg-paper/10',
-                  hasPendingBadge && 'ring-1 ring-purple-500/50 dark:ring-purple-400/50 animate-pulse'
+                  active === 'profile' && 'bg-ink/5 dark:bg-paper/10'
                 )}
                 title="View Profile"
               >
