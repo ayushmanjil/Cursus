@@ -20,7 +20,7 @@ import { Login } from './components/Login';
 import type { User } from './types/user';
 import { auth, db } from './firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { Profile } from './components/Profile';
+import { Profile, getEarnedBadges } from './components/Profile';
 
 const viewMeta: Record<ViewKey, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'Your library at a glance' },
@@ -94,6 +94,44 @@ function App() {
     },
     [currentUser, streakLog]
   );
+
+  // Sync acknowledged badge IDs with localStorage
+  const [acknowledgedBadgeIds, setAcknowledgedBadgeIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('ack_badges_guest');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Calculate earned badges
+  const earnedBadges = useMemo(() => {
+    if (!currentUser) return [];
+    return getEarnedBadges(books, streakLog);
+  }, [books, streakLog, currentUser]);
+
+  const hasPendingBadge = useMemo(() => {
+    return earnedBadges.some((b) => !acknowledgedBadgeIds.includes(b.id));
+  }, [earnedBadges, acknowledgedBadgeIds]);
+
+  const handleAcknowledgeBadges = useCallback((badgeIds: string[]) => {
+    if (!currentUser) return;
+    setAcknowledgedBadgeIds(badgeIds);
+    localStorage.setItem(`ack_badges_${currentUser.id}`, JSON.stringify(badgeIds));
+  }, [currentUser]);
+
+  // Sync state when currentUser is loaded
+  useEffect(() => {
+    if (currentUser) {
+      try {
+        const saved = localStorage.getItem(`ack_badges_${currentUser.id}`);
+        setAcknowledgedBadgeIds(saved ? JSON.parse(saved) : []);
+      } catch {
+        setAcknowledgedBadgeIds([]);
+      }
+    }
+  }, [currentUser]);
 
   const [view, setView] = useState<ViewKey>('dashboard');
   const [search, setSearch] = useState('');
@@ -244,6 +282,7 @@ function App() {
         onCloseMobile={() => setMobileMenuOpen(false)}
         onLogout={handleLogout}
         userName={currentUser?.name}
+        hasPendingBadge={hasPendingBadge}
       />
 
       <div className="flex min-h-screen flex-1 flex-col lg:pl-0">
@@ -301,6 +340,8 @@ function App() {
               onUpdateUser={(updatedUser) => setCurrentUser(updatedUser)}
               books={books}
               streakLog={streakLog}
+              acknowledgedBadgeIds={acknowledgedBadgeIds}
+              onAcknowledgeBadges={handleAcknowledgeBadges}
             />
           )}
 

@@ -32,6 +32,7 @@ interface SidebarProps {
   onCloseMobile: () => void;
   onLogout?: () => void;
   userName?: string;
+  hasPendingBadge?: boolean;
 }
 
 export function Sidebar({
@@ -44,6 +45,7 @@ export function Sidebar({
   onCloseMobile,
   onLogout,
   userName,
+  hasPendingBadge,
 }: SidebarProps) {
   const primaryItems: NavItem[] = [
     { key: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
@@ -160,13 +162,20 @@ export function Sidebar({
                   onCloseMobile();
                 }}
                 className={classNames(
-                  'flex flex-1 items-center gap-2.5 min-w-0 text-left rounded-lg p-1 transition-colors hover:bg-ink/5 dark:hover:bg-paper/10 mr-1.5 focus:outline-none focus:ring-1 focus:ring-brass-400',
-                  active === 'profile' && 'bg-ink/5 dark:bg-paper/10'
+                  'flex flex-1 items-center gap-2.5 min-w-0 text-left rounded-lg p-1 transition-colors hover:bg-ink/5 dark:hover:bg-paper/10 mr-1.5 focus:outline-none focus:ring-1 focus:ring-brass-400 relative',
+                  active === 'profile' && 'bg-ink/5 dark:bg-paper/10',
+                  hasPendingBadge && 'ring-1 ring-purple-500/50 dark:ring-purple-400/50 animate-pulse'
                 )}
                 title="View Profile"
               >
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink/10 text-xs font-semibold text-ink dark:bg-brass-500/20 dark:text-brass-400">
+                <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink/10 text-xs font-semibold text-ink dark:bg-brass-500/20 dark:text-brass-400">
                   {userName ? userName.charAt(0).toUpperCase() : 'U'}
+                  {hasPendingBadge && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+                    </span>
+                  )}
                 </div>
                 <span className="truncate text-sm font-medium text-ink dark:text-paper" title={userName}>
                   {userName || 'User'}

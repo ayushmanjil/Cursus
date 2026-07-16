@@ -15,7 +15,7 @@ import {
   Target,
 } from 'lucide-react';
 import type { Book, ViewKey } from '../types/book';
-import { formatDate, calculateStreaks, getHighestPagesRecord } from '../utils/helpers';
+import { formatDate, calculateStreaks, getHighestPagesRecord, getLocalDateString } from '../utils/helpers';
 import { StatusBadge } from './ui/Badge';
 import { db } from '../firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
@@ -62,6 +62,35 @@ export function Dashboard({ books, onOpen, onSelectView, streakLog = {}, userId 
     });
     return unsubscribe;
   }, [userId]);
+
+  // Daily goal (synchronized via Firestore settings document)
+  const [dailyGoal, setDailyGoalState] = useState<number>(20);
+  const [editingDailyGoal, setEditingDailyGoal] = useState(false);
+  const [dailyGoalInput, setDailyGoalInput] = useState(String(dailyGoal));
+
+  useEffect(() => {
+    if (!userId) return;
+    const docRef = doc(db, 'users', userId, 'settings', 'dailyGoal');
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists() && typeof docSnap.data().dailyGoal === 'number') {
+        const val = docSnap.data().dailyGoal;
+        setDailyGoalState(val);
+        setDailyGoalInput(String(val));
+      }
+    });
+    return unsubscribe;
+  }, [userId]);
+
+  const setDailyGoal = async (newGoal: number) => {
+    setDailyGoalState(newGoal);
+    if (userId) {
+      await setDoc(doc(db, 'users', userId, 'settings', 'dailyGoal'), { dailyGoal: newGoal });
+    }
+  };
+
+  const todayStr = getLocalDateString(new Date());
+  const pagesReadToday = streakLog[todayStr]?.pages || 0;
+  const dailyGoalPct = dailyGoal > 0 ? Math.min(100, Math.round((pagesReadToday / dailyGoal) * 100)) : 0;
 
   const setGoal = async (newGoal: number) => {
     setGoalState(newGoal);
@@ -364,18 +393,116 @@ export function Dashboard({ books, onOpen, onSelectView, streakLog = {}, userId 
         </div>
       </div>
 
-      {/* Row 2: Recently Finished (2/3) + Reading Goal (1/3) — same grid as Row 1 */}
+      {/* Row 2: Recently Finished (1/3) + Daily Reading Target (1/3) + Yearly Reading Goal (1/3) */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Recently Finished — 2 cols */}
-        <div className="rounded-xl2 border border-ink/10 bg-surface p-5 shadow-card dark:border-paper/10 dark:bg-surface-dark lg:col-span-2">
-          <h3 className="mb-3 flex items-center gap-1.5 font-display text-base font-medium text-ink dark:text-paper">
-            <CheckCircle2 size={15} className="text-forest-500" /> Recently Finished
-          </h3>
-          <ActivityList books={recentlyFinished} onOpen={onOpen} />
+        {/* Recently Finished — 1 col */}
+        <div className="rounded-xl2 border border-ink/10 bg-surface p-5 shadow-card dark:border-paper/10 dark:bg-surface-dark lg:col-span-1 flex flex-col justify-between min-h-[250px]">
+          <div>
+            <h3 className="mb-3 flex items-center gap-1.5 font-display text-base font-medium text-ink dark:text-paper">
+              <CheckCircle2 size={15} className="text-forest-500" /> Recently Finished
+            </h3>
+            <ActivityList books={recentlyFinished} onOpen={onOpen} />
+          </div>
+        </div>
+
+        {/* Daily Reading Target — 1 col */}
+        <div className="rounded-xl2 border border-ink/10 bg-surface p-5 shadow-card dark:border-paper/10 dark:bg-surface-dark lg:col-span-1 flex flex-col justify-between min-h-[250px]">
+          <div>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="flex items-center gap-1.5 font-display text-base font-medium text-ink dark:text-paper">
+                <Target size={15} className="text-purple-500" /> Daily Target
+              </h3>
+              <button
+                onClick={() => {
+                  setEditingDailyGoal((v) => !v);
+                  setDailyGoalInput(String(dailyGoal));
+                }}
+                className="text-xs font-medium text-purple-600 hover:underline dark:text-purple-300"
+              >
+                {editingDailyGoal ? 'Close' : 'Edit'}
+              </button>
+            </div>
+
+            {editingDailyGoal ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const n = Math.max(1, Number(dailyGoalInput) || 1);
+                  setDailyGoal(n);
+                  setEditingDailyGoal(false);
+                }}
+                className="flex items-center gap-2"
+              >
+                <input
+                  type="number"
+                  min={1}
+                  value={dailyGoalInput}
+                  onChange={(e) => setDailyGoalInput(e.target.value)}
+                  className="w-24 rounded-lg border border-ink/10 bg-paper px-2.5 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-purple-400 dark:border-paper/10 dark:bg-bgdark dark:text-paper"
+                />
+                <button
+                  type="submit"
+                  className="rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-paper dark:bg-purple-500 dark:text-bgdark"
+                >
+                  Save
+                </button>
+              </form>
+            ) : (
+              <div className="flex items-center gap-5 mt-2">
+                {/* SVG Progress Ring */}
+                <div className="relative flex items-center justify-center shrink-0">
+                  <svg height={80} width={80} className="rotate-[-90deg]">
+                    <circle
+                      stroke="currentColor"
+                      fill="transparent"
+                      strokeWidth={6}
+                      r={32}
+                      cx={40}
+                      cy={40}
+                      className="text-ink/10 dark:text-paper/10"
+                    />
+                    <circle
+                      stroke="currentColor"
+                      fill="transparent"
+                      strokeWidth={6}
+                      strokeDasharray={201.06}
+                      strokeDashoffset={201.06 - (dailyGoalPct / 100) * 201.06}
+                      strokeLinecap="round"
+                      r={32}
+                      cx={40}
+                      cy={40}
+                      className="text-purple-500 dark:text-purple-400 transition-all duration-300"
+                    />
+                  </svg>
+                  <div className="absolute flex flex-col items-center justify-center">
+                    <span className="text-xs font-bold text-ink dark:text-paper">{dailyGoalPct}%</span>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="font-display text-2xl font-bold text-ink dark:text-paper">
+                    {pagesReadToday}
+                    <span className="text-sm font-normal text-ink-faint dark:text-paper/40"> / {dailyGoal} pages</span>
+                  </p>
+                  <p className="text-[11px] text-ink-muted dark:text-paper/50 mt-1">
+                    Completed for today
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-5 rounded-lg bg-paper-soft px-3 py-2.5 dark:bg-paper/5">
+            <p className="text-xs text-ink-muted dark:text-paper/60">
+              {pagesReadToday >= dailyGoal
+                ? "🎉 Today's goal achieved! Keep reading."
+                : `${Math.max(0, dailyGoal - pagesReadToday)} more page${Math.max(0, dailyGoal - pagesReadToday) === 1 ? '' : 's'} to go today.`}
+            </p>
+          </div>
         </div>
 
         {/* Reading Goal — 1 col */}
-        <div className="rounded-xl2 border border-ink/10 bg-surface p-5 shadow-card dark:border-paper/10 dark:bg-surface-dark lg:col-span-1 flex flex-col justify-between">
+        <div className="rounded-xl2 border border-ink/10 bg-surface p-5 shadow-card dark:border-paper/10 dark:bg-surface-dark lg:col-span-1 flex flex-col justify-between min-h-[250px]">
           <div>
             <div className="mb-4 flex items-center justify-between">
               <h3 className="flex items-center gap-1.5 font-display text-base font-medium text-ink dark:text-paper">

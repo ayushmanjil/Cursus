@@ -36,6 +36,8 @@ interface ProfileProps {
   onUpdateUser: (updatedUser: { id: string; name: string; username: string }) => void;
   books: Book[];
   streakLog: StreakLog;
+  acknowledgedBadgeIds: string[];
+  onAcknowledgeBadges: (badgeIds: string[]) => void;
 }
 
 interface Badge {
@@ -191,6 +193,17 @@ const iconMap: Record<string, React.ElementType> = {
   Zap
 };
 
+export function getEarnedBadges(books: Book[], streakLog: StreakLog) {
+  const totalBooksRead = books.filter(b => b.status === 'read').length;
+  const totalPagesRead = books.reduce((sum, b) => {
+    if (b.status === 'read') return sum + (b.totalPages || 0);
+    if (b.status === 'reading') return sum + (b.currentPage || 0);
+    return sum;
+  }, 0);
+  const { highestStreak } = calculateStreaks(streakLog);
+  return BADGES.filter(b => b.isEarned({ booksRead: totalBooksRead, pagesRead: totalPagesRead, highestStreak }, books));
+}
+
 const getFilledBadgeColor = (id: string) => {
   switch (id) {
     case 'first_chapter': return 'bg-amber-500 text-[#FAF7F1] border-transparent';
@@ -208,7 +221,76 @@ const getFilledBadgeColor = (id: string) => {
   }
 };
 
-export function Profile({ currentUser, onUpdateUser, books, streakLog }: ProfileProps) {
+// Canvas-free lightweight high-performance Confetti Particle System
+function ConfettiEffect() {
+  const [particles, setParticles] = useState<any[]>([]);
+
+  useEffect(() => {
+    const arr = Array.from({ length: 70 }).map((_, i) => ({
+      id: i,
+      x: Math.random() * window.innerWidth,
+      y: -20 - Math.random() * 150,
+      size: 5 + Math.random() * 8,
+      color: ['#B8863F', '#A855F7', '#EC4899', '#3B82F6', '#10B981', '#F59E0B'][Math.floor(Math.random() * 6)],
+      rotation: Math.random() * 360,
+      speedY: 2 + Math.random() * 3.5,
+      speedX: -1.2 + Math.random() * 2.4,
+      rotationSpeed: -2.5 + Math.random() * 5
+    }));
+    setParticles(arr);
+
+    let frameId: number;
+    const update = () => {
+      setParticles((prev) =>
+        prev.map((p) => {
+          let nextY = p.y + p.speedY;
+          let nextX = p.x + p.speedX;
+          if (nextY > window.innerHeight) {
+            nextY = -25;
+            nextX = Math.random() * window.innerWidth;
+          }
+          return {
+            ...p,
+            y: nextY,
+            x: nextX,
+            rotation: p.rotation + p.rotationSpeed,
+          };
+        })
+      );
+      frameId = requestAnimationFrame(update);
+    };
+    frameId = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(frameId);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden z-40">
+      {particles.map((p) => (
+        <div
+          key={p.id}
+          className="absolute rounded-sm opacity-75 shadow-sm"
+          style={{
+            left: p.x,
+            top: p.y,
+            width: p.size,
+            height: p.size * 1.6,
+            backgroundColor: p.color,
+            transform: `rotate(${p.rotation}deg)`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+export function Profile({
+  currentUser,
+  onUpdateUser,
+  books,
+  streakLog,
+  acknowledgedBadgeIds,
+  onAcknowledgeBadges
+}: ProfileProps) {
   const [name, setName] = useState(currentUser.name);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -226,6 +308,9 @@ export function Profile({ currentUser, onUpdateUser, books, streakLog }: Profile
   const [showSecurity, setShowSecurity] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Active badge validation state being celebrated
+  const [activeCelebrationBadge, setActiveCelebrationBadge] = useState<Badge | null>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -258,6 +343,14 @@ export function Profile({ currentUser, onUpdateUser, books, streakLog }: Profile
   
   // Calculate highest badge for motivation sidebar
   const highestBadge = earnedBadges.length > 0 ? earnedBadges[earnedBadges.length - 1] : null;
+
+  // Detect and select the first pending unacknowledged badge to celebrate
+  useEffect(() => {
+    const pending = earnedBadges.filter(b => !acknowledgedBadgeIds.includes(b.id));
+    if (pending.length > 0 && !activeCelebrationBadge) {
+      setActiveCelebrationBadge(pending[0]);
+    }
+  }, [earnedBadges, acknowledgedBadgeIds, activeCelebrationBadge]);
 
   // Extract account metadata from Firebase currentUser
   const userCreationTime = auth.currentUser?.metadata.creationTime;
@@ -363,6 +456,15 @@ export function Profile({ currentUser, onUpdateUser, books, streakLog }: Profile
     }
   };
 
+  // Close celebration modal and acknowledge the badge achievement
+  const handleClaimBadge = () => {
+    if (activeCelebrationBadge) {
+      const nextAck = [...acknowledgedBadgeIds, activeCelebrationBadge.id];
+      onAcknowledgeBadges(nextAck);
+      setActiveCelebrationBadge(null);
+    }
+  };
+
   // Determine whether any sidebar/detail panel is expanded
   const isExpanded = showSecurity || showAchievements;
 
@@ -408,9 +510,72 @@ export function Profile({ currentUser, onUpdateUser, books, streakLog }: Profile
     : "A single page starts the epic. Read books, complete pages, or log streaks to claim your first badge!";
   const motivationLabel = highestBadge ? `— Highest Badge` : '— Welcome Reader';
 
+  const CelebrationIconComponent = activeCelebrationBadge ? iconMap[activeCelebrationBadge.icon] : null;
+
   return (
     <div className="relative mx-auto max-w-5xl flex flex-col items-center justify-start overflow-hidden py-4">
       
+      {/* Dynamic Confetti & Modals Celebration Overlay */}
+      {activeCelebrationBadge && CelebrationIconComponent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bgdark/80 backdrop-blur-md overflow-hidden">
+          <ConfettiEffect />
+
+          {/* Rotating Backdrop Gold Flares */}
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 15, repeat: Infinity, ease: 'linear' }}
+            className="absolute h-[500px] w-[500px] rounded-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#B8863F]/10 via-[#A855F7]/5 to-transparent blur-3xl pointer-events-none z-0"
+          />
+
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 150, damping: 20 }}
+            className="relative w-[90%] sm:w-[400px] rounded-xl2 border border-brass-500/20 bg-gradient-to-br from-white via-white to-paper-soft dark:from-[#211C17] dark:via-[#211C17] dark:to-[#1C1712] p-6 text-center shadow-[0_20px_50px_rgba(0,0,0,0.3),_0_0_40px_rgba(184,134,63,0.06)] z-50 flex flex-col items-center gap-5"
+          >
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-brass-600 dark:text-brass-400">
+                Congratulations!
+              </span>
+              <h2 className="font-display text-xl font-bold text-ink dark:text-paper">
+                New Badge Unlocked
+              </h2>
+            </div>
+
+            {/* Glowing Large Medal Badge */}
+            <div className="relative w-28 h-28 flex items-center justify-center my-2">
+              <div className="absolute inset-0 bg-gradient-to-tr from-brass-400 to-purple-500 rounded-full blur-md opacity-25 animate-pulse" />
+              <div className={`relative w-24 h-24 rounded-full border-2 flex items-center justify-center ${activeCelebrationBadge.colorClass} shadow-md`}>
+                <CelebrationIconComponent size={42} className="animate-bounce" />
+              </div>
+            </div>
+
+            <div className="space-y-1.5 px-2">
+              <h3 className="font-display text-lg font-bold text-ink dark:text-paper leading-snug">
+                {activeCelebrationBadge.title}
+              </h3>
+              <p className="text-xs text-ink-muted dark:text-paper/50">
+                {activeCelebrationBadge.description}
+              </p>
+              <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-forest-500/10 text-forest-600 dark:bg-forest-500/20 dark:text-forest-400">
+                Earned: {activeCelebrationBadge.requirementText}
+              </span>
+            </div>
+
+            <p className="font-serif italic text-xs text-ink-muted dark:text-paper/60 px-4 leading-relaxed">
+              "{activeCelebrationBadge.motivationalText}"
+            </p>
+
+            <Button
+              onClick={handleClaimBadge}
+              className="mt-2 w-full py-2.5 text-xs font-bold uppercase tracking-wider bg-brass-500 text-bgdark hover:bg-brass-400 border-none shadow-[0_4px_12px_rgba(184,134,63,0.15)]"
+            >
+              Fantastic!
+            </Button>
+          </motion.div>
+        </div>
+      )}
+
       {/* Subtle Dotted Background Grid overlay */}
       <div className="absolute inset-0 bg-[radial-gradient(rgba(184,134,63,0.06)_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none z-0" />
 
