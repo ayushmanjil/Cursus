@@ -77,7 +77,7 @@ export function DailyGoalsPage({
 
     dates.forEach((dStr) => {
       const pages = streakLog[dStr]?.pages || 0;
-      const target = dailyGoalHistory[dStr] || dailyGoal || 20;
+      const target = dailyGoalHistory[dStr] ?? dailyGoal ?? 0;
 
       if (pages > 0) {
         totalPages += pages;
@@ -141,15 +141,15 @@ export function DailyGoalsPage({
     return days;
   }, [selectedMonth, todayStr, today]);
 
-  const handleStartEdit = (dateStr: string, currentPages: number, currentGoal: number) => {
+  const handleStartEdit = (dateStr: string, currentPages: number, currentGoal: number | null) => {
     setEditingDate(dateStr);
     setEditPagesInput(String(currentPages));
-    setEditGoalInput(String(currentGoal));
+    setEditGoalInput(currentGoal !== null ? String(currentGoal) : '');
   };
 
   const handleSave = async (dateStr: string) => {
     const newPages = Math.max(0, parseInt(editPagesInput, 10) || 0);
-    const newGoal = Math.max(1, parseInt(editGoalInput, 10) || 20);
+    const alreadyHasGoal = typeof dailyGoalHistory[dateStr] === 'number';
 
     // Save Pages Read to streakLog
     const updatedLog = { ...streakLog };
@@ -159,8 +159,11 @@ export function DailyGoalsPage({
     };
     await onUpdateStreakLog(updatedLog);
 
-    // Save Daily Goal to history
-    await onUpdateDailyGoal(newGoal, dateStr);
+    // Only save the goal if one hasn't been set for this day yet
+    if (!alreadyHasGoal) {
+      const newGoal = Math.max(1, parseInt(editGoalInput, 10) || 1);
+      await onUpdateDailyGoal(newGoal, dateStr);
+    }
 
     setEditingDate(null);
   };
@@ -277,7 +280,7 @@ export function DailyGoalsPage({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {daysInMonthList.map((day) => {
           const pages = streakLog[day.dateStr]?.pages || 0;
-          const targetGoal = dailyGoalHistory[day.dateStr] || dailyGoal || 20;
+          const targetGoal = dailyGoalHistory[day.dateStr] ?? dailyGoal ?? null;
           const isEditing = editingDate === day.dateStr;
 
           const pct = targetGoal > 0 ? Math.min(100, Math.round((pages / targetGoal) * 100)) : 0;
@@ -311,6 +314,13 @@ export function DailyGoalsPage({
                     </span>
                   </div>
 
+                  {/* Reminder note only shown when no goal set yet */}
+                  {typeof dailyGoalHistory[day.dateStr] !== 'number' && (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-lg px-2.5 py-1.5 leading-relaxed">
+                      ⚠️ Once you set a goal for this day, it cannot be changed later.
+                    </p>
+                  )}
+
                   <div className="grid grid-cols-2 gap-2.5">
                     <div>
                       <label className="block text-[10px] font-bold text-ink-muted dark:text-paper/40 uppercase tracking-wider mb-1">
@@ -326,15 +336,21 @@ export function DailyGoalsPage({
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-ink-muted dark:text-paper/40 uppercase tracking-wider mb-1">
-                        Target Goal
+                        {typeof dailyGoalHistory[day.dateStr] === 'number' ? 'Goal (locked)' : 'Set Goal'}
                       </label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={editGoalInput}
-                        onChange={(e) => setEditGoalInput(e.target.value)}
-                        className="w-full rounded-lg border border-ink/10 bg-paper px-2.5 py-1.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-purple-400 dark:border-paper/10 dark:bg-bgdark dark:text-paper font-semibold"
-                      />
+                      {typeof dailyGoalHistory[day.dateStr] === 'number' ? (
+                        <div className="w-full rounded-lg border border-ink/5 bg-ink/5 px-2.5 py-1.5 text-xs text-ink-faint dark:border-paper/5 dark:bg-paper/5 dark:text-paper/30 font-semibold">
+                          {dailyGoalHistory[day.dateStr]} pages
+                        </div>
+                      ) : (
+                        <input
+                          type="number"
+                          min={1}
+                          value={editGoalInput}
+                          onChange={(e) => setEditGoalInput(e.target.value)}
+                          className="w-full rounded-lg border border-ink/10 bg-paper px-2.5 py-1.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-purple-400 dark:border-paper/10 dark:bg-bgdark dark:text-paper font-semibold"
+                        />
+                      )}
                     </div>
                   </div>
 
@@ -398,7 +414,9 @@ export function DailyGoalsPage({
                       <div>
                         <div className="flex justify-between items-center text-xs text-ink-muted dark:text-paper/50 mb-1">
                           <span>Progress</span>
-                          <span className="font-semibold text-ink dark:text-paper">{pages} / {targetGoal} pages</span>
+                          <span className="font-semibold text-ink dark:text-paper">
+                            {pages}{targetGoal !== null ? ` / ${targetGoal} pages` : ' pages read'}
+                          </span>
                         </div>
                         <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10 dark:bg-paper/10">
                           <div

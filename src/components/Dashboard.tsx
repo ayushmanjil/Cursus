@@ -421,15 +421,17 @@ export function Dashboard({
                 <h3 className="flex items-center gap-1.5 font-display text-base font-medium text-ink dark:text-paper">
                   <Target size={15} className="text-purple-500" /> Daily Target
                 </h3>
-                <button
-                  onClick={() => {
-                    setEditingDailyGoal((v) => !v);
-                    setDailyGoalInput(dailyGoal ? String(dailyGoal) : '');
-                  }}
-                  className="text-xs font-medium text-purple-600 hover:underline dark:text-purple-300"
-                >
-                  {editingDailyGoal ? 'Close' : 'Edit'}
-                </button>
+                {dailyGoal === null && (
+                  <button
+                    onClick={() => {
+                      setEditingDailyGoal((v) => !v);
+                      setDailyGoalInput('');
+                    }}
+                    className="text-xs font-medium text-purple-600 hover:underline dark:text-purple-300"
+                  >
+                    {editingDailyGoal ? 'Close' : 'Set Goal'}
+                  </button>
+                )}
               </div>
 
               {editingDailyGoal ? (
@@ -442,6 +444,9 @@ export function Dashboard({
                   }}
                   className="flex flex-col gap-3 mt-2"
                 >
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-lg px-2.5 py-1.5 leading-relaxed">
+                    ⚠️ Once set, today's goal cannot be changed.
+                  </p>
                   <div className="flex items-center gap-2">
                     <input
                       type="number"
@@ -455,11 +460,11 @@ export function Dashboard({
                       type="submit"
                       className="rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-paper dark:bg-purple-500 dark:text-bgdark shrink-0"
                     >
-                      Save
+                      Set
                     </button>
                   </div>
                   <p className="text-[10px] text-ink-faint dark:text-paper/40 leading-relaxed">
-                    Set how many pages you want to finish before midnight.
+                    How many pages do you want to finish today?
                   </p>
                 </form>
               ) : dailyGoal === null ? (

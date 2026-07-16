@@ -110,8 +110,8 @@ export function YearlyGoalsPage({
         bestYear = y;
       }
 
-      const goalForYear = yearlyGoalHistory[String(y)] || (y === currentYear ? yearlyGoal : null) || 24;
-      if (goalForYear > 0) {
+      const goalForYear = yearlyGoalHistory[String(y)] ?? (y === currentYear ? yearlyGoal : null);
+      if (goalForYear !== null && goalForYear > 0) {
         totalYearsEvaluated++;
         if (count >= goalForYear) {
           metGoalsCount++;
@@ -193,10 +193,14 @@ export function YearlyGoalsPage({
       <div className="space-y-4">
         {yearsList.map((year) => {
           const finishedBooks = booksFinishedByYear.get(year) || [];
-          const goalForYear = yearlyGoalHistory[String(year)] || (year === currentYear ? yearlyGoal : null) || 24;
+          const goalForYear: number | null = yearlyGoalHistory[String(year)] ?? (year === currentYear ? yearlyGoal : null);
           const isExpanded = !!expandedYears[year];
-          const pct = goalForYear > 0 ? Math.min(100, Math.round((finishedBooks.length / goalForYear) * 100)) : 0;
+          const pct = goalForYear !== null && goalForYear > 0
+            ? Math.min(100, Math.round((finishedBooks.length / goalForYear) * 100))
+            : 0;
           const isEditing = editingYear === year;
+          const hasGoal = goalForYear !== null;
+          const hasBooksButNoGoal = !hasGoal && finishedBooks.length > 0 && year !== currentYear;
 
           // Color coded badges
           let badgeColor = 'bg-ink/5 text-ink-faint dark:bg-paper/5';
@@ -251,28 +255,44 @@ export function YearlyGoalsPage({
                         <X size={12} />
                       </button>
                     </div>
-                  ) : (
+                  ) : hasGoal ? (
                     <p className="text-xs text-ink-muted dark:text-paper/50 mt-1 flex items-center gap-1.5 flex-wrap">
                       <span>
                         Finished <span className="font-semibold text-ink dark:text-paper">{finishedBooks.length}</span> of{' '}
                         <span className="font-semibold text-ink dark:text-paper">{goalForYear}</span> books
                       </span>
                       <button
-                        onClick={() => handleStartEdit(year, goalForYear)}
+                        onClick={() => handleStartEdit(year, goalForYear as number)}
                         className="inline-flex items-center p-0.5 text-ink-faint hover:text-ink dark:hover:text-paper transition-colors"
                         title="Edit Target Goal"
                       >
                         <Edit2 size={11} />
                       </button>
                     </p>
+                  ) : hasBooksButNoGoal ? (
+                    <p className="text-xs text-ink-muted dark:text-paper/50 mt-1 flex items-center gap-2">
+                      <span>{finishedBooks.length} book{finishedBooks.length !== 1 ? 's' : ''} read</span>
+                      <button
+                        onClick={() => { setEditingYear(year); setEditGoalInput(''); }}
+                        className="text-[10px] font-semibold text-brass-600 hover:text-brass-500 dark:text-brass-400 dark:hover:text-brass-300 underline underline-offset-2 transition-colors"
+                      >
+                        + Add Goal
+                      </button>
+                    </p>
+                  ) : (
+                    <p className="text-xs text-ink-faint dark:text-paper/30 mt-1 italic">
+                      No goal set
+                    </p>
                   )}
                 </div>
 
                 {/* Right side stats and expand toggle */}
                 <div className="flex items-center gap-4 shrink-0">
-                  <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${badgeColor}`}>
-                    {pct}% Target
-                  </span>
+                  {hasGoal && (
+                    <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${badgeColor}`}>
+                      {pct}%
+                    </span>
+                  )}
 
                   <button
                     onClick={() => toggleYear(year)}
@@ -283,17 +303,19 @@ export function YearlyGoalsPage({
                 </div>
               </div>
 
-              {/* Progress Bar (Only visible if not editing or finishedBooks exist) */}
-              <div className="px-5 pb-4">
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10 dark:bg-paper/10">
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      pct >= 100 ? 'bg-forest-500' : 'bg-brass-500'
-                    }`}
-                    style={{ width: `${pct}%` }}
-                  />
+              {/* Progress Bar — only shown when a goal is set */}
+              {hasGoal && !isEditing && (
+                <div className="px-5 pb-4">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10 dark:bg-paper/10">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        pct >= 100 ? 'bg-forest-500' : 'bg-brass-500'
+                      }`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Expanded Books List */}
               {isExpanded && (

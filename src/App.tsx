@@ -50,6 +50,7 @@ function App() {
 
   // Daily Goal state
   const [dailyGoal, setDailyGoalState] = useState<number | null>(null);
+  const [dailyGoalDate, setDailyGoalDate] = useState<string | null>(null);
   const [dailyGoalHistory, setDailyGoalHistory] = useState<Record<string, number>>({});
 
   // Yearly Goal state
@@ -60,6 +61,7 @@ function App() {
   useEffect(() => {
     if (!currentUser) {
       setDailyGoalState(null);
+      setDailyGoalDate(null);
       setDailyGoalHistory({});
       return;
     }
@@ -68,9 +70,11 @@ function App() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setDailyGoalState(typeof data.dailyGoal === 'number' ? data.dailyGoal : null);
+        setDailyGoalDate(data.dailyGoalDate || null);
         setDailyGoalHistory(data.history || {});
       } else {
         setDailyGoalState(null);
+        setDailyGoalDate(null);
         setDailyGoalHistory({});
       }
     });
@@ -405,18 +409,22 @@ function App() {
         />
 
         <main className="flex-1 px-4 py-6 sm:px-6">
-          {view === 'dashboard' && (
-            <Dashboard
-              books={books}
-              onOpen={(b) => setSelectedBookId(b.id)}
-              onSelectView={setView}
-              streakLog={streakLog}
-              dailyGoal={dailyGoal}
-              setDailyGoal={handleUpdateDailyGoal}
-              yearlyGoal={yearlyGoal}
-              setYearlyGoal={handleUpdateYearlyGoal}
-            />
-          )}
+          {view === 'dashboard' && (() => {
+            const todayStr = getLocalDateString(new Date());
+            const effectiveDailyGoal = dailyGoalDate === todayStr ? dailyGoal : null;
+            return (
+              <Dashboard
+                books={books}
+                onOpen={(b) => setSelectedBookId(b.id)}
+                onSelectView={setView}
+                streakLog={streakLog}
+                dailyGoal={effectiveDailyGoal}
+                setDailyGoal={handleUpdateDailyGoal}
+                yearlyGoal={yearlyGoal}
+                setYearlyGoal={handleUpdateYearlyGoal}
+              />
+            );
+          })()}
 
           {view === 'daily-goals' && currentUser && (
             <DailyGoalsPage
