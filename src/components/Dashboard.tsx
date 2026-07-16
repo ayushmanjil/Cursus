@@ -658,7 +658,16 @@ function ActivityList({
   onOpen: (book: Book) => void;
 }) {
   if (books.length === 0) {
-    return <p className="text-sm text-ink-faint dark:text-paper/40 py-4">Nothing here yet.</p>;
+    return (
+      <div className="py-7 flex flex-col items-center justify-center text-center">
+        <p className="text-xs font-medium text-ink-muted dark:text-paper/50">
+          No books completed recently.
+        </p>
+        <p className="text-[11px] text-ink-faint dark:text-paper/30 mt-1.5 italic">
+          Keep the pages turning and watch your library grow! 📖✨
+        </p>
+      </div>
+    );
   }
   return (
     <ul className="space-y-2.5">
