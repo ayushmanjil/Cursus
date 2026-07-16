@@ -15,7 +15,14 @@ import {
   Award,
   Compass,
   Heart,
-  Library
+  Library,
+  Trophy,
+  Crown,
+  Star,
+  Scroll,
+  Shield,
+  Gem,
+  Zap
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { auth } from '../firebase';
@@ -39,7 +46,7 @@ interface Badge {
   icon: string;
   colorClass: string;
   requirementText: string;
-  isEarned: (stats: { booksRead: number; pagesRead: number; highestStreak: number }) => boolean;
+  isEarned: (stats: { booksRead: number; pagesRead: number; highestStreak: number }, books: Book[]) => boolean;
   motivationalText: string;
 }
 
@@ -56,23 +63,23 @@ const BADGES: Badge[] = [
     motivationalText: "First book read! Every legendary library begins with a single completed page."
   },
   {
-    id: 'daily_habit',
-    title: 'Daily Habit',
+    id: 'beginners_spark',
+    title: "Beginner's Spark",
     description: 'Achieve a 3-day reading streak.',
     category: 'streaks',
     icon: 'Flame',
     colorClass: 'text-orange-500 bg-orange-500/10 border-orange-500/20',
     requirementText: '3d Streak',
     isEarned: ({ highestStreak }) => highestStreak >= 3,
-    motivationalText: "3-day streak! Consistency is the soil where true reading wisdom takes root."
+    motivationalText: "3-day streak! You've kindled the spark of a new reading habit. Keep the flame glowing!"
   },
   {
     id: 'page_turner',
     title: 'Page Turner',
     description: 'Read 500 pages.',
     category: 'pages',
-    icon: 'Sparkles',
-    colorClass: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/20',
+    icon: 'Zap',
+    colorClass: 'text-yellow-500 bg-yellow-500/10 border-yellow-500/20',
     requirementText: '500 Pgs',
     isEarned: ({ pagesRead }) => pagesRead >= 500,
     motivationalText: "500 pages completed! Your dedication is visible page by page. Keep them turning!"
@@ -93,11 +100,44 @@ const BADGES: Badge[] = [
     title: 'Unstoppable',
     description: 'Achieve a 7-day reading streak.',
     category: 'streaks',
-    icon: 'Award',
+    icon: 'Star',
     colorClass: 'text-purple-500 bg-purple-500/10 border-purple-500/20',
     requirementText: '7d Streak',
     isEarned: ({ highestStreak }) => highestStreak >= 7,
-    motivationalText: "7-day streak! Reading is no longer a task; it's a permanent part of your day."
+    motivationalText: "7-day streak! You are Unstoppable. Consistency is now your second nature."
+  },
+  {
+    id: 'literary_scholar',
+    title: 'Literary Scholar',
+    description: 'Read 1,000 pages.',
+    category: 'pages',
+    icon: 'Scroll',
+    colorClass: 'text-teal-500 bg-teal-500/10 border-teal-500/20',
+    requirementText: '1,000 Pgs',
+    isEarned: ({ pagesRead }) => pagesRead >= 1000,
+    motivationalText: "1,000 pages completed! You have crossed the milestone of a true literary scholar. Keep devouring text!"
+  },
+  {
+    id: 'tome_conqueror',
+    title: 'Tome Conqueror',
+    description: 'Complete a single book of 500+ pages.',
+    category: 'books',
+    icon: 'Shield',
+    colorClass: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20',
+    requirementText: '500+ Pg Book',
+    isEarned: (_, books) => books.some(b => b.status === 'read' && (b.totalPages || 0) >= 500),
+    motivationalText: "Tome Conqueror! You've completed a book with over 500 pages. Large volumes do not intimidate you; they invite you."
+  },
+  {
+    id: 'book_devotee',
+    title: 'Book Devotee',
+    description: 'Achieve a 30-day reading streak.',
+    category: 'streaks',
+    icon: 'Gem',
+    colorClass: 'text-rose-500 bg-rose-500/10 border-rose-500/20',
+    requirementText: '30d Streak',
+    isEarned: ({ highestStreak }) => highestStreak >= 30,
+    motivationalText: "30-day streak! Your devotion to reading is stellar. You've forged a lifelong custom."
   },
   {
     id: 'bibliophile',
@@ -105,7 +145,7 @@ const BADGES: Badge[] = [
     description: 'Complete 15 books.',
     category: 'books',
     icon: 'Heart',
-    colorClass: 'text-rose-500 bg-rose-500/10 border-rose-500/20',
+    colorClass: 'text-pink-500 bg-pink-500/10 border-pink-500/20',
     requirementText: '15 Books',
     isEarned: ({ booksRead }) => booksRead >= 15,
     motivationalText: "15 books read! Your heart beats in stories. You live the lives on the page."
@@ -116,10 +156,21 @@ const BADGES: Badge[] = [
     description: 'Read 5,000 pages.',
     category: 'pages',
     icon: 'Compass',
-    colorClass: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20',
+    colorClass: 'text-blue-500 bg-blue-500/10 border-blue-500/20',
     requirementText: '5k Pgs',
     isEarned: ({ pagesRead }) => pagesRead >= 5000,
     motivationalText: "5,000 pages read! You have traversed prose valleys and summitted literary heights."
+  },
+  {
+    id: 'immortal_reader',
+    title: 'Immortal Reader',
+    description: 'Achieve a 100-day reading streak.',
+    category: 'streaks',
+    icon: 'Crown',
+    colorClass: 'text-red-500 bg-red-500/10 border-red-500/20',
+    requirementText: '100d Streak',
+    isEarned: ({ highestStreak }) => highestStreak >= 100,
+    motivationalText: "100-day streak! The legend is true: you are an Immortal Reader. Time itself bows to your pages."
   }
 ];
 
@@ -131,6 +182,30 @@ const iconMap: Record<string, React.ElementType> = {
   Flame,
   Award,
   Compass,
+  Trophy,
+  Crown,
+  Star,
+  Scroll,
+  Shield,
+  Gem,
+  Zap
+};
+
+const getFilledBadgeColor = (id: string) => {
+  switch (id) {
+    case 'first_chapter': return 'bg-amber-500 text-[#FAF7F1] border-transparent';
+    case 'beginners_spark': return 'bg-orange-500 text-[#FAF7F1] border-transparent';
+    case 'page_turner': return 'bg-yellow-500 text-[#FAF7F1] border-transparent';
+    case 'bookworm': return 'bg-emerald-500 text-[#FAF7F1] border-transparent';
+    case 'unstoppable': return 'bg-purple-500 text-[#FAF7F1] border-transparent';
+    case 'literary_scholar': return 'bg-teal-500 text-[#FAF7F1] border-transparent';
+    case 'tome_conqueror': return 'bg-indigo-500 text-[#FAF7F1] border-transparent';
+    case 'book_devotee': return 'bg-rose-500 text-[#FAF7F1] border-transparent';
+    case 'bibliophile': return 'bg-pink-500 text-[#FAF7F1] border-transparent';
+    case 'epic_voyager': return 'bg-blue-500 text-[#FAF7F1] border-transparent';
+    case 'immortal_reader': return 'bg-red-500 text-[#FAF7F1] border-transparent';
+    default: return 'bg-purple-500 text-[#FAF7F1] border-transparent';
+  }
 };
 
 export function Profile({ currentUser, onUpdateUser, books, streakLog }: ProfileProps) {
@@ -178,7 +253,7 @@ export function Profile({ currentUser, onUpdateUser, books, streakLog }: Profile
 
   // Filter earned badges
   const earnedBadges = BADGES.filter(b =>
-    b.isEarned({ booksRead: totalBooksRead, pagesRead: totalPagesRead, highestStreak })
+    b.isEarned({ booksRead: totalBooksRead, pagesRead: totalPagesRead, highestStreak }, books)
   );
   
   // Calculate highest badge for motivation sidebar
@@ -205,6 +280,9 @@ export function Profile({ currentUser, onUpdateUser, books, streakLog }: Profile
         minute: '2-digit'
       })
     : 'Just now';
+
+  // Check if current user is the shared demo user to prevent lockouts
+  const isDemoUser = currentUser.username === 'demo' || auth.currentUser?.email === 'demo@cursus.app';
 
   const handleUpdateName = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -239,6 +317,8 @@ export function Profile({ currentUser, onUpdateUser, books, streakLog }: Profile
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isDemoUser) return;
+    
     setPwdError('');
     setPwdSuccess('');
 
@@ -460,17 +540,17 @@ export function Profile({ currentUser, onUpdateUser, books, streakLog }: Profile
               </p>
             </div>
 
-            {/* Micro-row preview of badges */}
+            {/* Micro-row preview of badges (Earned circles filled with category colors) */}
             <div className="flex gap-1.5 justify-center items-center">
               {BADGES.slice(0, 4).map((badge) => {
-                const earned = badge.isEarned({ booksRead: totalBooksRead, pagesRead: totalPagesRead, highestStreak });
+                const earned = badge.isEarned({ booksRead: totalBooksRead, pagesRead: totalPagesRead, highestStreak }, books);
                 const IconComponent = iconMap[badge.icon];
                 return (
                   <div
                     key={badge.id}
-                    className={`w-6 h-6 rounded-full border flex items-center justify-center text-[10px] ${
+                    className={`w-6 h-6 rounded-full border flex items-center justify-center text-[10px] transition-all duration-300 ${
                       earned 
-                        ? 'text-purple-600 border-purple-500/20 bg-purple-500/5' 
+                        ? getFilledBadgeColor(badge.id)
                         : 'text-ink-faint border-ink/5 bg-ink/5 dark:text-paper/10 dark:border-paper/5'
                     }`}
                     title={badge.title}
@@ -579,8 +659,8 @@ export function Profile({ currentUser, onUpdateUser, books, streakLog }: Profile
               </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="flex flex-col gap-1.5 pt-1.5 items-center">
+            {/* Action Buttons (Removed the extra 'Badges' button link as requested) */}
+            <div className="flex flex-col gap-1.5 pt-1.5 items-center w-full">
               <Button
                 type="submit"
                 variant="primary"
@@ -598,24 +678,14 @@ export function Profile({ currentUser, onUpdateUser, books, streakLog }: Profile
               </Button>
               
               {!isExpanded && (
-                <div className="flex w-full justify-center gap-4">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setShowSecurity(true)}
-                    className="py-1 text-xs font-semibold uppercase tracking-wider text-brass-600 dark:text-brass-400 hover:text-brass-500"
-                  >
-                    Update Password
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setShowAchievements(true)}
-                    className="py-1 text-xs font-semibold uppercase tracking-wider text-purple-600 dark:text-purple-400 hover:text-purple-500"
-                  >
-                    Badges
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setShowSecurity(true)}
+                  className="w-full sm:w-2/3 py-1.5 text-xs font-semibold uppercase tracking-wider text-brass-600 dark:text-brass-400 hover:bg-brass-500/5 hover:text-brass-500"
+                >
+                  Update Password
+                </Button>
               )}
             </div>
           </form>
@@ -645,6 +715,14 @@ export function Profile({ currentUser, onUpdateUser, books, streakLog }: Profile
                 </h3>
               </div>
 
+              {/* Demo Account Indicator Warning */}
+              {isDemoUser && (
+                <div className="p-2.5 rounded-lg bg-brass-500/10 border border-brass-500/15 text-[10.5px] font-semibold text-brass-600 dark:text-brass-400 flex items-center gap-2 leading-relaxed">
+                  <AlertCircle size={14} className="shrink-0 text-brass-500" />
+                  Password changes are disabled for the shared demo account.
+                </div>
+              )}
+
               {/* Current Password Field */}
               <div className="space-y-1">
                 <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">
@@ -654,9 +732,9 @@ export function Profile({ currentUser, onUpdateUser, books, streakLog }: Profile
                   type="password"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  disabled={pwdLoading}
-                  placeholder="Enter current password"
-                  className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200"
+                  disabled={pwdLoading || isDemoUser}
+                  placeholder={isDemoUser ? "Disabled for demo user" : "Enter current password"}
+                  className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65"
                 />
               </div>
 
@@ -669,9 +747,9 @@ export function Profile({ currentUser, onUpdateUser, books, streakLog }: Profile
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  disabled={pwdLoading}
-                  placeholder="Minimum 6 characters"
-                  className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200"
+                  disabled={pwdLoading || isDemoUser}
+                  placeholder={isDemoUser ? "Disabled for demo user" : "Minimum 6 characters"}
+                  className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65"
                 />
               </div>
 
@@ -684,9 +762,9 @@ export function Profile({ currentUser, onUpdateUser, books, streakLog }: Profile
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={pwdLoading}
-                  placeholder="Re-enter new password"
-                  className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2.5 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200"
+                  disabled={pwdLoading || isDemoUser}
+                  placeholder={isDemoUser ? "Disabled for demo user" : "Re-enter new password"}
+                  className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2.5 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65"
                 />
               </div>
             </div>
@@ -709,8 +787,8 @@ export function Profile({ currentUser, onUpdateUser, books, streakLog }: Profile
             <div className="flex justify-end pt-1.5">
               <Button
                 type="submit"
-                disabled={pwdLoading || !currentPassword || !newPassword || !confirmPassword}
-                className="w-full sm:w-auto py-2 px-5 text-xs font-bold uppercase tracking-wider bg-brass-500 text-bgdark hover:bg-brass-400"
+                disabled={pwdLoading || isDemoUser || !currentPassword || !newPassword || !confirmPassword}
+                className="w-full sm:w-auto py-2 px-5 text-xs font-bold uppercase tracking-wider bg-brass-500 text-bgdark hover:bg-brass-400 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {pwdLoading ? (
                   <>
@@ -749,17 +827,17 @@ export function Profile({ currentUser, onUpdateUser, books, streakLog }: Profile
                 </h3>
               </div>
 
-              {/* Scrollable Badges Grid */}
+              {/* Scrollable Badges Grid (Earned badges style stand out with dynamic gold reflections glow instead of solid filler colors) */}
               <div className="flex-1 overflow-y-auto pr-1 space-y-2 max-h-[380px] scrollbar-thin scrollbar-thumb-ink/10">
                 {BADGES.map((badge) => {
-                  const earned = badge.isEarned({ booksRead: totalBooksRead, pagesRead: totalPagesRead, highestStreak });
+                  const earned = badge.isEarned({ booksRead: totalBooksRead, pagesRead: totalPagesRead, highestStreak }, books);
                   const IconComponent = iconMap[badge.icon];
                   return (
                     <div
                       key={badge.id}
                       className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all duration-300 ${
                         earned 
-                          ? 'bg-paper-soft/60 dark:bg-bgdark-soft/30 border-ink/5 dark:border-paper/5' 
+                          ? 'bg-gradient-to-r from-white via-white/95 to-[#B8863F]/5 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#B8863F]/5 border-[#B8863F]/20 dark:border-[#B8863F]/15 shadow-[0_0_12px_rgba(184,134,63,0.05)]'
                           : 'bg-paper-soft/10 dark:bg-bgdark-soft/10 border-dashed border-ink/10 dark:border-paper/10 opacity-60'
                       }`}
                     >
