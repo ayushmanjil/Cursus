@@ -20,6 +20,7 @@ import { Login } from './components/Login';
 import type { User } from './types/user';
 import { auth, db } from './firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { Profile } from './components/Profile';
 
 const viewMeta: Record<ViewKey, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'Your library at a glance' },
@@ -30,6 +31,7 @@ const viewMeta: Record<ViewKey, { title: string; subtitle: string }> = {
   favorites: { title: 'Favorites', subtitle: 'The ones you loved most' },
   stats: { title: 'Statistics', subtitle: 'Trends across your whole library' },
   streaks: { title: 'Reading Streaks', subtitle: 'Log reading ticks, pages, and times' },
+  profile: { title: 'Profile Settings', subtitle: 'Manage your personal details and credentials' },
 };
 
 function App() {
@@ -125,6 +127,7 @@ function App() {
       favorites: books.filter((b) => b.favorite).length,
       stats: 0,
       streaks: 0,
+      profile: 0,
     }),
     [books]
   );
@@ -289,6 +292,13 @@ function App() {
             <StreakManager
               log={streakLog}
               onUpdateLog={setStreakLog}
+            />
+          )}
+
+          {view === 'profile' && currentUser && (
+            <Profile
+              currentUser={currentUser}
+              onUpdateUser={(updatedUser) => setCurrentUser(updatedUser)}
             />
           )}
 

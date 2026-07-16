@@ -97,6 +97,10 @@ export function StreakManager({ log, onUpdateLog }: StreakManagerProps) {
   };
 
   const handleCommit = () => {
+    if (selectedDateStr > getLocalDateString(today)) {
+      alert("Cannot log reading activity for future dates.");
+      return;
+    }
     const updated = { ...log };
     updated[selectedDateStr] = {
       read: editRead,
@@ -196,10 +200,12 @@ export function StreakManager({ log, onUpdateLog }: StreakManagerProps) {
               const isToday = dateStr === getLocalDateString(today);
               const dayData = log[dateStr];
               const isRead = dayData?.read;
+              const isFuture = dateStr > getLocalDateString(today);
 
               return (
                 <button
                   key={dateStr}
+                  disabled={isFuture}
                   onClick={() => setSelectedDateStr(dateStr)}
                   className={classNames(
                     'aspect-square flex flex-col items-center justify-between rounded-lg p-1 sm:p-2 border transition-all text-xs relative group',
@@ -208,7 +214,9 @@ export function StreakManager({ log, onUpdateLog }: StreakManagerProps) {
                       : 'border-ink/5 dark:border-paper/5',
                     isRead
                       ? 'bg-forest-500 text-white font-semibold shadow-sm'
-                      : 'bg-paper-soft hover:bg-ink/5 dark:bg-bgdark-soft dark:hover:bg-paper/5 text-ink-muted dark:text-paper/60',
+                      : isFuture
+                        ? 'bg-ink/5 text-ink-muted/30 cursor-not-allowed dark:bg-paper/5 dark:text-paper/20'
+                        : 'bg-paper-soft hover:bg-ink/5 dark:bg-bgdark-soft dark:hover:bg-paper/5 text-ink-muted dark:text-paper/60',
                     isToday && !isRead && 'border-brass-500/60 dark:border-brass-400/50'
                   )}
                 >

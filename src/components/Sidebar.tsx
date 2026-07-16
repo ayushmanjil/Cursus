@@ -154,14 +154,24 @@ export function Sidebar({
 
           {onLogout && (
             <div className="flex items-center justify-between rounded-lg px-3 py-2">
-              <div className="flex items-center gap-2.5 min-w-0">
+              <button
+                onClick={() => {
+                  onSelect('profile');
+                  onCloseMobile();
+                }}
+                className={classNames(
+                  'flex flex-1 items-center gap-2.5 min-w-0 text-left rounded-lg p-1 transition-colors hover:bg-ink/5 dark:hover:bg-paper/10 mr-1.5 focus:outline-none focus:ring-1 focus:ring-brass-400',
+                  active === 'profile' && 'bg-ink/5 dark:bg-paper/10'
+                )}
+                title="View Profile"
+              >
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink/10 text-xs font-semibold text-ink dark:bg-brass-500/20 dark:text-brass-400">
                   {userName ? userName.charAt(0).toUpperCase() : 'U'}
                 </div>
                 <span className="truncate text-sm font-medium text-ink dark:text-paper" title={userName}>
                   {userName || 'User'}
                 </span>
-              </div>
+              </button>
               <button
                 onClick={onLogout}
                 className="group/btn flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-muted hover:bg-burgundy-500/10 hover:text-burgundy-500 transition-colors"
