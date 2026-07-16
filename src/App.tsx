@@ -21,6 +21,9 @@ import type { User } from './types/user';
 import { auth, db } from './firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { Profile, getEarnedBadges } from './components/Profile';
+import { DailyGoalsPage } from './components/DailyGoalsPage';
+import { YearlyGoalsPage } from './components/YearlyGoalsPage';
+import { getLocalDateString } from './utils/helpers';
 
 const viewMeta: Record<ViewKey, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'Your library at a glance' },
@@ -32,6 +35,8 @@ const viewMeta: Record<ViewKey, { title: string; subtitle: string }> = {
   stats: { title: 'Statistics', subtitle: 'Trends across your whole library' },
   streaks: { title: 'Reading Streaks', subtitle: 'Log reading ticks, pages, and times' },
   profile: { title: 'Profile Settings', subtitle: 'Manage your personal details and credentials' },
+  'daily-goals': { title: 'Daily Reading Goals', subtitle: 'Track and log your daily reading progress' },
+  'yearly-goals': { title: 'Yearly Reading Goals', subtitle: 'Review your annual achievements and book targets' },
 };
 
 function App() {
@@ -42,6 +47,96 @@ function App() {
   const { theme, toggleTheme } = useTheme();
 
   const [streakLog, setStreakLogState] = useState<StreakLog>({});
+
+  // Daily Goal state
+  const [dailyGoal, setDailyGoalState] = useState<number | null>(null);
+  const [dailyGoalDate, setDailyGoalDate] = useState<string | null>(null);
+  const [dailyGoalHistory, setDailyGoalHistory] = useState<Record<string, number>>({});
+
+  // Yearly Goal state
+  const [yearlyGoal, setYearlyGoalState] = useState<number | null>(null);
+  const [yearlyGoalYear, setYearlyGoalYear] = useState<number | null>(null);
+  const [yearlyGoalHistory, setYearlyGoalHistory] = useState<Record<string, number>>({});
+
+  // Sync daily goal with Firestore
+  useEffect(() => {
+    if (!currentUser) {
+      setDailyGoalState(null);
+      setDailyGoalDate(null);
+      setDailyGoalHistory({});
+      return;
+    }
+    const docRef = doc(db, 'users', currentUser.id, 'settings', 'dailyGoal');
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setDailyGoalState(typeof data.dailyGoal === 'number' ? data.dailyGoal : null);
+        setDailyGoalDate(data.dailyGoalDate || null);
+        setDailyGoalHistory(data.history || {});
+      } else {
+        setDailyGoalState(null);
+        setDailyGoalDate(null);
+        setDailyGoalHistory({});
+      }
+    });
+    return unsubscribe;
+  }, [currentUser]);
+
+  // Sync yearly goal with Firestore
+  useEffect(() => {
+    if (!currentUser) {
+      setYearlyGoalState(null);
+      setYearlyGoalYear(null);
+      setYearlyGoalHistory({});
+      return;
+    }
+    const docRef = doc(db, 'users', currentUser.id, 'settings', 'goal');
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setYearlyGoalState(typeof data.yearlyGoal === 'number' ? data.yearlyGoal : null);
+        setYearlyGoalYear(typeof data.yearlyGoalYear === 'number' ? data.yearlyGoalYear : null);
+        setYearlyGoalHistory(data.history || {});
+      } else {
+        setYearlyGoalState(null);
+        setYearlyGoalYear(null);
+        setYearlyGoalHistory({});
+      }
+    });
+    return unsubscribe;
+  }, [currentUser]);
+
+  const handleUpdateDailyGoal = useCallback(
+    async (newGoal: number, dateStr?: string) => {
+      if (!currentUser) return;
+      const todayStr = getLocalDateString(new Date());
+      const targetDate = dateStr || todayStr;
+      const docRef = doc(db, 'users', currentUser.id, 'settings', 'dailyGoal');
+      const nextHistory = { ...dailyGoalHistory, [targetDate]: newGoal };
+      await setDoc(docRef, {
+        dailyGoal: newGoal,
+        dailyGoalDate: targetDate,
+        history: nextHistory,
+      }, { merge: true });
+    },
+    [currentUser, dailyGoalHistory]
+  );
+
+  const handleUpdateYearlyGoal = useCallback(
+    async (newGoal: number, yearVal?: number) => {
+      if (!currentUser) return;
+      const currentYear = new Date().getFullYear();
+      const targetYear = yearVal || currentYear;
+      const docRef = doc(db, 'users', currentUser.id, 'settings', 'goal');
+      const nextHistory = { ...yearlyGoalHistory, [String(targetYear)]: newGoal };
+      await setDoc(docRef, {
+        yearlyGoal: newGoal,
+        yearlyGoalYear: targetYear,
+        history: nextHistory,
+      }, { merge: true });
+    },
+    [currentUser, yearlyGoalHistory]
+  );
 
   // Sync user authentication state
   useEffect(() => {
@@ -166,6 +261,8 @@ function App() {
       stats: 0,
       streaks: 0,
       profile: 0,
+      'daily-goals': 0,
+      'yearly-goals': 0,
     }),
     [books]
   );
@@ -323,9 +420,34 @@ function App() {
               onSelectView={setView}
               streakLog={streakLog}
               userId={currentUser?.id}
+              dailyGoal={dailyGoal}
+              setDailyGoal={handleUpdateDailyGoal}
+              yearlyGoal={yearlyGoal}
+              setYearlyGoal={handleUpdateYearlyGoal}
             />
           )}
 
+          {view === 'daily-goals' && currentUser && (
+            <DailyGoalsPage
+              streakLog={streakLog}
+              onUpdateStreakLog={setStreakLog}
+              dailyGoal={dailyGoal}
+              dailyGoalHistory={dailyGoalHistory}
+              onUpdateDailyGoal={handleUpdateDailyGoal}
+              onBack={() => setView('dashboard')}
+            />
+          )}
+
+          {view === 'yearly-goals' && currentUser && (
+            <YearlyGoalsPage
+              books={books}
+              yearlyGoal={yearlyGoal}
+              yearlyGoalHistory={yearlyGoalHistory}
+              onUpdateYearlyGoal={handleUpdateYearlyGoal}
+              onBack={() => setView('dashboard')}
+              onOpenBook={(b) => setSelectedBookId(b.id)}
+            />
+          )}
 
           {view === 'streaks' && (
             <StreakManager
