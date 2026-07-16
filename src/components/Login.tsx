@@ -36,7 +36,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState(''); // Only used for Sign Up
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -436,6 +436,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
             <button
               type="button"
               onClick={() => {
+                // Note: Add 'setIsSignUp' back to the useState hook on line 39 to restore functionality
                 setIsSignUp(!isSignUp);
                 setError('');
               }}
