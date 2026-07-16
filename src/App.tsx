@@ -299,6 +299,8 @@ function App() {
             <Profile
               currentUser={currentUser}
               onUpdateUser={(updatedUser) => setCurrentUser(updatedUser)}
+              books={books}
+              streakLog={streakLog}
             />
           )}
 
