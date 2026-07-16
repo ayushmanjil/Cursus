@@ -411,7 +411,6 @@ function App() {
               onOpen={(b) => setSelectedBookId(b.id)}
               onSelectView={setView}
               streakLog={streakLog}
-              userId={currentUser?.id}
               dailyGoal={dailyGoal}
               setDailyGoal={handleUpdateDailyGoal}
               yearlyGoal={yearlyGoal}
