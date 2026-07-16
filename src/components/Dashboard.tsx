@@ -41,7 +41,6 @@ interface DashboardProps {
   onOpen: (book: Book) => void;
   onSelectView?: (view: ViewKey) => void;
   streakLog?: Record<string, { read: boolean; pages?: number; hours?: number }>;
-  userId?: string;
   dailyGoal: number | null;
   setDailyGoal: (g: number) => Promise<void>;
   yearlyGoal: number | null;
@@ -53,7 +52,6 @@ export function Dashboard({
   onOpen,
   onSelectView,
   streakLog = {},
-  userId,
   dailyGoal,
   setDailyGoal,
   yearlyGoal,

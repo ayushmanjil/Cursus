@@ -3,7 +3,6 @@ import {
   ChevronLeft,
   Calendar,
   Check,
-  X,
   Edit2,
   TrendingUp,
   BookOpen,

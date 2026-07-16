@@ -50,19 +50,16 @@ function App() {
 
   // Daily Goal state
   const [dailyGoal, setDailyGoalState] = useState<number | null>(null);
-  const [dailyGoalDate, setDailyGoalDate] = useState<string | null>(null);
   const [dailyGoalHistory, setDailyGoalHistory] = useState<Record<string, number>>({});
 
   // Yearly Goal state
   const [yearlyGoal, setYearlyGoalState] = useState<number | null>(null);
-  const [yearlyGoalYear, setYearlyGoalYear] = useState<number | null>(null);
   const [yearlyGoalHistory, setYearlyGoalHistory] = useState<Record<string, number>>({});
 
   // Sync daily goal with Firestore
   useEffect(() => {
     if (!currentUser) {
       setDailyGoalState(null);
-      setDailyGoalDate(null);
       setDailyGoalHistory({});
       return;
     }
@@ -71,11 +68,9 @@ function App() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setDailyGoalState(typeof data.dailyGoal === 'number' ? data.dailyGoal : null);
-        setDailyGoalDate(data.dailyGoalDate || null);
         setDailyGoalHistory(data.history || {});
       } else {
         setDailyGoalState(null);
-        setDailyGoalDate(null);
         setDailyGoalHistory({});
       }
     });
@@ -86,7 +81,6 @@ function App() {
   useEffect(() => {
     if (!currentUser) {
       setYearlyGoalState(null);
-      setYearlyGoalYear(null);
       setYearlyGoalHistory({});
       return;
     }
@@ -95,11 +89,9 @@ function App() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setYearlyGoalState(typeof data.yearlyGoal === 'number' ? data.yearlyGoal : null);
-        setYearlyGoalYear(typeof data.yearlyGoalYear === 'number' ? data.yearlyGoalYear : null);
         setYearlyGoalHistory(data.history || {});
       } else {
         setYearlyGoalState(null);
-        setYearlyGoalYear(null);
         setYearlyGoalHistory({});
       }
     });
