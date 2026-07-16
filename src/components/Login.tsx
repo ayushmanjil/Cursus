@@ -431,6 +431,21 @@ export function Login({ onLoginSuccess }: LoginProps) {
             </Button>
           </form>
 
+          {/* Toggle between Sign In and Sign Up */}
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setError('');
+              }}
+              disabled={loading}
+              className="text-xs text-brass-400 hover:text-brass-300 transition-colors font-semibold focus:outline-none"
+            >
+              {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+            </button>
+          </div>
+
           {/* Guest / Demo Access Divider */}
           <div className="relative flex items-center justify-center my-6">
             <div className="absolute inset-0 flex items-center">
