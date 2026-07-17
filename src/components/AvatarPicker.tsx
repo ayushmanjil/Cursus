@@ -11,9 +11,6 @@ interface AvatarPickerProps {
 }
 
 export function AvatarPicker({ open, currentAvatarId, onSelect, onClose }: AvatarPickerProps) {
-  const males = AVATARS.filter((a) => a.gender === 'male');
-  const females = AVATARS.filter((a) => a.gender === 'female');
-
   return (
     <AnimatePresence>
       {open && (
@@ -51,13 +48,10 @@ export function AvatarPicker({ open, currentAvatarId, onSelect, onClose }: Avata
               </button>
             </div>
 
-            {/* Male avatars */}
+            {/* Avatars Grid */}
             <div className="mb-4">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-ink-muted/50 dark:text-[#FAF7F1]/30 mb-2 px-0.5">
-                ♂ Scholarly Men
-              </p>
               <div className="grid grid-cols-5 gap-2">
-                {males.map((avatar) => {
+                {AVATARS.map((avatar) => {
                   const isSelected = currentAvatarId === avatar.id;
                   return (
                     <button
@@ -70,54 +64,6 @@ export function AvatarPicker({ open, currentAvatarId, onSelect, onClose }: Avata
                       }`}
                     >
                       {/* Selection ring */}
-                      <div className={`relative w-14 h-14 rounded-full transition-all duration-200 ${
-                        isSelected ? 'ring-2 ring-brass-500 ring-offset-2 ring-offset-white dark:ring-offset-[#1C1712]' : ''
-                      }`}>
-                        <img
-                          src={avatar.src}
-                          alt={avatar.label}
-                          className="w-full h-full rounded-full object-cover"
-                          draggable={false}
-                        />
-                        {isSelected && (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            className="absolute -top-1 -right-1 w-4.5 h-4.5 rounded-full bg-brass-500 flex items-center justify-center shadow-md"
-                          >
-                            <Check size={10} className="text-white dark:text-bgdark stroke-[3]" />
-                          </motion.div>
-                        )}
-                      </div>
-                      <span className={`text-[9px] font-semibold text-center leading-tight transition-colors line-clamp-1 ${
-                        isSelected ? 'text-brass-600 dark:text-brass-300 font-bold' : 'text-ink-muted dark:text-[#FAF7F1]/60 group-hover:text-ink dark:group-hover:text-[#FAF7F1]/80'
-                      }`}>
-                        {avatar.label.replace('The ', '')}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Female avatars */}
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-ink-muted/50 dark:text-[#FAF7F1]/30 mb-2 px-0.5">
-                ♀ Scholarly Women
-              </p>
-              <div className="grid grid-cols-5 gap-2">
-                {females.map((avatar) => {
-                  const isSelected = currentAvatarId === avatar.id;
-                  return (
-                    <button
-                      key={avatar.id}
-                      onClick={() => onSelect(avatar)}
-                      className={`group relative flex flex-col items-center gap-1.5 p-1.5 rounded-xl border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brass-400 ${
-                        isSelected
-                          ? 'border-brass-500 bg-brass-500/10 shadow-[0_0_16px_rgba(184,134,63,0.15)]'
-                          : 'border-ink/5 dark:border-[#FAF7F1]/8 bg-paper-soft/40 dark:bg-[#FAF7F1]/3 hover:border-brass-500/40 dark:hover:border-brass-500/40 hover:bg-paper-soft dark:hover:bg-[#FAF7F1]/6'
-                      }`}
-                    >
                       <div className={`relative w-14 h-14 rounded-full transition-all duration-200 ${
                         isSelected ? 'ring-2 ring-brass-500 ring-offset-2 ring-offset-white dark:ring-offset-[#1C1712]' : ''
                       }`}>
