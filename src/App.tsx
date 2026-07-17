@@ -378,7 +378,7 @@ function App() {
         hasPendingBadge={hasPendingBadge}
       />
 
-      <div className="flex min-h-screen flex-1 flex-col lg:pl-0">
+      <div className="flex min-h-screen flex-1 flex-col lg:pl-0 overflow-x-hidden">
         <TopBar
           title={meta.title}
           subtitle={meta.subtitle}

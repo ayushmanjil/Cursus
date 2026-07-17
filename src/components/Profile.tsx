@@ -513,7 +513,7 @@ export function Profile({
   const CelebrationIconComponent = activeCelebrationBadge ? iconMap[activeCelebrationBadge.icon] : null;
 
   return (
-    <div className="relative mx-auto max-w-5xl flex flex-col items-center justify-start overflow-hidden py-4">
+    <div className="relative mx-auto max-w-5xl flex flex-col items-center justify-start overflow-x-hidden py-4">
       
       {/* Dynamic Confetti & Modals Celebration Overlay */}
       {activeCelebrationBadge && CelebrationIconComponent && (
