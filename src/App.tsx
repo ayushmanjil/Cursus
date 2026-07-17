@@ -19,7 +19,7 @@ import type { StreakLog } from './components/StreakManager';
 import { Login } from './components/Login';
 import type { User } from './types/user';
 import { auth, db } from './firebase';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 import { Profile, getEarnedBadges } from './components/Profile';
 import { DailyGoalsPage } from './components/DailyGoalsPage';
 import { YearlyGoalsPage } from './components/YearlyGoalsPage';
@@ -136,13 +136,24 @@ function App() {
 
   // Sync user authentication state
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
+    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
       if (firebaseUser) {
         const username = firebaseUser.email?.split('@')[0] || '';
+        // Load avatar from Firestore profile settings
+        let avatarId: string | undefined;
+        try {
+          const profileDoc = await getDoc(doc(db, 'users', firebaseUser.uid, 'settings', 'profile'));
+          if (profileDoc.exists()) {
+            avatarId = profileDoc.data().avatarId || undefined;
+          }
+        } catch (_) {
+          // ignore — avatar is optional
+        }
         setCurrentUser({
           id: firebaseUser.uid,
           name: firebaseUser.displayName || username,
           username: username,
+          avatarId,
         });
       } else {
         setCurrentUser(null);
@@ -373,6 +384,7 @@ function App() {
         onCloseMobile={() => setMobileMenuOpen(false)}
         onLogout={handleLogout}
         userName={currentUser?.name}
+        userAvatarId={currentUser?.avatarId}
         hasPendingBadge={hasPendingBadge}
       />
 

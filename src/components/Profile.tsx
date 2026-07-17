@@ -24,18 +24,23 @@ import {
   Gem,
   Zap,
   Eye,
-  EyeOff
+  EyeOff,
+  Camera
 } from 'lucide-react';
 import { Button } from './ui/Button';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
+import { doc, setDoc } from 'firebase/firestore';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, updateProfile } from 'firebase/auth';
 import type { Book } from '../types/book';
 import type { StreakLog } from './StreakManager';
 import { calculateStreaks } from '../utils/helpers';
+import { AvatarPicker } from './AvatarPicker';
+import { AVATARS } from '../data/avatars';
+import type { AvatarOption } from '../data/avatars';
 
 interface ProfileProps {
-  currentUser: { id: string; name: string; username: string };
-  onUpdateUser: (updatedUser: { id: string; name: string; username: string }) => void;
+  currentUser: { id: string; name: string; username: string; avatarId?: string };
+  onUpdateUser: (updatedUser: { id: string; name: string; username: string; avatarId?: string }) => void;
   books: Book[];
   streakLog: StreakLog;
   acknowledgedBadgeIds: string[];
@@ -319,6 +324,11 @@ export function Profile({
   const [pwdSuccess, setPwdSuccess] = useState('');
   const [pwdError, setPwdError] = useState('');
 
+  // Avatar
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
+  const [avatarId, setAvatarId] = useState(currentUser.avatarId || '');
+  const currentAvatar = AVATARS.find((a) => a.id === avatarId) ?? null;
+
   // Interactive layout states
   const [showSecurity, setShowSecurity] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
@@ -482,6 +492,19 @@ export function Profile({
     }
   };
 
+  // Handle avatar selection — persist to Firestore and propagate up
+  const handleSelectAvatar = async (avatar: AvatarOption) => {
+    setAvatarId(avatar.id);
+    setAvatarPickerOpen(false);
+    try {
+      const docRef = doc(db, 'users', currentUser.id, 'settings', 'profile');
+      await setDoc(docRef, { avatarId: avatar.id }, { merge: true });
+      onUpdateUser({ ...currentUser, avatarId: avatar.id });
+    } catch (err) {
+      console.error('Failed to save avatar:', err);
+    }
+  };
+
   // Determine whether any sidebar/detail panel is expanded
   const isExpanded = showSecurity || showAchievements;
 
@@ -520,6 +543,7 @@ export function Profile({
   const CelebrationIconComponent = activeCelebrationBadge ? iconMap[activeCelebrationBadge.icon] : null;
 
   return (
+    <>
     <div className="relative mx-auto max-w-5xl flex flex-col items-center justify-start overflow-x-hidden py-4">
       
       {/* Dynamic Confetti & Modals Celebration Overlay */}
@@ -775,15 +799,31 @@ export function Profile({
               <form onSubmit={handleUpdateName} className="flex flex-col gap-4">
                 {/* Avatar + Name */}
                 <div className="flex flex-col items-center gap-2">
-                  <div className="relative group w-20 h-20">
-                    <div className="absolute inset-0 bg-gradient-to-tr from-brass-400 to-purple-500 rounded-full blur opacity-25" />
+                  <button
+                    type="button"
+                    onClick={() => setAvatarPickerOpen(true)}
+                    className="relative group w-20 h-20 focus:outline-none"
+                    title="Change avatar"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-tr from-brass-400 to-purple-500 rounded-full blur opacity-25 group-hover:opacity-40 transition-opacity duration-300" />
                     <div className="relative w-full h-full rounded-full bg-paper-soft dark:bg-bgdark-soft border border-brass-500/20 flex items-center justify-center overflow-hidden shadow-sm">
-                      <UserIcon className="w-9 h-9 text-brass-500 dark:text-brass-400" strokeWidth={1.5} />
+                      {currentAvatar ? (
+                        <img src={currentAvatar.src} alt={currentAvatar.label} className="w-full h-full object-cover rounded-full" />
+                      ) : (
+                        <UserIcon className="w-9 h-9 text-brass-500 dark:text-brass-400" strokeWidth={1.5} />
+                      )}
                     </div>
-                  </div>
+                    {/* Camera overlay on hover */}
+                    <div className="absolute inset-0 rounded-full bg-bgdark/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <Camera size={18} className="text-white" />
+                    </div>
+                  </button>
                   <div className="text-center">
                     <h3 className="font-display text-base font-bold text-ink dark:text-paper">{currentUser.name}</h3>
                     <p className="text-xs text-ink-muted dark:text-paper/50 font-mono">@{currentUser.username}</p>
+                    {currentAvatar && (
+                      <p className="text-[10px] font-semibold text-brass-600 dark:text-brass-400 mt-0.5">{currentAvatar.label}</p>
+                    )}
                   </div>
                 </div>
 
@@ -1107,11 +1147,29 @@ export function Profile({
           >
             <form onSubmit={handleUpdateName} className="h-full flex flex-col justify-between z-10">
               <div className="space-y-4">
-                <div className="relative group w-24 h-24 mx-auto mt-0.5">
-                  <div className="absolute inset-0 bg-gradient-to-tr from-brass-400 to-purple-500 rounded-full blur opacity-25 group-hover:opacity-35 transition-opacity duration-300" />
-                  <div className="relative w-full h-full rounded-full bg-paper-soft dark:bg-bgdark-soft border border-brass-500/20 flex items-center justify-center overflow-hidden shadow-sm">
-                    <UserIcon className="w-11 h-11 text-brass-500 dark:text-brass-400" strokeWidth={1.5} />
-                  </div>
+                <div className="flex flex-col items-center gap-1 mx-auto mt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setAvatarPickerOpen(true)}
+                    className="relative group w-24 h-24 focus:outline-none"
+                    title="Change avatar"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-tr from-brass-400 to-purple-500 rounded-full blur opacity-25 group-hover:opacity-40 transition-opacity duration-300" />
+                    <div className="relative w-full h-full rounded-full bg-paper-soft dark:bg-bgdark-soft border border-brass-500/20 flex items-center justify-center overflow-hidden shadow-sm">
+                      {currentAvatar ? (
+                        <img src={currentAvatar.src} alt={currentAvatar.label} className="w-full h-full object-cover rounded-full" />
+                      ) : (
+                        <UserIcon className="w-11 h-11 text-brass-500 dark:text-brass-400" strokeWidth={1.5} />
+                      )}
+                    </div>
+                    {/* Camera overlay on hover */}
+                    <div className="absolute inset-0 rounded-full bg-bgdark/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <Camera size={20} className="text-white" />
+                    </div>
+                  </button>
+                  {currentAvatar && (
+                    <span className="text-[10px] font-semibold text-brass-600 dark:text-brass-400">{currentAvatar.label}</span>
+                  )}
                 </div>
                 <div className="text-center space-y-0.5">
                   <h3 className="font-display text-lg font-bold text-ink dark:text-paper leading-snug">{currentUser.name}</h3>
@@ -1312,5 +1370,14 @@ export function Profile({
         </motion.div>
       )}
     </div>
+
+      {/* Avatar Picker Modal */}
+      <AvatarPicker
+        open={avatarPickerOpen}
+        currentAvatarId={avatarId}
+        onSelect={handleSelectAvatar}
+        onClose={() => setAvatarPickerOpen(false)}
+      />
+    </>
   );
 }

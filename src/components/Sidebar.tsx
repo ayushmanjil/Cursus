@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type { ViewKey } from '../types/book';
 import { classNames } from '../utils/helpers';
+import { AVATARS } from '../data/avatars';
 
 interface NavItem {
   key: ViewKey;
@@ -32,6 +33,7 @@ interface SidebarProps {
   onCloseMobile: () => void;
   onLogout?: () => void;
   userName?: string;
+  userAvatarId?: string;
   hasPendingBadge?: boolean;
 }
 
@@ -45,6 +47,7 @@ export function Sidebar({
   onCloseMobile,
   onLogout,
   userName,
+  userAvatarId,
   hasPendingBadge,
 }: SidebarProps) {
   const primaryItems: NavItem[] = [
@@ -167,8 +170,15 @@ export function Sidebar({
                 )}
                 title="View Profile"
               >
-                <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink/10 text-xs font-semibold text-ink dark:bg-brass-500/20 dark:text-brass-400">
-                  {userName ? userName.charAt(0).toUpperCase() : 'U'}
+                <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink/10 text-xs font-semibold text-ink dark:bg-brass-500/20 dark:text-brass-400 overflow-hidden">
+                  {(() => {
+                    const avatar = AVATARS.find((a) => a.id === userAvatarId);
+                    return avatar ? (
+                      <img src={avatar.src} alt={avatar.label} className="w-full h-full object-cover rounded-full" />
+                    ) : (
+                      userName ? userName.charAt(0).toUpperCase() : 'U'
+                    );
+                  })()}
                   {hasPendingBadge && (
                     <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
