@@ -280,10 +280,11 @@ export function DailyGoalsPage({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {daysInMonthList.map((day) => {
           const pages = streakLog[day.dateStr]?.pages || 0;
-          const targetGoal = dailyGoalHistory[day.dateStr] ?? dailyGoal ?? null;
+          // Only use goal from that specific day's history — never fall back to today's goal
+          const targetGoal: number | null = dailyGoalHistory[day.dateStr] ?? null;
           const isEditing = editingDate === day.dateStr;
 
-          const pct = targetGoal > 0 ? Math.min(100, Math.round((pages / targetGoal) * 100)) : 0;
+          const pct = targetGoal !== null && targetGoal > 0 ? Math.min(100, Math.round((pages / targetGoal) * 100)) : 0;
           
           let cardBorderClass = 'border-ink/10 dark:border-paper/10';
           let cardBgClass = 'bg-surface dark:bg-surface-dark';
@@ -392,15 +393,21 @@ export function DailyGoalsPage({
 
                     {/* Progress Badge */}
                     {pages > 0 ? (
-                      <span
-                        className={`rounded-lg px-2 py-0.5 text-[11px] font-bold tabular-nums ${
-                          pct >= 100
-                            ? 'bg-forest-50 text-forest-600 dark:bg-forest-950/20 dark:text-forest-400'
-                            : 'bg-brass-50 text-brass-600 dark:bg-brass-950/20 dark:text-brass-400'
-                        }`}
-                      >
-                        {pct}%
-                      </span>
+                      targetGoal !== null ? (
+                        <span
+                          className={`rounded-lg px-2 py-0.5 text-[11px] font-bold tabular-nums ${
+                            pct >= 100
+                              ? 'bg-forest-50 text-forest-600 dark:bg-forest-950/20 dark:text-forest-400'
+                              : 'bg-brass-50 text-brass-600 dark:bg-brass-950/20 dark:text-brass-400'
+                          }`}
+                        >
+                          {pct}%
+                        </span>
+                      ) : (
+                        <span className="rounded-lg bg-ink/5 px-2 py-0.5 text-[10px] font-medium text-ink-faint dark:bg-paper/5 dark:text-paper/30 italic">
+                          No goal
+                        </span>
+                      )
                     ) : (
                       <span className="rounded-lg bg-ink/5 px-2 py-0.5 text-[10px] font-medium text-ink-faint dark:bg-paper/5 dark:text-paper/30 italic">
                         Empty
@@ -413,19 +420,25 @@ export function DailyGoalsPage({
                     {pages > 0 ? (
                       <div>
                         <div className="flex justify-between items-center text-xs text-ink-muted dark:text-paper/50 mb-1">
-                          <span>Progress</span>
+                          <span>{targetGoal !== null ? 'Progress' : 'Pages read'}</span>
                           <span className="font-semibold text-ink dark:text-paper">
-                            {pages}{targetGoal !== null ? ` / ${targetGoal} pages` : ' pages read'}
+                            {targetGoal !== null ? `${pages} / ${targetGoal} pages` : `${pages} pages`}
                           </span>
                         </div>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10 dark:bg-paper/10">
-                          <div
-                            className={`h-full rounded-full transition-all ${
-                              pct >= 100 ? 'bg-forest-500' : 'bg-brass-500'
-                            }`}
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
+                        {targetGoal !== null ? (
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10 dark:bg-paper/10">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                pct >= 100 ? 'bg-forest-500' : 'bg-brass-500'
+                              }`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 mt-1">
+                            <span className="text-[10px] text-ink-faint dark:text-paper/30 italic">No goal set for this day</span>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="flex items-center gap-1.5 py-1 text-xs text-ink-muted/65 dark:text-paper/40 italic">
@@ -442,7 +455,13 @@ export function DailyGoalsPage({
                   {/* Bottom Row: Actions */}
                   <div className="flex items-center justify-between border-t border-ink/5 dark:border-paper/5 pt-2.5">
                     <span className="text-[11px] text-ink-faint dark:text-paper/30">
-                      {pages > 0 && pct >= 100 ? "🎉 Completed!" : pages > 0 ? "📖 In progress" : "🎯 No reading yet"}
+                      {pages > 0 && targetGoal !== null && pct >= 100
+                        ? '🎉 Completed!'
+                        : pages > 0 && targetGoal !== null
+                        ? '📖 In progress'
+                        : pages > 0
+                        ? '📖 No goal set'
+                        : '🎯 No reading yet'}
                     </span>
                     <button
                       onClick={() => handleStartEdit(day.dateStr, pages, targetGoal)}

@@ -22,7 +22,9 @@ import {
   Scroll,
   Shield,
   Gem,
-  Zap
+  Zap,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { auth } from '../firebase';
@@ -305,6 +307,9 @@ export function Profile({
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPwd, setShowCurrentPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
 
   const [nameLoading, setNameLoading] = useState(false);
   const [nameSuccess, setNameSuccess] = useState('');
@@ -321,6 +326,8 @@ export function Profile({
 
   // Active badge validation state being celebrated
   const [activeCelebrationBadge, setActiveCelebrationBadge] = useState<Badge | null>(null);
+  // Badge tapped for detail view in achievement list
+  const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -576,6 +583,62 @@ export function Profile({
         </div>
       )}
 
+      {/* Badge Detail Popup */}
+      {selectedBadge && (() => {
+        const SelectedIconComponent = iconMap[selectedBadge.icon];
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-bgdark/70 backdrop-blur-sm"
+            onClick={() => setSelectedBadge(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.88, opacity: 0, y: 12 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-[90%] sm:w-[320px] rounded-2xl border border-brass-500/15 bg-gradient-to-br from-white via-white to-paper-soft dark:from-[#211C17] dark:via-[#211C17] dark:to-[#1C1712] p-6 text-center shadow-[0_24px_60px_rgba(0,0,0,0.3),_0_0_40px_rgba(184,134,63,0.05)] flex flex-col items-center gap-4"
+            >
+              {/* Close button */}
+              <button
+                onClick={() => setSelectedBadge(null)}
+                className="absolute top-3 right-3 rounded-full p-1 text-ink-faint dark:text-paper/30 hover:text-ink dark:hover:text-paper hover:bg-ink/5 dark:hover:bg-paper/10 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+
+              {/* Badge icon */}
+              <div className="relative w-20 h-20 flex items-center justify-center">
+                <div className="absolute inset-0 rounded-full blur-lg opacity-30 bg-gradient-to-tr from-brass-400 to-purple-500" />
+                <div className={`relative w-16 h-16 rounded-full border-2 flex items-center justify-center shadow-md ${selectedBadge.colorClass}`}>
+                  <SelectedIconComponent size={30} />
+                </div>
+              </div>
+
+              {/* Badge info */}
+              <div className="space-y-1.5">
+                <span className="inline-block text-[9px] font-bold uppercase tracking-[0.18em] text-brass-600 dark:text-brass-400">
+                  Achievement Unlocked
+                </span>
+                <h3 className="font-display text-base font-bold text-ink dark:text-paper leading-tight">
+                  {selectedBadge.title}
+                </h3>
+                <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-forest-500/10 text-forest-600 dark:bg-forest-500/20 dark:text-forest-400">
+                  {selectedBadge.requirementText}
+                </span>
+              </div>
+
+              <p className="text-[11px] text-ink-muted dark:text-paper/60 leading-relaxed">
+                {selectedBadge.description}
+              </p>
+
+              <p className="font-serif italic text-[11px] text-ink-muted dark:text-paper/50 px-3 leading-relaxed border-l-2 border-brass-500/30 text-left">
+                &ldquo;{selectedBadge.motivationalText}&rdquo;
+              </p>
+            </motion.div>
+          </div>
+        );
+      })()}
+
       {/* Subtle Dotted Background Grid overlay */}
       <div className="absolute inset-0 bg-[radial-gradient(rgba(184,134,63,0.06)_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none z-0" />
 
@@ -826,23 +889,41 @@ export function Profile({
 
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">Current Password</label>
-                  <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
-                    placeholder={isDemoUser ? "Disabled for demo user" : "Enter current password"}
-                    className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
+                  <div className="relative">
+                    <input type={showCurrentPwd ? 'text' : 'password'} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
+                      placeholder={isDemoUser ? "Disabled for demo user" : "Enter current password"}
+                      className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 pr-9 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
+                    <button type="button" onClick={() => setShowCurrentPwd(v => !v)} disabled={pwdLoading || isDemoUser}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40 hover:text-ink dark:hover:text-paper transition-colors disabled:opacity-40" tabIndex={-1}>
+                      {showCurrentPwd ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">New Password</label>
-                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
-                    placeholder={isDemoUser ? "Disabled for demo user" : "Minimum 6 characters"}
-                    className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
+                  <div className="relative">
+                    <input type={showNewPwd ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
+                      placeholder={isDemoUser ? "Disabled for demo user" : "Minimum 6 characters"}
+                      className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 pr-9 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
+                    <button type="button" onClick={() => setShowNewPwd(v => !v)} disabled={pwdLoading || isDemoUser}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40 hover:text-ink dark:hover:text-paper transition-colors disabled:opacity-40" tabIndex={-1}>
+                      {showNewPwd ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">Confirm Password</label>
-                  <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
-                    placeholder={isDemoUser ? "Disabled for demo user" : "Re-enter new password"}
-                    className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2.5 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
+                  <div className="relative">
+                    <input type={showConfirmPwd ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
+                      placeholder={isDemoUser ? "Disabled for demo user" : "Re-enter new password"}
+                      className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2.5 pr-9 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
+                    <button type="button" onClick={() => setShowConfirmPwd(v => !v)} disabled={pwdLoading || isDemoUser}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40 hover:text-ink dark:hover:text-paper transition-colors disabled:opacity-40" tabIndex={-1}>
+                      {showConfirmPwd ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
                 </div>
 
                 {pwdError && (
@@ -891,9 +972,10 @@ export function Profile({
                     return (
                       <div
                         key={badge.id}
+                        onClick={() => earned ? setSelectedBadge(badge) : undefined}
                         className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all duration-300 ${
                           earned
-                            ? 'bg-gradient-to-r from-white via-white/95 to-[#B8863F]/5 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#B8863F]/5 border-[#B8863F]/20 dark:border-[#B8863F]/15 shadow-[0_0_12px_rgba(184,134,63,0.05)]'
+                            ? 'bg-gradient-to-r from-white via-white/95 to-[#B8863F]/5 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#B8863F]/5 border-[#B8863F]/20 dark:border-[#B8863F]/15 shadow-[0_0_12px_rgba(184,134,63,0.05)] cursor-pointer hover:shadow-[0_0_18px_rgba(184,134,63,0.12)] hover:border-[#B8863F]/35 active:scale-[0.98]'
                             : 'bg-paper-soft/10 dark:bg-bgdark-soft/10 border-dashed border-ink/10 dark:border-paper/10 opacity-60'
                         }`}
                       >
@@ -1116,21 +1198,39 @@ export function Profile({
                 )}
                 <div className="space-y-1">
                   <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">Current Password</label>
-                  <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
-                    placeholder={isDemoUser ? "Disabled for demo user" : "Enter current password"}
-                    className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
+                  <div className="relative">
+                    <input type={showCurrentPwd ? 'text' : 'password'} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
+                      placeholder={isDemoUser ? "Disabled for demo user" : "Enter current password"}
+                      className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 pr-9 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
+                    <button type="button" onClick={() => setShowCurrentPwd(v => !v)} disabled={pwdLoading || isDemoUser}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40 hover:text-ink dark:hover:text-paper transition-colors disabled:opacity-40" tabIndex={-1}>
+                      {showCurrentPwd ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">New Password</label>
-                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
-                    placeholder={isDemoUser ? "Disabled for demo user" : "Minimum 6 characters"}
-                    className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
+                  <div className="relative">
+                    <input type={showNewPwd ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
+                      placeholder={isDemoUser ? "Disabled for demo user" : "Minimum 6 characters"}
+                      className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 pr-9 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
+                    <button type="button" onClick={() => setShowNewPwd(v => !v)} disabled={pwdLoading || isDemoUser}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40 hover:text-ink dark:hover:text-paper transition-colors disabled:opacity-40" tabIndex={-1}>
+                      {showNewPwd ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">Confirm Password</label>
-                  <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
-                    placeholder={isDemoUser ? "Disabled for demo user" : "Re-enter new password"}
-                    className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2.5 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
+                  <div className="relative">
+                    <input type={showConfirmPwd ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
+                      placeholder={isDemoUser ? "Disabled for demo user" : "Re-enter new password"}
+                      className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2.5 pr-9 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
+                    <button type="button" onClick={() => setShowConfirmPwd(v => !v)} disabled={pwdLoading || isDemoUser}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40 hover:text-ink dark:hover:text-paper transition-colors disabled:opacity-40" tabIndex={-1}>
+                      {showConfirmPwd ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
                 </div>
               </div>
               {pwdError && (
@@ -1175,9 +1275,10 @@ export function Profile({
                     return (
                       <div
                         key={badge.id}
+                        onClick={() => earned ? setSelectedBadge(badge) : undefined}
                         className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all duration-300 ${
                           earned
-                            ? 'bg-gradient-to-r from-white via-white/95 to-[#B8863F]/5 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#B8863F]/5 border-[#B8863F]/20 dark:border-[#B8863F]/15 shadow-[0_0_12px_rgba(184,134,63,0.05)]'
+                            ? 'bg-gradient-to-r from-white via-white/95 to-[#B8863F]/5 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#B8863F]/5 border-[#B8863F]/20 dark:border-[#B8863F]/15 shadow-[0_0_12px_rgba(184,134,63,0.05)] cursor-pointer hover:shadow-[0_0_18px_rgba(184,134,63,0.12)] hover:border-[#B8863F]/35 active:scale-[0.98]'
                             : 'bg-paper-soft/10 dark:bg-bgdark-soft/10 border-dashed border-ink/10 dark:border-paper/10 opacity-60'
                         }`}
                       >

@@ -186,15 +186,25 @@ function App() {
     [currentUser, streakLog]
   );
 
-  // Sync acknowledged badge IDs with localStorage
-  const [acknowledgedBadgeIds, setAcknowledgedBadgeIds] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('ack_badges_guest');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
+  // Sync acknowledged badge IDs with Firestore (cross-device)
+  const [acknowledgedBadgeIds, setAcknowledgedBadgeIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!currentUser) {
+      setAcknowledgedBadgeIds([]);
+      return;
     }
-  });
+    const docRef = doc(db, 'users', currentUser.id, 'settings', 'acknowledgedBadges');
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setAcknowledgedBadgeIds(Array.isArray(data.ids) ? data.ids : []);
+      } else {
+        setAcknowledgedBadgeIds([]);
+      }
+    });
+    return unsubscribe;
+  }, [currentUser]);
 
   // Calculate earned badges
   const earnedBadges = useMemo(() => {
@@ -206,22 +216,10 @@ function App() {
     return earnedBadges.some((b) => !acknowledgedBadgeIds.includes(b.id));
   }, [earnedBadges, acknowledgedBadgeIds]);
 
-  const handleAcknowledgeBadges = useCallback((badgeIds: string[]) => {
+  const handleAcknowledgeBadges = useCallback(async (badgeIds: string[]) => {
     if (!currentUser) return;
-    setAcknowledgedBadgeIds(badgeIds);
-    localStorage.setItem(`ack_badges_${currentUser.id}`, JSON.stringify(badgeIds));
-  }, [currentUser]);
-
-  // Sync state when currentUser is loaded
-  useEffect(() => {
-    if (currentUser) {
-      try {
-        const saved = localStorage.getItem(`ack_badges_${currentUser.id}`);
-        setAcknowledgedBadgeIds(saved ? JSON.parse(saved) : []);
-      } catch {
-        setAcknowledgedBadgeIds([]);
-      }
-    }
+    const docRef = doc(db, 'users', currentUser.id, 'settings', 'acknowledgedBadges');
+    await setDoc(docRef, { ids: badgeIds }, { merge: true });
   }, [currentUser]);
 
   const [view, setView] = useState<ViewKey>('dashboard');
@@ -364,7 +362,7 @@ function App() {
   }
 
   return (
-    <div className="flex min-h-screen bg-paper text-ink dark:bg-bgdark dark:text-paper">
+    <div className="flex h-screen overflow-hidden bg-paper text-ink dark:bg-bgdark dark:text-paper">
       <Sidebar
         active={view}
         onSelect={setView}
@@ -378,7 +376,7 @@ function App() {
         hasPendingBadge={hasPendingBadge}
       />
 
-      <div className="flex min-h-screen flex-1 flex-col lg:pl-0 overflow-x-hidden">
+      <div className="flex h-screen flex-1 flex-col lg:pl-0 overflow-x-hidden overflow-y-auto">
         <TopBar
           title={meta.title}
           subtitle={meta.subtitle}
