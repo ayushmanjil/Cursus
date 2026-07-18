@@ -17,7 +17,6 @@ import { getLocalDateString, classNames } from '../utils/helpers';
 interface DailyGoalsPageProps {
   streakLog: StreakLog;
   onUpdateStreakLog: (newLog: StreakLog) => Promise<void> | void;
-  dailyGoal: number | null;
   dailyGoalHistory: Record<string, number>;
   onUpdateDailyGoal: (newGoal: number, dateStr?: string) => Promise<void> | void;
   onBack: () => void;
@@ -26,7 +25,6 @@ interface DailyGoalsPageProps {
 export function DailyGoalsPage({
   streakLog,
   onUpdateStreakLog,
-  dailyGoal,
   dailyGoalHistory,
   onUpdateDailyGoal,
   onBack,
@@ -70,17 +68,25 @@ export function DailyGoalsPage({
 
   // Calculate statistics across history
   const stats = useMemo(() => {
-    const dates = Object.keys(streakLog).filter((d) => d <= todayStr);
+    const datesSet = new Set<string>();
+    Object.keys(streakLog).forEach((d) => datesSet.add(d));
+    Object.keys(dailyGoalHistory).forEach((d) => datesSet.add(d));
+    
+    const dates = Array.from(datesSet).filter((d) => d <= todayStr);
+    
     let totalPages = 0;
     let completedDays = 0;
     let loggedDays = 0;
 
     dates.forEach((dStr) => {
       const pages = streakLog[dStr]?.pages || 0;
-      const target = dailyGoalHistory[dStr] ?? dailyGoal ?? 0;
+      const target = dailyGoalHistory[dStr] ?? null;
 
       if (pages > 0) {
         totalPages += pages;
+      }
+
+      if (target !== null && target > 0) {
         loggedDays++;
         if (pages >= target) {
           completedDays++;
@@ -96,7 +102,7 @@ export function DailyGoalsPage({
       loggedDays,
       completionRate,
     };
-  }, [streakLog, dailyGoalHistory, dailyGoal, todayStr]);
+  }, [streakLog, dailyGoalHistory, todayStr]);
 
   // List of days for the selected month (reverse order)
   const daysInMonthList = useMemo(() => {

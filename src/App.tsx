@@ -440,7 +440,6 @@ function App() {
             <DailyGoalsPage
               streakLog={streakLog}
               onUpdateStreakLog={setStreakLog}
-              dailyGoal={dailyGoal}
               dailyGoalHistory={dailyGoalHistory}
               onUpdateDailyGoal={handleUpdateDailyGoal}
               onBack={() => setView('dashboard')}
