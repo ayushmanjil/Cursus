@@ -1058,7 +1058,7 @@ export function Profile({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut", delay: 0.1 }}
           style={{ transformStyle: 'preserve-3d', perspective: 1000 }}
-          className="relative w-full max-w-4xl flex items-center justify-center min-h-[530px] overflow-visible z-10"
+          className="relative w-full max-w-4xl flex items-center justify-center min-h-[550px] overflow-visible z-10"
         >
           {/* LEFT LITERARY SIDE-BOARD (Motivation board) */}
           <motion.div
@@ -1143,10 +1143,10 @@ export function Profile({
           <motion.div
             animate={profileAnimate}
             transition={{ type: 'spring', stiffness: 120, damping: 18 }}
-            className="absolute w-[420px] h-[510px] rounded-xl2 border border-ink/10 dark:border-paper/10 bg-gradient-to-br from-white via-white/95 to-paper-soft/90 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#1C1712]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15),_0_0_40px_rgba(184,134,63,0.04)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55),_0_0_50px_rgba(184,134,63,0.06)] flex flex-col justify-between p-6 z-10 overflow-hidden"
+            className="absolute w-[420px] h-[530px] rounded-xl2 border border-ink/10 dark:border-paper/10 bg-gradient-to-br from-white via-white/95 to-paper-soft/90 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#1C1712]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15),_0_0_40px_rgba(184,134,63,0.04)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55),_0_0_50px_rgba(184,134,63,0.06)] flex flex-col justify-between p-6 z-10 overflow-hidden"
           >
             <form onSubmit={handleUpdateName} className="h-full flex flex-col justify-between z-10">
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="flex flex-col items-center gap-1 mx-auto mt-0.5">
                   <button
                     type="button"
@@ -1237,7 +1237,7 @@ export function Profile({
             animate={securityAnimate}
             transition={{ type: 'spring', stiffness: 120, damping: 18 }}
             style={{ pointerEvents: showSecurity ? 'auto' : 'none' }}
-            className="absolute w-[420px] h-[510px] rounded-xl2 border border-ink/10 dark:border-paper/10 bg-gradient-to-br from-white via-white/95 to-paper-soft/90 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#1C1712]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15),_0_0_40px_rgba(184,134,63,0.04)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55),_0_0_50px_rgba(184,134,63,0.06)] flex flex-col justify-between p-6 z-0 overflow-hidden"
+            className="absolute w-[420px] h-[530px] rounded-xl2 border border-ink/10 dark:border-paper/10 bg-gradient-to-br from-white via-white/95 to-paper-soft/90 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#1C1712]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15),_0_0_40px_rgba(184,134,63,0.04)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55),_0_0_50px_rgba(184,134,63,0.06)] flex flex-col justify-between p-6 z-0 overflow-hidden"
           >
             <form onSubmit={handleUpdatePassword} className="h-full flex flex-col justify-between z-10">
               <div className="space-y-4">
@@ -1315,7 +1315,7 @@ export function Profile({
             animate={achievementsAnimate}
             transition={{ type: 'spring', stiffness: 120, damping: 18 }}
             style={{ pointerEvents: showAchievements ? 'auto' : 'none' }}
-            className="absolute w-[420px] h-[510px] rounded-xl2 border border-ink/10 dark:border-paper/10 bg-gradient-to-br from-white via-white/95 to-paper-soft/90 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#1C1712]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15),_0_0_40px_rgba(184,134,63,0.04)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55),_0_0_50px_rgba(184,134,63,0.06)] flex flex-col justify-between p-6 z-0 overflow-hidden"
+            className="absolute w-[420px] h-[530px] rounded-xl2 border border-ink/10 dark:border-paper/10 bg-gradient-to-br from-white via-white/95 to-paper-soft/90 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#1C1712]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15),_0_0_40px_rgba(184,134,63,0.04)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55),_0_0_50px_rgba(184,134,63,0.06)] flex flex-col justify-between p-6 z-0 overflow-hidden"
           >
             <div className="h-full flex flex-col justify-between z-10">
               <div className="space-y-4 flex flex-col h-full">
@@ -1326,7 +1326,7 @@ export function Profile({
                   <Award size={16} className="text-purple-500" />
                   <h3 className="font-display text-base font-semibold text-ink dark:text-paper">Unlocked Badges</h3>
                 </div>
-                <div className="flex-1 overflow-y-auto pr-1 space-y-2 max-h-[380px] scrollbar-thin scrollbar-thumb-ink/10">
+                <div className="flex-1 overflow-y-auto pr-1 space-y-2 max-h-[400px] scrollbar-thin scrollbar-thumb-ink/10">
                   {BADGES.map((badge) => {
                     const earned = badge.isEarned({ booksRead: totalBooksRead, pagesRead: totalPagesRead, highestStreak }, books);
                     const IconComponent = iconMap[badge.icon];

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '../firebase';
-import { collection, query, orderBy, onSnapshot, doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, setDoc, updateDoc, deleteDoc, writeBatch, deleteField } from 'firebase/firestore';
 import type { Book, BookStatus } from '../types/book';
 import { generateId, todayIso } from '../utils/helpers';
 
@@ -86,18 +86,19 @@ export function useBooks(userId: string | undefined) {
       const b = books.find((x) => x.id === id);
       if (!b) return;
 
-      const patch: Partial<Book> = { status };
+      const patch: any = { status };
       if (status === 'read') {
         patch.dateFinished = todayIso();
         if (rating !== undefined) patch.rating = rating;
         patch.currentPage = b.totalPages || b.currentPage;
       } else if (status === 'reading') {
-        patch.dateFinished = undefined;
+        patch.dateFinished = deleteField();
+        patch.rating = deleteField();
         patch.currentPage = b.currentPage && b.currentPage > 0 ? b.currentPage : 0;
       } else if (status === 'on-shelf' || status === 'wishlist') {
-        patch.dateFinished = undefined;
-        patch.rating = undefined;
-        patch.currentPage = undefined;
+        patch.dateFinished = deleteField();
+        patch.rating = deleteField();
+        patch.currentPage = deleteField();
       }
       await updateDoc(doc(db, 'users', userId, 'books', id), patch);
     },

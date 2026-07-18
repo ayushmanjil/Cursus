@@ -312,10 +312,12 @@ export function StreakManager({ log, onUpdateLog }: StreakManagerProps) {
                   <input
                     type="number"
                     min={0}
+                    step="1"
                     value={selectedDayLog.pages || ''}
-                    onChange={(e) =>
-                      handleUpdateNumber('pages', Math.max(0, parseInt(e.target.value) || 0))
-                    }
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value.replace(/[^0-9]/g, ''), 10);
+                      handleUpdateNumber('pages', isNaN(val) ? 0 : val);
+                    }}
                     placeholder="e.g. 25 pages"
                     className="w-full rounded-lg border border-ink/10 bg-paper px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 dark:bg-bgdark dark:text-paper"
                   />

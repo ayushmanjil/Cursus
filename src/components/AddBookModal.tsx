@@ -75,10 +75,12 @@ export function AddBookModal({ open, onClose, onAdd, defaultStatus = 'on-shelf' 
             <input
               type="number"
               min={1}
+              step="1"
               value={form.totalPages ?? ''}
-              onChange={(e) =>
-                setForm({ ...form, totalPages: e.target.value ? Number(e.target.value) : undefined })
-              }
+              onChange={(e) => {
+                const val = parseInt(e.target.value.replace(/[^0-9]/g, ''), 10);
+                setForm({ ...form, totalPages: isNaN(val) ? undefined : val });
+              }}
               placeholder="320"
               className={inputClass}
             />

@@ -438,7 +438,8 @@ export function Dashboard({
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    const n = Math.max(1, Number(dailyGoalInput) || 1);
+                    const val = parseInt(dailyGoalInput, 10);
+                    const n = Math.max(1, isNaN(val) ? 20 : val);
                     setDailyGoal(n);
                     setEditingDailyGoal(false);
                   }}
@@ -451,8 +452,9 @@ export function Dashboard({
                     <input
                       type="number"
                       min={1}
+                      step="1"
                       value={dailyGoalInput}
-                      onChange={(e) => setDailyGoalInput(e.target.value)}
+                      onChange={(e) => setDailyGoalInput(e.target.value.replace(/[^0-9]/g, ''))}
                       placeholder="e.g. 20"
                       className="w-full rounded-lg border border-ink/10 bg-paper px-2.5 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-purple-400 dark:border-paper/10 dark:bg-bgdark dark:text-paper"
                     />
@@ -594,7 +596,8 @@ export function Dashboard({
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    const n = Math.max(1, Number(goalInput) || 1);
+                    const val = parseInt(goalInput, 10);
+                    const n = Math.max(1, isNaN(val) ? 12 : val);
                     setGoal(n);
                     setEditingGoal(false);
                   }}
@@ -604,8 +607,9 @@ export function Dashboard({
                     <input
                       type="number"
                       min={1}
+                      step="1"
                       value={goalInput}
-                      onChange={(e) => setGoalInput(e.target.value)}
+                      onChange={(e) => setGoalInput(e.target.value.replace(/[^0-9]/g, ''))}
                       placeholder="e.g. 12"
                       className="w-full rounded-lg border border-ink/10 bg-paper px-2.5 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 dark:bg-bgdark dark:text-paper"
                     />

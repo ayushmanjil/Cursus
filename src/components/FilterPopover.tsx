@@ -38,16 +38,16 @@ export function FilterPopover({ filter, onChange, genres, hideStatusFilter }: Fi
       <button
         onClick={() => setOpen((o) => !o)}
         className={classNames(
-          'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
+          'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-brass-400',
           activeCount > 0
-            ? 'border-brass-400 bg-brass-50 text-brass-700 dark:border-brass-500/50 dark:bg-brass-500/10 dark:text-brass-300'
-            : 'border-ink/10 bg-surface text-ink-muted hover:bg-ink/5 dark:border-paper/10 dark:bg-surface-dark dark:text-paper/70 dark:hover:bg-paper/10'
+            ? 'border-brass-500/30 bg-brass-50 text-brass-700 dark:border-brass-500/40 dark:bg-brass-500/10 dark:text-brass-300 font-semibold'
+            : 'border-brass-500/20 bg-paper-soft/40 text-ink-muted hover:bg-brass-50 dark:border-brass-500/10 dark:bg-bgdark-soft/40 dark:text-paper/70 dark:hover:bg-brass-950/20'
         )}
       >
-        <SlidersHorizontal size={15} />
+        <SlidersHorizontal size={15} className={activeCount > 0 ? 'text-brass-600 dark:text-brass-400' : 'text-brass-500 dark:text-brass-400'} />
         Filter
         {activeCount > 0 && (
-          <span className="rounded-full bg-brass-500 px-1.5 text-[10px] font-semibold text-white">
+          <span className="rounded-full bg-brass-500 px-1.5 text-[10px] font-semibold text-white dark:bg-brass-500 dark:text-bgdark">
             {activeCount}
           </span>
         )}

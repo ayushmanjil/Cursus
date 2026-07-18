@@ -1,4 +1,4 @@
-import { Search, Plus, Menu, Download, Upload } from 'lucide-react';
+import { Search, Plus, Menu, Download, Upload, X } from 'lucide-react';
 import type { FilterState, SortState } from '../types/book';
 import { SortDropdown } from './SortDropdown';
 import { FilterPopover } from './FilterPopover';
@@ -68,18 +68,28 @@ export function TopBar({
       </div>
 
       {showControls && (
-        <div className="flex flex-col gap-2 px-4 pb-3 sm:flex-row sm:items-center sm:px-6">
+        <div className="flex flex-col gap-3 px-4 pb-3 sm:flex-row sm:items-center sm:px-6">
           <div className="relative flex-1">
             <Search
               size={16}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brass-500 dark:text-brass-400"
             />
             <input
               value={search}
               onChange={(e) => onSearch(e.target.value)}
               placeholder="Search by title, author, or genre…"
-              className="w-full rounded-lg border border-ink/10 bg-surface py-2 pl-9 pr-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 dark:bg-surface-dark dark:text-paper dark:placeholder:text-paper/30"
+              className="w-full rounded-lg border border-brass-500/20 bg-paper-soft/40 py-2 pl-9 pr-9 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-brass-400/30 focus:border-brass-400 focus:bg-paper focus:shadow-[0_0_12px_rgba(184,134,63,0.1)] dark:border-brass-500/10 dark:bg-bgdark-soft/40 dark:text-paper dark:placeholder:text-paper/30 dark:focus:bg-bgdark transition-all duration-200"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => onSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-brass-500 hover:bg-brass-500/10 hover:text-brass-600 dark:text-brass-400 dark:hover:bg-brass-500/20 dark:hover:text-brass-300 transition-colors"
+                title="Clear search"
+              >
+                <X size={14} strokeWidth={2.5} />
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <SortDropdown sort={sort} onChange={onSort} />

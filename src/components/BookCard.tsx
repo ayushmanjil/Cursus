@@ -10,8 +10,10 @@ import {
   BookText,
   ShoppingBag,
 } from 'lucide-react';
-import type { Book } from '../types/book';
+import type { Book, BookStatus } from '../types/book';
+import { STATUS_LABELS } from '../types/book';
 import { GenreBadge, StatusBadge } from './ui/Badge';
+import { ConfirmDialog } from './ui/ConfirmDialog';
 import { StarRating } from './ui/StarRating';
 import { classNames } from '../utils/helpers';
 
@@ -25,6 +27,7 @@ interface BookCardProps {
 
 export function BookCard({ book, onOpen, onToggleFavorite, onSetStatus, onDelete }: BookCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<BookStatus | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -126,7 +129,7 @@ export function BookCard({ book, onOpen, onToggleFavorite, onSetStatus, onDelete
                   icon={BookMarked}
                   label="Move to On Shelf"
                   onClick={() => {
-                    onSetStatus('on-shelf');
+                    setPendingStatus('on-shelf');
                     setMenuOpen(false);
                   }}
                 />
@@ -136,7 +139,7 @@ export function BookCard({ book, onOpen, onToggleFavorite, onSetStatus, onDelete
                   icon={ShoppingBag}
                   label="Move to Hunt List"
                   onClick={() => {
-                    onSetStatus('wishlist');
+                    setPendingStatus('wishlist');
                     setMenuOpen(false);
                   }}
                 />
@@ -146,7 +149,7 @@ export function BookCard({ book, onOpen, onToggleFavorite, onSetStatus, onDelete
                   icon={BookOpen}
                   label="Mark as Reading"
                   onClick={() => {
-                    onSetStatus('reading');
+                    setPendingStatus('reading');
                     setMenuOpen(false);
                   }}
                 />
@@ -156,7 +159,7 @@ export function BookCard({ book, onOpen, onToggleFavorite, onSetStatus, onDelete
                   icon={CheckCircle2}
                   label="Mark as Read"
                   onClick={() => {
-                    onSetStatus('read');
+                    setPendingStatus('read');
                     setMenuOpen(false);
                   }}
                 />
@@ -175,6 +178,30 @@ export function BookCard({ book, onOpen, onToggleFavorite, onSetStatus, onDelete
           )}
         </div>
       </div>
+      <ConfirmDialog
+        open={!!pendingStatus}
+        title={pendingStatus ? `Move to ${STATUS_LABELS[pendingStatus]}?` : ''}
+        message={
+          pendingStatus === 'on-shelf'
+            ? `Are you sure you want to move "${book.title}" to On Shelf? Any reading progress will be lost.`
+            : pendingStatus === 'wishlist'
+            ? `Are you sure you want to move "${book.title}" to Hunt List?`
+            : pendingStatus === 'reading'
+            ? `Are you sure you want to start reading "${book.title}"?`
+            : pendingStatus === 'read'
+            ? `Are you sure you want to mark "${book.title}" as Read?`
+            : ''
+        }
+        confirmLabel={pendingStatus === 'read' ? 'Mark as Read' : pendingStatus === 'reading' ? 'Start Reading' : 'Move'}
+        confirmVariant="primary"
+        onConfirm={() => {
+          if (pendingStatus) {
+            onSetStatus(pendingStatus);
+            setPendingStatus(null);
+          }
+        }}
+        onCancel={() => setPendingStatus(null)}
+      />
     </motion.div>
   );
 }

@@ -330,8 +330,9 @@ export function DailyGoalsPage({
                       <input
                         type="number"
                         min={0}
+                        step="1"
                         value={editPagesInput}
-                        onChange={(e) => setEditPagesInput(e.target.value)}
+                        onChange={(e) => setEditPagesInput(e.target.value.replace(/[^0-9]/g, ''))}
                         className="w-full rounded-lg border border-ink/10 bg-paper px-2.5 py-1.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-purple-400 dark:border-paper/10 dark:bg-bgdark dark:text-paper font-semibold"
                       />
                     </div>
@@ -347,8 +348,9 @@ export function DailyGoalsPage({
                         <input
                           type="number"
                           min={1}
+                          step="1"
                           value={editGoalInput}
-                          onChange={(e) => setEditGoalInput(e.target.value)}
+                          onChange={(e) => setEditGoalInput(e.target.value.replace(/[^0-9]/g, ''))}
                           className="w-full rounded-lg border border-ink/10 bg-paper px-2.5 py-1.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-purple-400 dark:border-paper/10 dark:bg-bgdark dark:text-paper font-semibold"
                         />
                       )}

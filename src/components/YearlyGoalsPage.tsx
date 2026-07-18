@@ -238,8 +238,9 @@ export function YearlyGoalsPage({
                       <input
                         type="number"
                         min={1}
+                        step="1"
                         value={editGoalInput}
-                        onChange={(e) => setEditGoalInput(e.target.value)}
+                        onChange={(e) => setEditGoalInput(e.target.value.replace(/[^0-9]/g, ''))}
                         className="w-16 rounded-md border border-ink/10 bg-paper px-2 py-1 text-xs font-semibold text-ink dark:border-paper/10 dark:bg-bgdark dark:text-paper"
                       />
                       <button

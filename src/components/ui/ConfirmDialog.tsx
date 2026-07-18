@@ -6,6 +6,7 @@ interface ConfirmDialogProps {
   title: string;
   message: string;
   confirmLabel?: string;
+  confirmVariant?: 'primary' | 'danger' | 'secondary';
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -15,6 +16,7 @@ export function ConfirmDialog({
   title,
   message,
   confirmLabel = 'Delete',
+  confirmVariant = 'danger',
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -25,10 +27,11 @@ export function ConfirmDialog({
         <Button variant="secondary" onClick={onCancel}>
           Cancel
         </Button>
-        <Button variant="danger" onClick={onConfirm}>
+        <Button variant={confirmVariant} onClick={onConfirm}>
           {confirmLabel}
         </Button>
       </div>
     </Modal>
   );
 }
+

@@ -6,6 +6,7 @@ import { StarRating } from './ui/StarRating';
 import { CoverUpload } from './ui/CoverUpload';
 import { ConfirmDialog } from './ui/ConfirmDialog';
 import type { Book, BookStatus } from '../types/book';
+import { STATUS_LABELS } from '../types/book';
 import { formatDate, classNames, todayIso } from '../utils/helpers';
 
 interface BookDetailsModalProps {
@@ -30,6 +31,7 @@ export function BookDetailsModal({
   onDelete,
 }: BookDetailsModalProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<BookStatus | null>(null);
   const [local, setLocal] = useState<Book | null>(book);
   const [error, setError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -179,10 +181,12 @@ export function BookDetailsModal({
                   <input
                     type="number"
                     min={1}
+                    step="1"
                     value={local.totalPages ?? ''}
-                    onChange={(e) =>
-                      commitLocal({ totalPages: e.target.value ? Number(e.target.value) : undefined })
-                    }
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value.replace(/[^0-9]/g, ''), 10);
+                      commitLocal({ totalPages: isNaN(val) ? undefined : val });
+                    }}
                     placeholder="e.g. 320"
                     className={inputClass}
                   />
@@ -200,10 +204,12 @@ export function BookDetailsModal({
                       type="number"
                       min={0}
                       max={local.totalPages || undefined}
+                      step="1"
                       value={local.currentPage ?? ''}
-                      onChange={(e) =>
-                        commitLocal({ currentPage: e.target.value ? Number(e.target.value) : undefined })
-                      }
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value.replace(/[^0-9]/g, ''), 10);
+                        commitLocal({ currentPage: isNaN(val) ? undefined : val });
+                      }}
                       placeholder="0"
                       className={inputClass}
                     />
@@ -272,22 +278,22 @@ export function BookDetailsModal({
           {/* Row 1: Move / status buttons */}
           <div className="flex flex-wrap gap-2">
             {local.status !== 'on-shelf' && (
-              <Button variant="secondary" size="sm" onClick={() => handleSetStatusLocal('on-shelf')}>
+              <Button variant="secondary" size="sm" onClick={() => setPendingStatus('on-shelf')}>
                 <BookMarked size={14} /> Move to On Shelf
               </Button>
             )}
             {local.status !== 'wishlist' && (
-              <Button variant="secondary" size="sm" onClick={() => handleSetStatusLocal('wishlist')}>
+              <Button variant="secondary" size="sm" onClick={() => setPendingStatus('wishlist')}>
                 <ShoppingBag size={14} /> Move to Hunt List
               </Button>
             )}
             {local.status !== 'reading' && (
-              <Button variant="secondary" size="sm" onClick={() => handleSetStatusLocal('reading')}>
+              <Button variant="secondary" size="sm" onClick={() => setPendingStatus('reading')}>
                 <BookOpen size={14} /> Mark as Reading
               </Button>
             )}
             {local.status !== 'read' && (
-              <Button variant="secondary" size="sm" onClick={() => handleSetStatusLocal('read')}>
+              <Button variant="secondary" size="sm" onClick={() => setPendingStatus('read')}>
                 <CheckCircle2 size={14} /> Mark as Read
               </Button>
             )}
@@ -342,6 +348,31 @@ export function BookDetailsModal({
           onDelete(book.id);
           onClose();
         }}
+      />
+
+      <ConfirmDialog
+        open={!!pendingStatus}
+        title={pendingStatus ? `Move to ${STATUS_LABELS[pendingStatus]}?` : ''}
+        message={
+          pendingStatus === 'on-shelf'
+            ? `Are you sure you want to move "${book.title}" to On Shelf? Any reading progress will be lost.`
+            : pendingStatus === 'wishlist'
+            ? `Are you sure you want to move "${book.title}" to Hunt List?`
+            : pendingStatus === 'reading'
+            ? `Are you sure you want to start reading "${book.title}"?`
+            : pendingStatus === 'read'
+            ? `Are you sure you want to mark "${book.title}" as Read?`
+            : ''
+        }
+        confirmLabel={pendingStatus === 'read' ? 'Mark as Read' : pendingStatus === 'reading' ? 'Start Reading' : 'Move'}
+        confirmVariant="primary"
+        onConfirm={() => {
+          if (pendingStatus) {
+            handleSetStatusLocal(pendingStatus);
+            setPendingStatus(null);
+          }
+        }}
+        onCancel={() => setPendingStatus(null)}
       />
     </>
   );
