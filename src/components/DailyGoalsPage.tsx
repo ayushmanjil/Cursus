@@ -285,18 +285,25 @@ export function DailyGoalsPage({
           const isEditing = editingDate === day.dateStr;
 
           const pct = targetGoal !== null && targetGoal > 0 ? Math.min(100, Math.round((pages / targetGoal) * 100)) : 0;
+          const hasGoal = targetGoal !== null && targetGoal > 0;
+          const isGoalMet = hasGoal && pages >= targetGoal;
           
           let cardBorderClass = 'border-ink/10 dark:border-paper/10';
           let cardBgClass = 'bg-surface dark:bg-surface-dark';
           
-          if (day.isToday) {
-            cardBorderClass = 'border-purple-400 dark:border-purple-500/50 ring-1 ring-purple-400/20';
-            cardBgClass = 'bg-surface dark:bg-surface-dark/95';
-          } else if (pages > 0 && pct >= 100) {
-            cardBorderClass = 'border-forest-200/80 dark:border-forest-900/30';
+          if (hasGoal) {
+            if (isGoalMet) {
+              cardBorderClass = 'border-forest-200/80 dark:border-forest-900/30';
+              cardBgClass = 'bg-forest-50/20 dark:bg-forest-950/5';
+            } else {
+              cardBorderClass = 'border-burgundy-200/80 dark:border-burgundy-900/30';
+              cardBgClass = 'bg-burgundy-50/10 dark:bg-burgundy-950/5';
+            }
           }
 
-          const hasGoalForDay = typeof dailyGoalHistory[day.dateStr] === 'number';
+          if (day.isToday) {
+            cardBorderClass = `${cardBorderClass} border-purple-400 dark:border-purple-500/50 ring-1 ring-purple-400/20`;
+          }
 
           return (
             <div
@@ -394,22 +401,20 @@ export function DailyGoalsPage({
                     </div>
 
                     {/* Progress Badge */}
-                    {pages > 0 ? (
-                      targetGoal !== null ? (
-                        <span
-                          className={`rounded-lg px-2 py-0.5 text-[11px] font-bold tabular-nums ${
-                            pct >= 100
-                              ? 'bg-forest-50 text-forest-600 dark:bg-forest-950/20 dark:text-forest-400'
-                              : 'bg-brass-50 text-brass-600 dark:bg-brass-950/20 dark:text-brass-400'
-                          }`}
-                        >
-                          {pct}%
-                        </span>
-                      ) : (
-                        <span className="rounded-lg bg-ink/5 px-2 py-0.5 text-[10px] font-medium text-ink-faint dark:bg-paper/5 dark:text-paper/30 italic">
-                          No goal
-                        </span>
-                      )
+                    {hasGoal ? (
+                      <span
+                        className={`rounded-lg px-2 py-0.5 text-[11px] font-bold tabular-nums ${
+                          isGoalMet
+                            ? 'bg-forest-50 text-forest-600 dark:bg-forest-950/20 dark:text-forest-400'
+                            : 'bg-burgundy-50 text-burgundy-600 dark:bg-burgundy-950/20 dark:text-burgundy-400'
+                        }`}
+                      >
+                        {pct}%
+                      </span>
+                    ) : pages > 0 ? (
+                      <span className="rounded-lg bg-ink/5 px-2 py-0.5 text-[10px] font-medium text-ink-faint dark:bg-paper/5 dark:text-paper/30 italic">
+                        No goal
+                      </span>
                     ) : (
                       <span className="rounded-lg bg-ink/5 px-2 py-0.5 text-[10px] font-medium text-ink-faint dark:bg-paper/5 dark:text-paper/30 italic">
                         Empty
@@ -419,48 +424,48 @@ export function DailyGoalsPage({
 
                   {/* Middle Row: Progress numbers & Bar */}
                   <div className="my-3">
-                    {pages > 0 ? (
+                    {hasGoal ? (
                       <div>
                         <div className="flex justify-between items-center text-xs text-ink-muted dark:text-paper/50 mb-1">
-                          <span>{targetGoal !== null ? 'Progress' : 'Pages read'}</span>
+                          <span>Progress</span>
                           <span className="font-semibold text-ink dark:text-paper">
-                            {targetGoal !== null ? `${pages} / ${targetGoal} pages` : `${pages} pages`}
+                            {pages} / {targetGoal} pages
                           </span>
                         </div>
-                        {targetGoal !== null ? (
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10 dark:bg-paper/10">
-                            <div
-                              className={`h-full rounded-full transition-all ${
-                                pct >= 100 ? 'bg-forest-500' : 'bg-brass-500'
-                              }`}
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1 mt-1">
-                            <span className="text-[10px] text-ink-faint dark:text-paper/30 italic">No goal set for this day</span>
-                          </div>
-                        )}
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10 dark:bg-paper/10">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              isGoalMet ? 'bg-forest-500' : 'bg-burgundy-400'
+                            }`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1.5 py-1 text-xs text-ink-muted/65 dark:text-paper/40 italic">
-                        <Target size={13} className="text-ink-faint/60 dark:text-paper/20" />
-                        <span>
-                          {hasGoalForDay
-                            ? `Goal is set to ${targetGoal} pages`
-                            : 'Set goal'}
-                        </span>
+                      <div className="space-y-1.5">
+                        {pages > 0 && (
+                          <div className="flex justify-between items-center text-xs text-ink-muted dark:text-paper/50">
+                            <span>Pages read</span>
+                            <span className="font-semibold text-ink dark:text-paper">
+                              {pages} pages
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1.5 text-xs text-ink-faint dark:text-paper/40 italic">
+                          <Target size={13} className="text-ink-faint/50 dark:text-paper/20" />
+                          <span>No goal set for this day</span>
+                        </div>
                       </div>
                     )}
                   </div>
 
                   {/* Bottom Row: Actions */}
                   <div className="flex items-center justify-between border-t border-ink/5 dark:border-paper/5 pt-2.5">
-                    <span className="text-[11px] text-ink-faint dark:text-paper/30">
-                      {pages > 0 && targetGoal !== null && pct >= 100
-                        ? '🎉 Completed!'
-                        : pages > 0 && targetGoal !== null
-                        ? '📖 In progress'
+                    <span className="text-[11px] text-ink-faint dark:text-paper/30 font-medium">
+                      {hasGoal
+                        ? isGoalMet
+                          ? '🎉 Goal met!'
+                          : '❌ Goal not met'
                         : pages > 0
                         ? '📖 No goal set'
                         : '🎯 No reading yet'}
