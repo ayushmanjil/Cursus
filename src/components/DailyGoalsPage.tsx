@@ -293,16 +293,21 @@ export function DailyGoalsPage({
           
           if (hasGoal) {
             if (isGoalMet) {
-              cardBorderClass = 'border-forest-200/80 dark:border-forest-900/30';
-              cardBgClass = 'bg-forest-50/20 dark:bg-forest-950/5';
-            } else {
-              cardBorderClass = 'border-burgundy-200/80 dark:border-burgundy-900/30';
-              cardBgClass = 'bg-burgundy-50/10 dark:bg-burgundy-950/5';
+              cardBorderClass = 'border-forest-300 dark:border-forest-700';
+              cardBgClass = 'bg-forest-50 dark:bg-forest-700/15';
+            } else if (!day.isToday) {
+              cardBorderClass = 'border-burgundy-300 dark:border-burgundy-600/30';
+              cardBgClass = 'bg-burgundy-50 dark:bg-burgundy-600/15';
             }
           }
 
           if (day.isToday) {
-            cardBorderClass = `${cardBorderClass} border-purple-400 dark:border-purple-500/50 ring-1 ring-purple-400/20`;
+            if (!hasGoal || !isGoalMet) {
+              cardBorderClass = 'border-purple-400 dark:border-purple-500/50 ring-1 ring-purple-400/20';
+              cardBgClass = 'bg-surface dark:bg-surface-dark';
+            } else {
+              cardBorderClass = `${cardBorderClass} ring-1 ring-purple-400/20`;
+            }
           }
 
           return (
@@ -405,8 +410,10 @@ export function DailyGoalsPage({
                       <span
                         className={`rounded-lg px-2 py-0.5 text-[11px] font-bold tabular-nums ${
                           isGoalMet
-                            ? 'bg-forest-50 text-forest-600 dark:bg-forest-950/20 dark:text-forest-400'
-                            : 'bg-burgundy-50 text-burgundy-600 dark:bg-burgundy-950/20 dark:text-burgundy-400'
+                            ? 'bg-forest-50 text-forest-600 dark:bg-forest-500/10 dark:text-forest-400'
+                            : day.isToday
+                            ? 'bg-brass-50 text-brass-600 dark:bg-brass-500/10 dark:text-brass-400'
+                            : 'bg-burgundy-50 text-burgundy-600 dark:bg-burgundy-500/10 dark:text-burgundy-400'
                         }`}
                       >
                         {pct}%
@@ -435,7 +442,11 @@ export function DailyGoalsPage({
                         <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10 dark:bg-paper/10">
                           <div
                             className={`h-full rounded-full transition-all ${
-                              isGoalMet ? 'bg-forest-500' : 'bg-burgundy-400'
+                              isGoalMet
+                                ? 'bg-forest-500'
+                                : day.isToday
+                                ? 'bg-brass-500'
+                                : 'bg-burgundy-400'
                             }`}
                             style={{ width: `${pct}%` }}
                           />
@@ -465,6 +476,8 @@ export function DailyGoalsPage({
                       {hasGoal
                         ? isGoalMet
                           ? '🎉 Goal met!'
+                          : day.isToday
+                          ? ''
                           : '❌ Goal not met'
                         : pages > 0
                         ? '📖 No goal set'
