@@ -135,7 +135,7 @@ export function YearlyGoalsPage({
       <div className="border-b border-ink/5 pb-4 dark:border-paper/5">
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-muted hover:text-ink dark:text-paper/60 dark:hover:text-paper transition-colors"
+          className="inline-flex items-center gap-1 rounded-full border border-purple-500/20 bg-purple-500/10 px-3.5 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-500/20 hover:border-purple-500/30 active:bg-purple-600 active:text-white dark:border-purple-500/20 dark:bg-purple-500/10 dark:text-purple-300 dark:hover:bg-purple-500/20 dark:active:bg-purple-500 dark:active:text-bgdark transition-all duration-75"
         >
           <ChevronLeft size={14} /> Back to Dashboard
         </button>
