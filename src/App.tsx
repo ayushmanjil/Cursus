@@ -11,8 +11,22 @@ import { AddBookModal } from './components/AddBookModal';
 import { BookDetailsModal } from './components/BookDetailsModal';
 import { RatingPromptModal } from './components/RatingPromptModal';
 import { Button } from './components/ui/Button';
-import { Plus } from 'lucide-react';
-
+import {
+  Plus,
+  LayoutGrid,
+  BookMarked,
+  ShoppingBag,
+  BookOpen,
+  CheckCircle2,
+  Heart,
+  BarChart3,
+  Flame,
+  User as UserIcon,
+  Target,
+  Award,
+  BookA,
+  Timer,
+} from 'lucide-react';
 
 import { StreakManager } from './components/StreakManager';
 import type { StreakLog } from './components/StreakManager';
@@ -27,6 +41,8 @@ import { WordLibraryPage } from './components/WordLibraryPage';
 import { FocusTimerPage } from './components/FocusTimerPage';
 import { getLocalDateString } from './utils/helpers';
 import { useWordLibrary } from './hooks/useWordLibrary';
+import { useFocusTimer } from './hooks/useFocusTimer';
+import { seedDemoDataIfEmpty } from './utils/demoData';
 
 const viewMeta: Record<ViewKey, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'Your library at a glance' },
@@ -44,9 +60,78 @@ const viewMeta: Record<ViewKey, { title: string; subtitle: string }> = {
   timer: { title: 'The Reading Nook', subtitle: 'Your quiet space for focus and study' },
 };
 
+const TAB_EXPLANATIONS: Record<ViewKey, { title: string; description: string; icon: React.ElementType }> = {
+  dashboard: {
+    title: 'Dashboard Overview',
+    description: 'Welcome to your reading command center! View your active reading shelf, yearly book goals, daily reading targets, streak progress, and quick stats at a glance.',
+    icon: LayoutGrid,
+  },
+  'on-shelf': {
+    title: 'On Shelf Books',
+    description: 'Books you own that are waiting to be read. Click any book card to view details, update status, or start reading.',
+    icon: BookMarked,
+  },
+  wishlist: {
+    title: 'The Hunt List (Wishlist)',
+    description: 'Your personal book wishlist. Add titles you want to buy or borrow next and track books on your reading radar.',
+    icon: ShoppingBag,
+  },
+  reading: {
+    title: 'Currently Reading',
+    description: 'Books you are actively reading right now. Track page numbers, log reading progress, write reviews, and mark as completed.',
+    icon: BookOpen,
+  },
+  read: {
+    title: 'Finished Books',
+    description: 'Your completed reading archive. Review past ratings, notes, finishing dates, and total page accomplishments.',
+    icon: CheckCircle2,
+  },
+  favorites: {
+    title: 'Favorite Books',
+    description: 'Your curated collection of top-rated and most cherished books in your library.',
+    icon: Heart,
+  },
+  stats: {
+    title: 'Library Statistics',
+    description: 'Analytical charts and insights about your reading habits, favorite genres, top authors, and page progress over time.',
+    icon: BarChart3,
+  },
+  streaks: {
+    title: 'Reading Streaks',
+    description: 'Build a daily reading habit! Log the days you read, track your active & longest reading streaks, and view your monthly reading calendar.',
+    icon: Flame,
+  },
+  profile: {
+    title: 'Profile & Account Settings',
+    description: 'Customize your reader avatar, display name, view earned reader badges, and manage your account credentials.',
+    icon: UserIcon,
+  },
+  'daily-goals': {
+    title: 'Daily Reading Goals',
+    description: 'Set your target daily reading pages or minutes, view historic daily goal completion, and track your daily streak history.',
+    icon: Target,
+  },
+  'yearly-goals': {
+    title: 'Yearly Reading Goals',
+    description: 'Set your annual book reading target, track progress toward your annual goal, and review past yearly reading achievements.',
+    icon: Award,
+  },
+  'word-library': {
+    title: 'Word Library & Dictionary',
+    description: 'Search English words, look up definitions, listen to pronunciations, and save vocabulary words to your personal library.',
+    icon: BookA,
+  },
+  timer: {
+    title: 'The Reading Nook (Focus Timer)',
+    description: 'A quiet, distraction-free space for focus reading & study sessions. Features countdown Pomodoro presets, stopwatch, ambient background audio, and streak logging.',
+    icon: Timer,
+  },
+};
+
 function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const focusTimer = useFocusTimer();
   const { books, addBook, updateBook, deleteBook, setStatus, toggleFavorite, importBooks, genres } =
     useBooks(currentUser?.id);
   const { theme, toggleTheme } = useTheme();
@@ -168,6 +253,13 @@ function App() {
     });
     return unsubscribe;
   }, []);
+
+  // Seed demo data if demo account is active
+  useEffect(() => {
+    if (currentUser?.username === 'demo' && currentUser?.id) {
+      seedDemoDataIfEmpty(currentUser.id);
+    }
+  }, [currentUser]);
 
   // Sync streak log with Firestore
   useEffect(() => {
@@ -415,6 +507,38 @@ function App() {
           showControls={showTopBarControls}
         />
 
+        {/* Top Floating Hover Pills Container (Demo Mode & Active Timer) */}
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 pointer-events-auto">
+          {/* Active Focus Session Floating Pill (Shown ONLY if timer is running AND user left 'timer' tab) */}
+          {focusTimer.isRunning && view !== 'timer' && (
+            <button
+              onClick={() => setView('timer')}
+              className="group relative flex items-center gap-2.5 rounded-full border-2 border-brass-500/50 bg-brass-500/25 px-4 py-1.5 text-sm font-bold text-ink shadow-md backdrop-blur-md dark:border-brass-400/50 dark:bg-brass-500/30 dark:text-paper transition-all duration-200 hover:scale-105 hover:bg-brass-500/35 hover:shadow-brass-500/20"
+            >
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brass-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brass-500"></span>
+              </span>
+              <Timer size={16} className="text-brass-700 dark:text-brass-300 stroke-[2.5]" />
+              <span className="font-mono text-sm font-bold tracking-tight">{focusTimer.activeFormattedTime}</span>
+              <div className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 hidden w-60 rounded-xl border border-ink/10 bg-surface p-3 text-xs font-normal text-center text-ink-muted shadow-xl dark:border-paper/10 dark:bg-surface-dark dark:text-paper/70 group-hover:block transition-all z-50">
+                Active reading session running. Click to return to The Reading Nook.
+              </div>
+            </button>
+          )}
+
+          {/* Demo Mode Pill */}
+          {currentUser?.username === 'demo' && (
+            <div className="group relative flex items-center gap-2 rounded-full border-2 border-amber-500/40 bg-amber-500/20 px-4 py-1.5 text-sm font-bold text-amber-900 shadow-md backdrop-blur-md dark:border-amber-500/40 dark:bg-amber-500/25 dark:text-amber-300 transition-all duration-200 hover:scale-105">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
+              <span>Demo Mode</span>
+              <div className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 hidden w-60 rounded-lg border border-ink/10 bg-surface p-3 text-xs font-normal text-center text-ink-muted shadow-xl dark:border-paper/10 dark:bg-surface-dark dark:text-paper/70 group-hover:block transition-all z-50">
+                You are exploring in Demo Mode. Changes made won't be saved permanently.
+              </div>
+            </div>
+          )}
+        </div>
+
         <input
           ref={fileInputRef}
           type="file"
@@ -428,6 +552,29 @@ function App() {
         />
 
         <main className="flex-1 px-4 py-6 sm:px-6">
+          {/* Tab Purpose & Feature Explanation Banner (Demo Mode Only) */}
+          {currentUser?.username === 'demo' && (() => {
+            const exp = TAB_EXPLANATIONS[view];
+            if (!exp) return null;
+            const ExpIcon = exp.icon;
+            return (
+              <div className="mb-6 rounded-xl border border-brass-500/20 bg-brass-50/50 p-3.5 dark:border-brass-500/10 dark:bg-brass-500/5">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brass-500/15 text-brass-700 dark:bg-brass-500/20 dark:text-brass-300">
+                    <ExpIcon size={16} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-brass-700 dark:text-brass-400">
+                      {exp.title}
+                    </h3>
+                    <p className="mt-0.5 text-xs text-ink-muted dark:text-paper/70 leading-relaxed">
+                      {exp.description}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
           {view === 'dashboard' && (() => {
             const todayStr = getLocalDateString(new Date());
             const effectiveDailyGoal = dailyGoalDate === todayStr ? dailyGoal : null;
@@ -474,7 +621,7 @@ function App() {
           )}
 
           {view === 'timer' && (
-            <FocusTimerPage onNavigateToStreaks={() => setView('streaks')} />
+            <FocusTimerPage timerHook={focusTimer} onNavigateToStreaks={() => setView('streaks')} />
           )}
 
           {view === 'word-library' && currentUser && (

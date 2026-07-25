@@ -20,6 +20,8 @@ import { Button } from './ui/Button';
 import { auth } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 
+import { seedDemoDataIfEmpty } from '../utils/demoData';
+
 interface LoginProps {
   onLoginSuccess: (user: { id: string; name: string; username: string }) => void;
 }
@@ -118,6 +120,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
       // Attempt Sign In
       const userCredential = await signInWithEmailAndPassword(auth, demoEmail, demoPassword);
       if (userCredential.user) {
+        await seedDemoDataIfEmpty(userCredential.user.uid);
         onLoginSuccess({
           id: userCredential.user.uid,
           name: userCredential.user.displayName || demoName,
@@ -131,6 +134,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
           const userCredential = await createUserWithEmailAndPassword(auth, demoEmail, demoPassword);
           if (userCredential.user) {
             await updateProfile(userCredential.user, { displayName: demoName });
+            await seedDemoDataIfEmpty(userCredential.user.uid);
             onLoginSuccess({
               id: userCredential.user.uid,
               name: demoName,
@@ -468,6 +472,9 @@ export function Login({ onLoginSuccess }: LoginProps) {
             Sign in as Demo User
             <ArrowRight size={14} className="text-[#FAF7F1]/40 ml-0.5 transition-transform group-hover:translate-x-1" />
           </button>
+          <p className="mt-2.5 text-[11px] text-center text-brass-400/90 font-medium flex items-center justify-center gap-1.5">
+            <span>⚠️</span> Changes made in demo mode won't be saved permanently.
+          </p>
         </motion.div>
 
         {/* Footer */}

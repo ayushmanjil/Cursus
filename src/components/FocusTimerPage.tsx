@@ -1,4 +1,3 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Play,
   Pause,
@@ -19,16 +18,14 @@ import {
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
-import { soundController } from '../utils/audio';
 import type { AmbientSoundType } from '../utils/audio';
-import { triggerConfetti } from '../utils/confetti';
+import type { FocusTimerHook } from '../hooks/useFocusTimer';
 import { classNames } from '../utils/helpers';
 
 interface FocusTimerPageProps {
+  timerHook: FocusTimerHook;
   onNavigateToStreaks: () => void;
 }
-
-type TimerMode = 'countdown' | 'stopwatch';
 
 const PRESETS = [
   { label: '15m', minutes: 15 },
@@ -45,147 +42,39 @@ const SOUND_OPTIONS: { type: AmbientSoundType; label: string; desc: string; icon
   { type: 'waves', label: 'Gentle Waves', desc: 'Ocean tide ambiance', icon: Waves },
 ];
 
-export function FocusTimerPage({ onNavigateToStreaks }: FocusTimerPageProps) {
-  const [mode, setMode] = useState<TimerMode>('countdown');
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  // Countdown state
-  const [selectedMinutes, setSelectedMinutes] = useState(25);
-  const [customMinutes, setCustomMinutes] = useState('');
-  const [showCustomInput, setShowCustomInput] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(25 * 60);
-
-  // Stopwatch state
-  const [stopwatchSeconds, setStopwatchSeconds] = useState(0);
-
-  // Running state
-  const [isRunning, setIsRunning] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-
-  // Ambient sound state
-  const [ambientSound, setAmbientSound] = useState<AmbientSoundType>('off');
-  const [volume, setVolume] = useState(0.5);
-  const [isMuted, setIsMuted] = useState(false);
-
-  // Completion modal state
-  const [showCompletionModal, setShowCompletionModal] = useState(false);
-
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Handle ambient sound change
-  useEffect(() => {
-    if (isRunning && !isPaused) {
-      soundController.startAmbient(ambientSound);
-    } else {
-      soundController.stopAmbient();
-    }
-  }, [ambientSound, isRunning, isPaused]);
-
-  // Handle volume & mute changes
-  useEffect(() => {
-    soundController.setVolume(volume);
-  }, [volume]);
-
-  useEffect(() => {
-    soundController.setMuted(isMuted);
-  }, [isMuted]);
-
-  // Cleanup audio & timer on unmount
-  useEffect(() => {
-    return () => {
-      soundController.stopAmbient();
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
-
-  // Timer interval effect
-  useEffect(() => {
-    if (isRunning && !isPaused) {
-      timerRef.current = setInterval(() => {
-        if (mode === 'countdown') {
-          setSecondsLeft((prev) => {
-            if (prev <= 1) {
-              handleTimerComplete();
-              return 0;
-            }
-            return prev - 1;
-          });
-        } else {
-          setStopwatchSeconds((prev) => prev + 1);
-        }
-      }, 1000);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
-    }
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isRunning, isPaused, mode]);
-
-  const handleTimerComplete = useCallback(() => {
-    setIsRunning(false);
-    setIsPaused(false);
-    soundController.stopAmbient();
-    soundController.playCompletionChime();
-    triggerConfetti();
-    setShowCompletionModal(true);
-  }, []);
-
-  const handleStart = () => {
-    setIsRunning(true);
-    setIsPaused(false);
-  };
-
-  const handlePause = () => {
-    setIsPaused(true);
-  };
-
-  const handleResume = () => {
-    setIsPaused(false);
-  };
-
-  const handleReset = () => {
-    setIsRunning(false);
-    setIsPaused(false);
-    soundController.stopAmbient();
-    if (mode === 'countdown') {
-      setSecondsLeft(selectedMinutes * 60);
-    } else {
-      setStopwatchSeconds(0);
-    }
-  };
-
-  const handleSelectPreset = (mins: number) => {
-    setSelectedMinutes(mins);
-    setShowCustomInput(false);
-    setCustomMinutes('');
-    setSecondsLeft(mins * 60);
-    if (isRunning) handleReset();
-  };
-
-  const handleApplyCustomMinutes = () => {
-    const val = parseInt(customMinutes, 10);
-    if (!isNaN(val) && val > 0 && val <= 480) {
-      setSelectedMinutes(val);
-      setSecondsLeft(val * 60);
-      if (isRunning) handleReset();
-    }
-  };
-
-  // Format seconds to MM:SS or HH:MM:SS
-  const formatTime = (secs: number) => {
-    const hrs = Math.floor(secs / 3600);
-    const mins = Math.floor((secs % 3600) / 60);
-    const s = secs % 60;
-
-    const pad = (n: number) => String(n).padStart(2, '0');
-
-    if (hrs > 0) {
-      return `${hrs}:${pad(mins)}:${pad(s)}`;
-    }
-    return `${pad(mins)}:${pad(s)}`;
-  };
+export function FocusTimerPage({ timerHook, onNavigateToStreaks }: FocusTimerPageProps) {
+  const {
+    mode,
+    setMode,
+    selectedMinutes,
+    customMinutes,
+    setCustomMinutes,
+    showCustomInput,
+    setShowCustomInput,
+    secondsLeft,
+    setSecondsLeft,
+    stopwatchSeconds,
+    setStopwatchSeconds,
+    isRunning,
+    isPaused,
+    ambientSound,
+    setAmbientSound,
+    volume,
+    setVolume,
+    isMuted,
+    setIsMuted,
+    showCompletionModal,
+    setShowCompletionModal,
+    isExpanded,
+    setIsExpanded,
+    handleStart,
+    handlePause,
+    handleResume,
+    handleReset,
+    handleSelectPreset,
+    handleApplyCustomMinutes,
+    formatTime,
+  } = timerHook;
 
   // Calculate ring progress percentage
   const progressPercent =
@@ -205,9 +94,7 @@ export function FocusTimerPage({ onNavigateToStreaks }: FocusTimerPageProps) {
           <button
             onClick={() => {
               setMode('countdown');
-              setIsRunning(false);
-              setIsPaused(false);
-              soundController.stopAmbient();
+              handleReset();
               setSecondsLeft(selectedMinutes * 60);
             }}
             className={classNames(
@@ -223,9 +110,7 @@ export function FocusTimerPage({ onNavigateToStreaks }: FocusTimerPageProps) {
           <button
             onClick={() => {
               setMode('stopwatch');
-              setIsRunning(false);
-              setIsPaused(false);
-              soundController.stopAmbient();
+              handleReset();
               setStopwatchSeconds(0);
             }}
             className={classNames(
