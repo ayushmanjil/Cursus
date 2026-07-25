@@ -24,6 +24,7 @@ import { Profile, getEarnedBadges } from './components/Profile';
 import { DailyGoalsPage } from './components/DailyGoalsPage';
 import { YearlyGoalsPage } from './components/YearlyGoalsPage';
 import { WordLibraryPage } from './components/WordLibraryPage';
+import { FocusTimerPage } from './components/FocusTimerPage';
 import { getLocalDateString } from './utils/helpers';
 import { useWordLibrary } from './hooks/useWordLibrary';
 
@@ -40,6 +41,7 @@ const viewMeta: Record<ViewKey, { title: string; subtitle: string }> = {
   'daily-goals': { title: 'Daily Reading Goals', subtitle: 'Track and log your daily reading progress' },
   'yearly-goals': { title: 'Yearly Reading Goals', subtitle: 'Review your annual achievements and book targets' },
   'word-library': { title: 'Word Library', subtitle: 'Look up words and build your vocabulary' },
+  timer: { title: 'Focus Timer', subtitle: 'Distraction-free reading & study sessions' },
 };
 
 function App() {
@@ -273,6 +275,7 @@ function App() {
       'daily-goals': 0,
       'yearly-goals': 0,
       'word-library': 0,
+      timer: 0,
     }),
     [books]
   );
@@ -468,6 +471,10 @@ function App() {
               log={streakLog}
               onUpdateLog={setStreakLog}
             />
+          )}
+
+          {view === 'timer' && (
+            <FocusTimerPage onNavigateToStreaks={() => setView('streaks')} />
           )}
 
           {view === 'word-library' && currentUser && (

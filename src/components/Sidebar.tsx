@@ -12,6 +12,7 @@ import {
   LogOut,
   X,
   BookA,
+  Timer,
 } from 'lucide-react';
 import type { ViewKey } from '../types/book';
 import { classNames } from '../utils/helpers';
@@ -64,6 +65,7 @@ export function Sidebar({
     { key: 'streaks', label: 'Reading Streaks', icon: Flame },
     { key: 'favorites', label: 'Favorites', icon: Heart, count: counts['favorites'] },
     { key: 'word-library', label: 'Word Library', icon: BookA },
+    { key: 'timer', label: 'Focus Timer', icon: Timer },
   ];
 
   const renderItem = (item: NavItem) => {
