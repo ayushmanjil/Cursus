@@ -41,7 +41,7 @@ const viewMeta: Record<ViewKey, { title: string; subtitle: string }> = {
   'daily-goals': { title: 'Daily Reading Goals', subtitle: 'Track and log your daily reading progress' },
   'yearly-goals': { title: 'Yearly Reading Goals', subtitle: 'Review your annual achievements and book targets' },
   'word-library': { title: 'Word Library', subtitle: 'Look up words and build your vocabulary' },
-  timer: { title: 'Focus Timer', subtitle: 'Distraction-free reading & study sessions' },
+  timer: { title: 'The Reading Nook', subtitle: 'Your quiet space for focus and study' },
 };
 
 function App() {

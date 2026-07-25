@@ -65,7 +65,7 @@ export function Sidebar({
     { key: 'streaks', label: 'Reading Streaks', icon: Flame },
     { key: 'favorites', label: 'Favorites', icon: Heart, count: counts['favorites'] },
     { key: 'word-library', label: 'Word Library', icon: BookA },
-    { key: 'timer', label: 'Focus Timer', icon: Timer },
+    { key: 'timer', label: 'The Reading Nook', icon: Timer },
   ];
 
   const renderItem = (item: NavItem) => {

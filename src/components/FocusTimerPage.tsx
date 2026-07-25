@@ -254,8 +254,8 @@ export function FocusTimerPage({ onNavigateToStreaks }: FocusTimerPageProps) {
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="absolute right-4 top-4 rounded-full p-2 text-ink-muted hover:bg-ink/5 hover:text-ink dark:text-paper/60 dark:hover:bg-paper/10 dark:hover:text-paper transition-colors duration-150"
-            title={isExpanded ? 'Show sound panel' : 'Expand timer view'}
-            aria-label={isExpanded ? 'Collapse timer' : 'Expand timer'}
+            title={isExpanded ? 'Show sound panel' : 'Expand Reading Nook'}
+            aria-label={isExpanded ? 'Collapse Reading Nook' : 'Expand Reading Nook'}
           >
             {isExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
           </button>
