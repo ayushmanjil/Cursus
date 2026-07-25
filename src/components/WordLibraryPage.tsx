@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
@@ -279,16 +279,74 @@ export function WordLibraryPage({
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Autocomplete state
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [highlightIndex, setHighlightIndex] = useState(-1);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suggestionsRef = useRef<HTMLUListElement>(null);
+
+  // Fetch suggestions from Datamuse as user types
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://api.datamuse.com/sug?s=${encodeURIComponent(trimmed)}&max=8`
+        );
+        if (res.ok) {
+          const data: { word: string; score: number }[] = await res.json();
+          const words = data.map((d) => d.word);
+          setSuggestions(words);
+          setShowSuggestions(words.length > 0);
+          setHighlightIndex(-1);
+        }
+      } catch {
+        // Silently fail — suggestions are non-critical
+      }
+    }, 250);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [query]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(e.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Library filter
   const [libraryFilter, setLibraryFilter] = useState('');
 
   // Detail modal
   const [detailWord, setDetailWord] = useState<SavedWord | null>(null);
 
-  const handleSearch = useCallback(async () => {
-    const trimmed = query.trim();
+  const handleSearch = useCallback(async (wordOverride?: string) => {
+    const trimmed = (wordOverride ?? query).trim();
     if (!trimmed) return;
 
+    setShowSuggestions(false);
+    setSuggestions([]);
     setLoading(true);
     setError(null);
     setSearchResult(null);
@@ -317,8 +375,37 @@ export function WordLibraryPage({
     }
   }, [query]);
 
+  const handleSelectSuggestion = useCallback(
+    (word: string) => {
+      setQuery(word);
+      setShowSuggestions(false);
+      setSuggestions([]);
+      handleSearch(word);
+    },
+    [handleSearch]
+  );
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleSearch();
+    if (showSuggestions && suggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlightIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlightIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (highlightIndex >= 0 && highlightIndex < suggestions.length) {
+          handleSelectSuggestion(suggestions[highlightIndex]);
+        } else {
+          handleSearch();
+        }
+      } else if (e.key === 'Escape') {
+        setShowSuggestions(false);
+      }
+    } else if (e.key === 'Enter') {
+      handleSearch();
+    }
   };
 
   // Filtered + sorted saved words
@@ -376,7 +463,7 @@ export function WordLibraryPage({
       {/* Search Tab */}
       {activeTab === 'search' && (
         <div className="space-y-5">
-          {/* Search input */}
+          {/* Search input with autocomplete */}
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search
@@ -386,11 +473,28 @@ export function WordLibraryPage({
               <input
                 ref={inputRef}
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  if (!e.target.value.trim()) {
+                    setShowSuggestions(false);
+                    setSuggestions([]);
+                  }
+                }}
+                onFocus={() => {
+                  if (suggestions.length > 0 && query.trim().length >= 2) {
+                    setShowSuggestions(true);
+                  }
+                }}
                 onKeyDown={handleKeyDown}
                 placeholder="Search for an English word…"
                 className="w-full rounded-lg border border-brass-500/20 bg-paper-soft/40 py-2.5 pl-9 pr-9 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-brass-400/30 focus:border-brass-400 focus:bg-paper focus:shadow-[0_0_12px_rgba(184,134,63,0.1)] dark:border-brass-500/10 dark:bg-bgdark-soft/40 dark:text-paper dark:placeholder:text-paper/30 dark:focus:bg-bgdark transition-all duration-200"
+                role="combobox"
                 aria-label="Search for a word"
+                aria-expanded={showSuggestions}
+                aria-autocomplete="list"
+                aria-controls="word-suggestions"
+                aria-activedescendant={highlightIndex >= 0 ? `suggestion-${highlightIndex}` : undefined}
+                autoComplete="off"
               />
               {query && (
                 <button
@@ -398,6 +502,8 @@ export function WordLibraryPage({
                     setQuery('');
                     setSearchResult(null);
                     setError(null);
+                    setSuggestions([]);
+                    setShowSuggestions(false);
                     inputRef.current?.focus();
                   }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-brass-500 hover:bg-brass-500/10 hover:text-brass-600 dark:text-brass-400 dark:hover:bg-brass-500/20 dark:hover:text-brass-300 transition-colors"
@@ -406,11 +512,47 @@ export function WordLibraryPage({
                   <X size={14} strokeWidth={2.5} />
                 </button>
               )}
+
+              {/* Autocomplete dropdown */}
+              <AnimatePresence>
+                {showSuggestions && suggestions.length > 0 && (
+                  <motion.ul
+                    ref={suggestionsRef}
+                    id="word-suggestions"
+                    role="listbox"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-lg border border-ink/10 bg-surface shadow-card dark:border-paper/10 dark:bg-surface-dark"
+                  >
+                    {suggestions.map((word, i) => (
+                      <li
+                        key={word}
+                        id={`suggestion-${i}`}
+                        role="option"
+                        aria-selected={i === highlightIndex}
+                        onMouseEnter={() => setHighlightIndex(i)}
+                        onClick={() => handleSelectSuggestion(word)}
+                        className={classNames(
+                          'flex cursor-pointer items-center gap-2.5 px-3 py-2 text-sm transition-colors',
+                          i === highlightIndex
+                            ? 'bg-brass-50 text-ink dark:bg-brass-500/15 dark:text-paper'
+                            : 'text-ink-muted hover:bg-ink/5 dark:text-paper/60 dark:hover:bg-paper/5'
+                        )}
+                      >
+                        <Search size={13} className="shrink-0 text-brass-400 dark:text-brass-500/60" />
+                        <span>{word}</span>
+                      </li>
+                    ))}
+                  </motion.ul>
+                )}
+              </AnimatePresence>
             </div>
             <Button
               variant="primary"
               size="md"
-              onClick={handleSearch}
+              onClick={() => handleSearch()}
               disabled={!query.trim() || loading}
             >
               {loading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
