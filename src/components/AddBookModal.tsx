@@ -6,7 +6,6 @@ import type { BookStatus } from '../types/book';
 import type { NewBookInput } from '../hooks/useBooks';
 import { STATUS_LABELS } from '../types/book';
 import { Search, Sparkles, Loader2, BookOpen, Check, X, AlertCircle } from 'lucide-react';
-import { classNames } from '../utils/helpers';
 
 interface AddBookModalProps {
   open: boolean;
