@@ -1,0 +1,534 @@
+import { useState, useRef, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Search,
+  X,
+  BookPlus,
+  Check,
+  Loader2,
+  AlertCircle,
+  Volume2,
+  BookOpenText,
+  Library,
+} from 'lucide-react';
+import { Button } from './ui/Button';
+import { EmptyState } from './ui/EmptyState';
+import { WordDetailModal } from './WordDetailModal';
+import type { DictionaryEntry, SavedWord } from '../types/dictionary';
+import { classNames } from '../utils/helpers';
+
+interface WordLibraryPageProps {
+  savedWords: SavedWord[];
+  addWord: (entries: DictionaryEntry[]) => Promise<void>;
+  removeWord: (wordId: string) => Promise<void>;
+  isWordSaved: (word: string) => boolean;
+}
+
+type Tab = 'search' | 'library';
+
+// ─── Search Result Card ──────────────────────────────────────────
+function SearchResultCard({
+  entries,
+  isSaved,
+  onSave,
+}: {
+  entries: DictionaryEntry[];
+  isSaved: boolean;
+  onSave: () => void;
+}) {
+  const entry = entries[0];
+  if (!entry) return null;
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playingAudio, setPlayingAudio] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+
+  const audioUrl = entry.phonetics?.find((p) => p.audio)?.audio;
+  const phoneticText = entry.phonetic || entry.phonetics?.find((p) => p.text)?.text;
+
+  const handlePlayAudio = useCallback(
+    (url: string) => {
+      if (audioRef.current) audioRef.current.pause();
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      setPlayingAudio(true);
+      audio.play();
+      audio.onended = () => setPlayingAudio(false);
+      audio.onerror = () => setPlayingAudio(false);
+    },
+    []
+  );
+
+  const handleSave = () => {
+    onSave();
+    setJustSaved(true);
+    setTimeout(() => setJustSaved(false), 2000);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+      className="rounded-xl2 border border-ink/10 bg-surface shadow-card dark:border-paper/10 dark:bg-surface-dark"
+    >
+      {/* Card header */}
+      <div className="flex items-start justify-between gap-3 border-b border-ink/5 px-5 py-4 dark:border-paper/5">
+        <div className="min-w-0 flex-1">
+          <h3 className="font-display text-xl font-semibold text-ink dark:text-paper">
+            {entry.word}
+          </h3>
+          {phoneticText && (
+            <p className="mt-0.5 text-sm text-ink-muted dark:text-paper/50">{phoneticText}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {audioUrl && (
+            <button
+              onClick={() => handlePlayAudio(audioUrl)}
+              className={classNames(
+                'flex h-8 w-8 items-center justify-center rounded-full transition-colors',
+                playingAudio
+                  ? 'bg-brass-500 text-white'
+                  : 'bg-brass-50 text-brass-600 hover:bg-brass-100 dark:bg-brass-500/15 dark:text-brass-400 dark:hover:bg-brass-500/25'
+              )}
+              title="Play pronunciation"
+              aria-label="Play pronunciation"
+            >
+              <Volume2 size={15} />
+            </button>
+          )}
+          {isSaved || justSaved ? (
+            <Button variant="secondary" size="sm" disabled>
+              <Check size={14} /> Saved
+            </Button>
+          ) : (
+            <Button variant="primary" size="sm" onClick={handleSave}>
+              <BookPlus size={14} /> Add to Library
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Meanings */}
+      <div className="space-y-4 px-5 py-4">
+        {entry.meanings.map((meaning, mi) => (
+          <div key={mi} className="space-y-2.5">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center rounded-full bg-brass-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-brass-700 dark:bg-brass-500/15 dark:text-brass-300">
+                {meaning.partOfSpeech}
+              </span>
+              <div className="flex-1 border-b border-ink/5 dark:border-paper/5" />
+            </div>
+
+            <ol className="list-decimal space-y-2 pl-5 marker:text-brass-400 dark:marker:text-brass-500/60">
+              {meaning.definitions.slice(0, 5).map((def, di) => (
+                <li key={di} className="text-sm text-ink dark:text-paper/90 pl-1">
+                  <p>{def.definition}</p>
+                  {def.example && (
+                    <p className="mt-0.5 text-xs italic text-ink-muted dark:text-paper/50">
+                      "{def.example}"
+                    </p>
+                  )}
+                  {def.synonyms.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      <span className="text-[10px] uppercase tracking-wider text-forest-500 dark:text-forest-300 font-semibold mr-0.5 self-center">
+                        syn
+                      </span>
+                      {def.synonyms.slice(0, 6).map((s) => (
+                        <span
+                          key={s}
+                          className="inline-flex rounded-full border border-forest-300/30 bg-forest-50/50 px-2 py-0.5 text-[11px] text-forest-600 dark:border-forest-400/20 dark:bg-forest-500/10 dark:text-forest-300"
+                        >
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {def.antonyms.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      <span className="text-[10px] uppercase tracking-wider text-burgundy-500 dark:text-burgundy-300 font-semibold mr-0.5 self-center">
+                        ant
+                      </span>
+                      {def.antonyms.slice(0, 6).map((a) => (
+                        <span
+                          key={a}
+                          className="inline-flex rounded-full border border-burgundy-300/30 bg-burgundy-50/50 px-2 py-0.5 text-[11px] text-burgundy-600 dark:border-burgundy-400/20 dark:bg-burgundy-500/10 dark:text-burgundy-300"
+                        >
+                          {a}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ol>
+
+            {meaning.synonyms.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className="text-[10px] uppercase tracking-wider text-forest-500 dark:text-forest-300 font-semibold">
+                  Synonyms
+                </span>
+                {meaning.synonyms.slice(0, 8).map((s) => (
+                  <span
+                    key={s}
+                    className="inline-flex rounded-full border border-forest-300/30 bg-forest-50/50 px-2 py-0.5 text-[11px] text-forest-600 dark:border-forest-400/20 dark:bg-forest-500/10 dark:text-forest-300"
+                  >
+                    {s}
+                  </span>
+                ))}
+              </div>
+            )}
+            {meaning.antonyms.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className="text-[10px] uppercase tracking-wider text-burgundy-500 dark:text-burgundy-300 font-semibold">
+                  Antonyms
+                </span>
+                {meaning.antonyms.slice(0, 8).map((a) => (
+                  <span
+                    key={a}
+                    className="inline-flex rounded-full border border-burgundy-300/30 bg-burgundy-50/50 px-2 py-0.5 text-[11px] text-burgundy-600 dark:border-burgundy-400/20 dark:bg-burgundy-500/10 dark:text-burgundy-300"
+                  >
+                    {a}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Source URLs */}
+      {entry.sourceUrls && entry.sourceUrls.length > 0 && (
+        <div className="border-t border-ink/5 px-5 py-3 dark:border-paper/5">
+          {entry.sourceUrls.map((url) => (
+            <a
+              key={url}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-brass-500 hover:text-brass-600 dark:text-brass-400 dark:hover:text-brass-300 underline underline-offset-2 break-all"
+            >
+              {url}
+            </a>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ─── Saved Word Card (library grid) ──────────────────────────────
+function SavedWordCard({
+  word,
+  onClick,
+}: {
+  word: SavedWord;
+  onClick: () => void;
+}) {
+  const entry = word.entries[0];
+  if (!entry) return null;
+
+  const phoneticText = entry.phonetic || entry.phonetics?.find((p) => p.text)?.text;
+  const firstDef = entry.meanings[0]?.definitions[0]?.definition;
+  const partOfSpeech = entry.meanings[0]?.partOfSpeech;
+
+  return (
+    <motion.button
+      layout
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ duration: 0.2 }}
+      onClick={onClick}
+      className="group flex flex-col items-start rounded-xl2 border border-ink/10 bg-surface p-4 text-left shadow-card transition-shadow hover:shadow-cardHover dark:border-paper/10 dark:bg-surface-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-brass-400"
+    >
+      <div className="flex w-full items-start justify-between gap-2">
+        <h4 className="font-display text-base font-semibold text-ink dark:text-paper group-hover:text-brass-600 dark:group-hover:text-brass-400 transition-colors">
+          {entry.word}
+        </h4>
+        {partOfSpeech && (
+          <span className="shrink-0 inline-flex items-center rounded-full bg-brass-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brass-700 dark:bg-brass-500/15 dark:text-brass-300">
+            {partOfSpeech}
+          </span>
+        )}
+      </div>
+      {phoneticText && (
+        <p className="mt-0.5 text-xs text-ink-muted dark:text-paper/50">{phoneticText}</p>
+      )}
+      {firstDef && (
+        <p className="mt-2 text-sm text-ink-muted dark:text-paper/60 line-clamp-2">{firstDef}</p>
+      )}
+    </motion.button>
+  );
+}
+
+// ─── Main Page ───────────────────────────────────────────────────
+export function WordLibraryPage({
+  savedWords,
+  addWord,
+  removeWord,
+  isWordSaved,
+}: WordLibraryPageProps) {
+  const [activeTab, setActiveTab] = useState<Tab>('search');
+
+  // Search state
+  const [query, setQuery] = useState('');
+  const [searchResult, setSearchResult] = useState<DictionaryEntry[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Library filter
+  const [libraryFilter, setLibraryFilter] = useState('');
+
+  // Detail modal
+  const [detailWord, setDetailWord] = useState<SavedWord | null>(null);
+
+  const handleSearch = useCallback(async () => {
+    const trimmed = query.trim();
+    if (!trimmed) return;
+
+    setLoading(true);
+    setError(null);
+    setSearchResult(null);
+
+    try {
+      const res = await fetch(
+        `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(trimmed)}`
+      );
+
+      if (res.status === 404) {
+        setError(`No definitions found for "${trimmed}". Check your spelling and try again.`);
+        return;
+      }
+
+      if (!res.ok) {
+        setError('Something went wrong while fetching the definition. Please try again.');
+        return;
+      }
+
+      const data: DictionaryEntry[] = await res.json();
+      setSearchResult(data);
+    } catch (_err) {
+      setError('Network error. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [query]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleSearch();
+  };
+
+  // Filtered + sorted saved words
+  const filteredWords = useMemo(() => {
+    let list = [...savedWords];
+    if (libraryFilter.trim()) {
+      const q = libraryFilter.trim().toLowerCase();
+      list = list.filter((w) => {
+        const entry = w.entries[0];
+        if (!entry) return false;
+        return (
+          entry.word.toLowerCase().includes(q) ||
+          entry.meanings.some((m) =>
+            m.definitions.some((d) => d.definition.toLowerCase().includes(q))
+          )
+        );
+      });
+    }
+    list.sort((a, b) => a.id.localeCompare(b.id));
+    return list;
+  }, [savedWords, libraryFilter]);
+
+  const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
+    { key: 'search', label: 'Search', icon: Search },
+    { key: 'library', label: `My Library (${savedWords.length})`, icon: Library },
+  ];
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-6">
+      {/* Tabs */}
+      <div className="flex items-center gap-1 rounded-lg bg-paper-soft/60 p-1 dark:bg-bgdark-soft/60" role="tablist">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setActiveTab(tab.key)}
+              className={classNames(
+                'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all duration-200',
+                isActive
+                  ? 'bg-surface text-ink shadow-sm dark:bg-surface-dark dark:text-paper'
+                  : 'text-ink-muted hover:text-ink dark:text-paper/50 dark:hover:text-paper/80'
+              )}
+            >
+              <Icon size={15} />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Search Tab */}
+      {activeTab === 'search' && (
+        <div className="space-y-5">
+          {/* Search input */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search
+                size={16}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brass-500 dark:text-brass-400"
+              />
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Search for an English word…"
+                className="w-full rounded-lg border border-brass-500/20 bg-paper-soft/40 py-2.5 pl-9 pr-9 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-brass-400/30 focus:border-brass-400 focus:bg-paper focus:shadow-[0_0_12px_rgba(184,134,63,0.1)] dark:border-brass-500/10 dark:bg-bgdark-soft/40 dark:text-paper dark:placeholder:text-paper/30 dark:focus:bg-bgdark transition-all duration-200"
+                aria-label="Search for a word"
+              />
+              {query && (
+                <button
+                  onClick={() => {
+                    setQuery('');
+                    setSearchResult(null);
+                    setError(null);
+                    inputRef.current?.focus();
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-brass-500 hover:bg-brass-500/10 hover:text-brass-600 dark:text-brass-400 dark:hover:bg-brass-500/20 dark:hover:text-brass-300 transition-colors"
+                  title="Clear search"
+                >
+                  <X size={14} strokeWidth={2.5} />
+                </button>
+              )}
+            </div>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={handleSearch}
+              disabled={!query.trim() || loading}
+            >
+              {loading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
+              Search
+            </Button>
+          </div>
+
+          {/* Loading */}
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-brass-500 border-t-transparent" />
+              <p className="mt-3 text-sm text-ink-muted dark:text-paper/50">Looking up "{query}"…</p>
+            </div>
+          )}
+
+          {/* Error */}
+          {error && !loading && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-start gap-3 rounded-xl2 border border-burgundy-300/30 bg-burgundy-50/50 px-5 py-4 dark:border-burgundy-500/20 dark:bg-burgundy-500/10"
+            >
+              <AlertCircle size={18} className="mt-0.5 shrink-0 text-burgundy-500 dark:text-burgundy-300" />
+              <p className="text-sm text-burgundy-600 dark:text-burgundy-300">{error}</p>
+            </motion.div>
+          )}
+
+          {/* Result */}
+          {searchResult && !loading && (
+            <SearchResultCard
+              entries={searchResult}
+              isSaved={isWordSaved(searchResult[0]?.word ?? '')}
+              onSave={() => addWord(searchResult)}
+            />
+          )}
+
+          {/* Initial state hint */}
+          {!searchResult && !loading && !error && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brass-50 dark:bg-brass-500/10">
+                <BookOpenText size={26} className="text-brass-500 dark:text-brass-400" />
+              </div>
+              <h3 className="font-display text-lg font-medium text-ink dark:text-paper">
+                Search for a word
+              </h3>
+              <p className="mt-1.5 max-w-xs text-sm text-ink-muted dark:text-paper/50">
+                Look up definitions, phonetics, synonyms, and more. Save words to your personal library for later.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Library Tab */}
+      {activeTab === 'library' && (
+        <div className="space-y-4">
+          {/* Filter input */}
+          {savedWords.length > 0 && (
+            <div className="relative">
+              <Search
+                size={16}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brass-500 dark:text-brass-400"
+              />
+              <input
+                value={libraryFilter}
+                onChange={(e) => setLibraryFilter(e.target.value)}
+                placeholder="Filter saved words…"
+                className="w-full rounded-lg border border-brass-500/20 bg-paper-soft/40 py-2 pl-9 pr-9 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-brass-400/30 focus:border-brass-400 focus:bg-paper focus:shadow-[0_0_12px_rgba(184,134,63,0.1)] dark:border-brass-500/10 dark:bg-bgdark-soft/40 dark:text-paper dark:placeholder:text-paper/30 dark:focus:bg-bgdark transition-all duration-200"
+                aria-label="Filter saved words"
+              />
+              {libraryFilter && (
+                <button
+                  onClick={() => setLibraryFilter('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-brass-500 hover:bg-brass-500/10 hover:text-brass-600 dark:text-brass-400 dark:hover:bg-brass-500/20 dark:hover:text-brass-300 transition-colors"
+                  title="Clear filter"
+                >
+                  <X size={14} strokeWidth={2.5} />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Grid of saved words */}
+          {filteredWords.length > 0 ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <AnimatePresence mode="popLayout">
+                {filteredWords.map((w) => (
+                  <SavedWordCard key={w.id} word={w} onClick={() => setDetailWord(w)} />
+                ))}
+              </AnimatePresence>
+            </div>
+          ) : savedWords.length === 0 ? (
+            <EmptyState
+              icon={BookOpenText}
+              title="No saved words yet"
+              description="Search for words and add them to your library to review later."
+              action={
+                <Button variant="primary" size="sm" onClick={() => setActiveTab('search')}>
+                  <Search size={14} /> Search Words
+                </Button>
+              }
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <p className="text-sm text-ink-muted dark:text-paper/50">
+                No saved words match "{libraryFilter}".
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      <WordDetailModal
+        word={detailWord}
+        onClose={() => setDetailWord(null)}
+        onRemove={removeWord}
+      />
+    </div>
+  );
+}

@@ -11,6 +11,7 @@ import {
   Flame,
   LogOut,
   X,
+  BookA,
 } from 'lucide-react';
 import type { ViewKey } from '../types/book';
 import { classNames } from '../utils/helpers';
@@ -62,6 +63,7 @@ export function Sidebar({
   const otherItems: NavItem[] = [
     { key: 'streaks', label: 'Reading Streaks', icon: Flame },
     { key: 'favorites', label: 'Favorites', icon: Heart, count: counts['favorites'] },
+    { key: 'word-library', label: 'Word Library', icon: BookA },
   ];
 
   const renderItem = (item: NavItem) => {

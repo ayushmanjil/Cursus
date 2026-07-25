@@ -23,7 +23,9 @@ import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 import { Profile, getEarnedBadges } from './components/Profile';
 import { DailyGoalsPage } from './components/DailyGoalsPage';
 import { YearlyGoalsPage } from './components/YearlyGoalsPage';
+import { WordLibraryPage } from './components/WordLibraryPage';
 import { getLocalDateString } from './utils/helpers';
+import { useWordLibrary } from './hooks/useWordLibrary';
 
 const viewMeta: Record<ViewKey, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'Your library at a glance' },
@@ -37,6 +39,7 @@ const viewMeta: Record<ViewKey, { title: string; subtitle: string }> = {
   profile: { title: 'Profile Settings', subtitle: 'Manage your personal details and credentials' },
   'daily-goals': { title: 'Daily Reading Goals', subtitle: 'Track and log your daily reading progress' },
   'yearly-goals': { title: 'Yearly Reading Goals', subtitle: 'Review your annual achievements and book targets' },
+  'word-library': { title: 'Word Library', subtitle: 'Look up words and build your vocabulary' },
 };
 
 function App() {
@@ -45,6 +48,7 @@ function App() {
   const { books, addBook, updateBook, deleteBook, setStatus, toggleFavorite, importBooks, genres } =
     useBooks(currentUser?.id);
   const { theme, toggleTheme } = useTheme();
+  const { savedWords, addWord, removeWord, isWordSaved } = useWordLibrary(currentUser?.id);
 
   const [streakLog, setStreakLogState] = useState<StreakLog>({});
 
@@ -268,6 +272,7 @@ function App() {
       profile: 0,
       'daily-goals': 0,
       'yearly-goals': 0,
+      'word-library': 0,
     }),
     [books]
   );
@@ -355,6 +360,7 @@ function App() {
   };
 
   const isListView = view === 'on-shelf' || view === 'wishlist' || view === 'reading' || view === 'read' || view === 'favorites';
+  const showTopBarControls = isListView;
   const meta = viewMeta[view];
 
   if (authLoading) {
@@ -403,7 +409,7 @@ function App() {
           onExport={handleExport}
           onImportClick={() => fileInputRef.current?.click()}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
-          showControls={isListView}
+          showControls={showTopBarControls}
         />
 
         <input
@@ -461,6 +467,15 @@ function App() {
             <StreakManager
               log={streakLog}
               onUpdateLog={setStreakLog}
+            />
+          )}
+
+          {view === 'word-library' && currentUser && (
+            <WordLibraryPage
+              savedWords={savedWords}
+              addWord={addWord}
+              removeWord={removeWord}
+              isWordSaved={isWordSaved}
             />
           )}
 
