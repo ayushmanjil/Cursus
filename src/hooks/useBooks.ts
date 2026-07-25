@@ -43,7 +43,7 @@ export function useBooks(userId: string | undefined) {
     async (input: NewBookInput) => {
       if (!userId) return;
       const id = generateId();
-      const newBook: Book = {
+      const newBook: Record<string, any> = {
         id,
         title: input.title.trim(),
         author: input.author.trim(),
@@ -53,13 +53,20 @@ export function useBooks(userId: string | undefined) {
         status: input.status,
         favorite: false,
         dateAdded: todayIso(),
-        dateFinished: input.status === 'read' ? todayIso() : undefined,
-        rating: undefined,
-        totalPages: input.totalPages || undefined,
-        currentPage: input.status === 'reading' ? 0 : undefined,
       };
+
+      if (input.status === 'read') {
+        newBook.dateFinished = todayIso();
+      }
+      if (typeof input.totalPages === 'number' && !isNaN(input.totalPages) && input.totalPages > 0) {
+        newBook.totalPages = input.totalPages;
+      }
+      if (input.status === 'reading') {
+        newBook.currentPage = 0;
+      }
+
       await setDoc(doc(db, 'users', userId, 'books', id), newBook);
-      return newBook;
+      return newBook as Book;
     },
     [userId]
   );
