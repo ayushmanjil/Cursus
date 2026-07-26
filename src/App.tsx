@@ -26,7 +26,9 @@ import {
   Award,
   BookA,
   Timer,
+  Sparkles,
 } from 'lucide-react';
+import { RecommendationsPage } from './components/RecommendationsPage';
 
 import { StreakManager } from './components/StreakManager';
 import type { StreakLog } from './components/StreakManager';
@@ -58,6 +60,7 @@ const viewMeta: Record<ViewKey, { title: string; subtitle: string }> = {
   'yearly-goals': { title: 'Yearly Reading Goals', subtitle: 'Review your annual achievements and book targets' },
   'word-library': { title: 'Word Library', subtitle: 'Look up words and build your vocabulary' },
   timer: { title: 'The Reading Nook', subtitle: 'Your quiet space for focus and study' },
+  recommendations: { title: 'Discover Books', subtitle: 'Personalized recommendations, genre exploration & discovery' },
 };
 
 const TAB_EXPLANATIONS: Record<ViewKey, { title: string; description: string; icon: React.ElementType }> = {
@@ -125,6 +128,11 @@ const TAB_EXPLANATIONS: Record<ViewKey, { title: string; description: string; ic
     title: 'The Reading Nook (Focus Timer)',
     description: 'A quiet, distraction-free space for focus reading & study sessions. Features countdown Pomodoro presets, stopwatch, ambient background audio, and streak logging.',
     icon: Timer,
+  },
+  recommendations: {
+    title: 'Book Discovery & Recommendation Hub',
+    description: 'Discover your next favorite read through personalized activity scoring, unexplored genre exploration, and custom category browsing.',
+    icon: Sparkles,
   },
 };
 
@@ -368,6 +376,7 @@ function App() {
       'yearly-goals': 0,
       'word-library': 0,
       timer: 0,
+      recommendations: 0,
     }),
     [books]
   );
@@ -622,6 +631,14 @@ function App() {
 
           {view === 'timer' && (
             <FocusTimerPage timerHook={focusTimer} onNavigateToStreaks={() => setView('streaks')} />
+          )}
+
+          {view === 'recommendations' && (
+            <RecommendationsPage
+              userBooks={books}
+              userId={currentUser?.id}
+              onAddToHuntList={addBook}
+            />
           )}
 
           {view === 'word-library' && currentUser && (

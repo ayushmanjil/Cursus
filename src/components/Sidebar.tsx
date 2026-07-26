@@ -13,6 +13,7 @@ import {
   X,
   BookA,
   Timer,
+  Sparkles,
 } from 'lucide-react';
 import type { ViewKey } from '../types/book';
 import { classNames } from '../utils/helpers';
@@ -62,6 +63,7 @@ export function Sidebar({
     { key: 'read', label: 'Read', icon: CheckCircle2, count: counts['read'] },
   ];
   const otherItems: NavItem[] = [
+    { key: 'recommendations', label: 'Discover Books', icon: Sparkles },
     { key: 'streaks', label: 'Reading Streaks', icon: Flame },
     { key: 'favorites', label: 'Favorites', icon: Heart, count: counts['favorites'] },
     { key: 'word-library', label: 'Word Library', icon: BookA },

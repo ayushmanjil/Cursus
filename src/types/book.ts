@@ -53,7 +53,8 @@ export type ViewKey =
   | 'daily-goals'
   | 'yearly-goals'
   | 'word-library'
-  | 'timer';
+  | 'timer'
+  | 'recommendations';
 
 export const STATUS_LABELS: Record<BookStatus, string> = {
   'on-shelf': 'On Shelf',
