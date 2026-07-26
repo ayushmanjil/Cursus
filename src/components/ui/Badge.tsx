@@ -18,7 +18,7 @@ const statusStyles: Record<BookStatus, string> = {
   reading:
     'bg-forest-100/90 text-forest-900 border border-forest-300/50 dark:bg-forest-900/90 dark:text-forest-100 dark:border-forest-700/50 backdrop-blur-md',
   read:
-    'bg-burgundy-100/90 text-burgundy-900 border border-burgundy-300/50 dark:bg-burgundy-900/90 dark:text-burgundy-100 dark:border-burgundy-700/50 backdrop-blur-md',
+    'bg-teal-100/90 text-teal-900 border border-teal-300/50 dark:bg-teal-900/90 dark:text-teal-100 dark:border-teal-700/50 backdrop-blur-md',
 };
 
 export function StatusBadge({ status, className }: { status: BookStatus; className?: string }) {
