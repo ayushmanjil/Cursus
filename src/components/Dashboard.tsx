@@ -710,17 +710,19 @@ function ActivityList({
         <li key={b.id}>
           <button
             onClick={() => onOpen(b)}
-            className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-ink/5 dark:hover:bg-paper/5"
+            className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-ink/5 dark:hover:bg-paper/5"
           >
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-ink dark:text-paper">{b.title}</p>
               <p className="truncate text-xs text-ink-faint dark:text-paper/40 mt-0.5">{b.author}</p>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <StatusBadge status={b.status} />
-              <span className="text-[11px] text-ink-faint dark:text-paper/40 font-mono">
+            <div className="flex shrink-0 items-center justify-end gap-2.5">
+              <span className="text-[11px] text-ink-faint dark:text-paper/40 font-mono shrink-0">
                 {formatDate(b.dateFinished)}
               </span>
+              <div className="w-14 flex items-center justify-end shrink-0">
+                <StatusBadge status={b.status} />
+              </div>
             </div>
           </button>
         </li>
