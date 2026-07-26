@@ -69,3 +69,12 @@ export const emptyFilter: FilterState = {
   minRating: 0,
   status: 'all',
 };
+
+export interface FavoriteAuthor {
+  id: string;
+  name: string;
+  photoUrl?: string;
+  bio?: string;
+  notes?: string;
+  addedAt: string; // ISO date string
+}

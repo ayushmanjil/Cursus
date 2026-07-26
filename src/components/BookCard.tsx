@@ -68,7 +68,7 @@ export function BookCard({ book, onOpen, onToggleFavorite, onSetStatus, onDelete
               <BookText size={30} className="text-ink/15 dark:text-paper/15" />
             </div>
           )}
-          <div className="absolute left-2 top-2">
+          <div className="absolute left-2 top-2 z-10">
             <StatusBadge status={book.status} className="shadow-sm" />
           </div>
         </div>

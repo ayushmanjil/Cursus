@@ -12,19 +12,20 @@ export function GenreBadge({ genre }: { genre: string }) {
 
 const statusStyles: Record<BookStatus, string> = {
   'on-shelf':
-    'bg-brass-50 text-brass-700 dark:bg-brass-500/15 dark:text-brass-300',
+    'bg-brass-100/90 text-brass-900 border border-brass-300/50 dark:bg-brass-900/90 dark:text-brass-100 dark:border-brass-700/50 backdrop-blur-md',
   wishlist:
-    'bg-purple-50 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300',
+    'bg-purple-100/90 text-purple-900 border border-purple-300/50 dark:bg-purple-900/90 dark:text-purple-100 dark:border-purple-700/50 backdrop-blur-md',
   reading:
-    'bg-forest-50 text-forest-600 dark:bg-forest-500/15 dark:text-forest-300',
-  read: 'bg-ink/5 text-ink-muted dark:bg-paper/10 dark:text-paper/70',
+    'bg-forest-100/90 text-forest-900 border border-forest-300/50 dark:bg-forest-900/90 dark:text-forest-100 dark:border-forest-700/50 backdrop-blur-md',
+  read:
+    'bg-burgundy-600 text-white border border-burgundy-500/40 dark:bg-burgundy-500 dark:text-paper shadow-sm backdrop-blur-md',
 };
 
 export function StatusBadge({ status, className }: { status: BookStatus; className?: string }) {
   return (
     <span
       className={classNames(
-        'inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold tracking-wide',
+        'inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold tracking-wide shadow-sm',
         statusStyles[status],
         className
       )}

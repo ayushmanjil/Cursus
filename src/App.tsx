@@ -29,6 +29,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { RecommendationsPage } from './components/RecommendationsPage';
+import { FavoritesView } from './components/FavoritesView';
 
 import { StreakManager } from './components/StreakManager';
 import type { StreakLog } from './components/StreakManager';
@@ -463,7 +464,7 @@ function App() {
     setCurrentUser(null);
   };
 
-  const isListView = view === 'on-shelf' || view === 'wishlist' || view === 'reading' || view === 'read' || view === 'favorites';
+  const isListView = view === 'on-shelf' || view === 'wishlist' || view === 'reading' || view === 'read';
   const showTopBarControls = isListView;
   const meta = viewMeta[view];
 
@@ -661,6 +662,17 @@ function App() {
             />
           )}
 
+          {view === 'favorites' && (
+            <FavoritesView
+              books={books}
+              onOpenBook={(b) => setSelectedBookId(b.id)}
+              onToggleFavoriteBook={toggleFavorite}
+              onSetStatus={handleSetStatus}
+              onDeleteBook={deleteBook}
+              onOpenAddBook={() => setAddOpen(true)}
+            />
+          )}
+
           {isListView && (
             <BookGrid
               books={filteredSorted}
@@ -668,9 +680,7 @@ function App() {
               onToggleFavorite={toggleFavorite}
               onSetStatus={handleSetStatus}
               onDelete={deleteBook}
-              emptyTitle={
-                view === 'favorites' ? 'No favorites yet' : `Nothing in ${meta.title}`
-              }
+              emptyTitle={`Nothing in ${meta.title}`}
               emptyDescription={
                 search || filter.genre !== 'all' || filter.favoritesOnly || filter.minRating > 0
                   ? 'No books match your search and filters.'
