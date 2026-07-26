@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Book } from '../types/book';
-import type { RecommendedBook, RecommendationMode } from '../types/recommendations';
+import type { RecommendedBook } from '../types/recommendations';
 import { UMBRELLA_GENRES } from '../types/recommendations';
 import { useRecommendations } from '../hooks/useRecommendations';
 import { Button } from './ui/Button';
