@@ -157,15 +157,86 @@ export async function seedDemoDataIfEmpty(userId: string) {
     }
     batch.set(streaksRef, { log: streakData }, { merge: true });
 
-    // 5. Seed Word Library vocabulary
-    const wordRef = doc(db, 'users', userId, 'words', 'serendipity');
-    batch.set(wordRef, {
-      word: 'serendipity',
-      definition: 'The occurrence and development of events by chance in a happy or beneficial way.',
-      phonetic: '/ˌser.ənˈdɪp.ə.ti/',
-      partOfSpeech: 'noun',
-      addedAt: new Date().toISOString(),
-    });
+    // 5. Seed Word Library vocabulary in settings/wordLibrary
+    const wordLibRef = doc(db, 'users', userId, 'settings', 'wordLibrary');
+    const demoWords = [
+      {
+        id: 'serendipity',
+        entries: [
+          {
+            word: 'Serendipity',
+            phonetic: '/ˌser.ənˈdɪp.ə.ti/',
+            phonetics: [],
+            meanings: [
+              {
+                partOfSpeech: 'noun',
+                definitions: [
+                  {
+                    definition: 'The occurrence and development of events by chance in a happy or beneficial way.',
+                    synonyms: [],
+                    antonyms: [],
+                  },
+                ],
+                synonyms: [],
+                antonyms: [],
+              },
+            ],
+          },
+        ],
+        savedAt: new Date().toISOString(),
+      },
+      {
+        id: 'ephemeral',
+        entries: [
+          {
+            word: 'Ephemeral',
+            phonetic: '/ɪˈfem.ər.əl/',
+            phonetics: [],
+            meanings: [
+              {
+                partOfSpeech: 'adjective',
+                definitions: [
+                  {
+                    definition: 'Lasting for a very short time; fleeting and transitory.',
+                    synonyms: [],
+                    antonyms: [],
+                  },
+                ],
+                synonyms: [],
+                antonyms: [],
+              },
+            ],
+          },
+        ],
+        savedAt: new Date().toISOString(),
+      },
+      {
+        id: 'mellifluous',
+        entries: [
+          {
+            word: 'Mellifluous',
+            phonetic: '/məˈlɪf.lu.əs/',
+            phonetics: [],
+            meanings: [
+              {
+                partOfSpeech: 'adjective',
+                definitions: [
+                  {
+                    definition: 'Sweet or musical; pleasant to hear.',
+                    synonyms: [],
+                    antonyms: [],
+                  },
+                ],
+                synonyms: [],
+                antonyms: [],
+              },
+            ],
+          },
+        ],
+        savedAt: new Date().toISOString(),
+      },
+    ];
+    batch.set(wordLibRef, { words: demoWords }, { merge: true });
 
     await batch.commit();
     console.log('Successfully populated rich demo data for Demo user!');

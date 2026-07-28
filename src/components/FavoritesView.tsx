@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Heart,
@@ -11,12 +11,17 @@ import {
   Quote,
   ChevronDown,
   ChevronUp,
+  ScrollText,
 } from 'lucide-react';
 import type { Book, BookStatus } from '../types/book';
+import type { Poem } from '../types/poem';
 import { BookGrid } from './BookGrid';
 import { Button } from './ui/Button';
+import { EmptyState } from './ui/EmptyState';
 import { AddFavoriteAuthorModal } from './AddFavoriteAuthorModal';
 import { useFavoriteAuthors } from '../hooks/useFavoriteAuthors';
+import { PoemCard, PoemDetailModal } from './PoemsPage';
+import { getPoemDetails } from '../services/poetryService';
 
 interface FavoritesViewProps {
   books: Book[];
@@ -25,6 +30,14 @@ interface FavoritesViewProps {
   onSetStatus: (id: string, status: BookStatus) => void;
   onDeleteBook: (id: string) => void;
   onOpenAddBook: () => void;
+  favoritePoems?: Poem[];
+  isFavoritePoem?: (poemId: string) => boolean;
+  isReadPoem?: (poemId: string) => boolean;
+  isSavedPoem?: (poemId: string) => boolean;
+  onToggleFavoritePoem?: (poem: Poem) => void;
+  onToggleReadPoem?: (poem: Poem) => void;
+  onToggleSavedPoem?: (poem: Poem) => void;
+  onNavigateToPoems?: () => void;
 }
 
 export function FavoritesView({
@@ -34,11 +47,24 @@ export function FavoritesView({
   onSetStatus,
   onDeleteBook,
   onOpenAddBook,
+  favoritePoems = [],
+  isFavoritePoem = () => true,
+  isReadPoem = () => false,
+  isSavedPoem = () => false,
+  onToggleFavoritePoem = () => {},
+  onToggleReadPoem = () => {},
+  onToggleSavedPoem = () => {},
+  onNavigateToPoems,
 }: FavoritesViewProps) {
-  const [subTab, setSubTab] = useState<'books' | 'authors'>('books');
+  const [subTab, setSubTab] = useState<'books' | 'authors' | 'poems'>('books');
   const [addAuthorModalOpen, setAddAuthorModalOpen] = useState(false);
   const [authorSearch, setAuthorSearch] = useState('');
+  const [poemSearch, setPoemSearch] = useState('');
   const [showLibraryAuthors, setShowLibraryAuthors] = useState(false);
+
+  // Selected poem detail modal state inside Favorites view
+  const [selectedPoem, setSelectedPoem] = useState<Poem | null>(null);
+  const [loadingPoemDetails, setLoadingPoemDetails] = useState(false);
 
   const {
     favoriteAuthors,
@@ -71,6 +97,33 @@ export function FavoritesView({
       (author.notes && author.notes.toLowerCase().includes(q))
     );
   });
+
+  // Filter favorite poems based on search
+  const filteredFavoritePoems = favoritePoems.filter((poem) => {
+    if (!poemSearch.trim()) return true;
+    const q = poemSearch.toLowerCase();
+    return (
+      poem.title.toLowerCase().includes(q) ||
+      poem.author.toLowerCase().includes(q)
+    );
+  });
+
+  const handleOpenPoem = useCallback(async (poem: Poem) => {
+    setSelectedPoem(poem);
+    if (!poem.lines || poem.lines.length === 0) {
+      setLoadingPoemDetails(true);
+      try {
+        const fullPoem = await getPoemDetails(poem.author, poem.title);
+        if (fullPoem && fullPoem.lines) {
+          setSelectedPoem(fullPoem);
+        }
+      } catch {
+        // fallback
+      } finally {
+        setLoadingPoemDetails(false);
+      }
+    }
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -106,6 +159,21 @@ export function FavoritesView({
               {favoriteAuthors.length}
             </span>
           </button>
+
+          <button
+            onClick={() => setSubTab('poems')}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
+              subTab === 'poems'
+                ? 'bg-surface text-ink shadow-sm dark:bg-surface-dark dark:text-paper'
+                : 'text-ink-muted hover:text-ink dark:text-paper/60 dark:hover:text-paper'
+            }`}
+          >
+            <ScrollText size={14} className={subTab === 'poems' ? 'text-burgundy-500' : ''} />
+            Favorite Poems
+            <span className="ml-1 rounded-full bg-ink/5 px-2 py-0.5 text-[10px] font-bold text-ink-muted dark:bg-paper/10 dark:text-paper/60">
+              {favoritePoems.length}
+            </span>
+          </button>
         </div>
 
         {subTab === 'authors' && (
@@ -123,6 +191,19 @@ export function FavoritesView({
             <Button variant="primary" size="sm" onClick={() => setAddAuthorModalOpen(true)}>
               <Plus size={14} /> Add Author
             </Button>
+          </div>
+        )}
+
+        {subTab === 'poems' && favoritePoems.length > 0 && (
+          <div className="relative flex-1 sm:w-64">
+            <input
+              type="text"
+              placeholder="Search favorite poems..."
+              value={poemSearch}
+              onChange={(e) => setPoemSearch(e.target.value)}
+              className="w-full rounded-xl border border-ink/15 bg-paper-soft/40 pl-8 pr-3 py-1.5 text-xs text-ink placeholder:text-ink-faint focus:border-brass-500 focus:outline-none dark:border-paper/15 dark:bg-bgdark-soft/50 dark:text-paper dark:placeholder:text-paper/40"
+            />
+            <Search size={13} className="absolute left-2.5 top-2.5 text-ink-faint dark:text-paper/40" />
           </div>
         )}
       </div>
@@ -306,6 +387,74 @@ export function FavoritesView({
           )}
         </div>
       )}
+
+      {/* Sub Tab: Favorite Poems */}
+      {subTab === 'poems' && (
+        <div>
+          {filteredFavoritePoems.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <AnimatePresence mode="popLayout">
+                {filteredFavoritePoems.map((poem) => (
+                  <PoemCard
+                    key={poem.id}
+                    poem={poem}
+                    onClick={() => handleOpenPoem(poem)}
+                    isRead={isReadPoem(poem.id)}
+                    isSaved={isSavedPoem(poem.id)}
+                    isFavorite={true}
+                    onToggleRead={(e) => {
+                      e.stopPropagation();
+                      onToggleReadPoem(poem);
+                    }}
+                    onToggleSaved={(e) => {
+                      e.stopPropagation();
+                      onToggleSavedPoem(poem);
+                    }}
+                    onToggleFavorite={(e) => {
+                      e.stopPropagation();
+                      onToggleFavoritePoem(poem);
+                    }}
+                    onRemove={(e) => {
+                      e.stopPropagation();
+                      onToggleFavoritePoem(poem);
+                    }}
+                  />
+                ))}
+              </AnimatePresence>
+            </div>
+          ) : favoritePoems.length === 0 ? (
+            <EmptyState
+              icon={ScrollText}
+              title="No favorite poems yet"
+              description="Click the heart icon on any poem card in the Poems section to add it to your favorites."
+              action={
+                onNavigateToPoems ? (
+                  <Button variant="primary" size="sm" onClick={onNavigateToPoems}>
+                    <ScrollText size={14} /> Browse Poems
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <div className="py-12 text-center text-sm text-ink-muted dark:text-paper/50">
+              No favorite poems match "{poemSearch}".
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Poem Detail Modal */}
+      <PoemDetailModal
+        poem={selectedPoem}
+        loadingDetails={loadingPoemDetails}
+        onClose={() => setSelectedPoem(null)}
+        isRead={selectedPoem ? isReadPoem(selectedPoem.id) : false}
+        isSaved={selectedPoem ? isSavedPoem(selectedPoem.id) : false}
+        isFavorite={selectedPoem ? isFavoritePoem(selectedPoem.id) : false}
+        onToggleRead={() => selectedPoem && onToggleReadPoem(selectedPoem)}
+        onToggleSaved={() => selectedPoem && onToggleSavedPoem(selectedPoem)}
+        onToggleFavorite={() => selectedPoem && onToggleFavoritePoem(selectedPoem)}
+      />
 
       {/* Add Author Modal */}
       <AddFavoriteAuthorModal

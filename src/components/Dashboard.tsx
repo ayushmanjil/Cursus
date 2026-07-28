@@ -13,28 +13,17 @@ import {
   ChevronLeft,
   ChevronRight,
   Target,
+  ScrollText,
+  BookA,
+  Bookmark,
 } from 'lucide-react';
 import type { Book, ViewKey } from '../types/book';
+import type { SavedWord } from '../types/dictionary';
+import type { Poem } from '../types/poem';
 import { formatDate, calculateStreaks, getHighestPagesRecord, getLocalDateString } from '../utils/helpers';
 import { StatusBadge } from './ui/Badge';
-
-const DAILY_QUOTES = [
-  { text: "Today a reader, tomorrow a leader.", author: "Margaret Fuller" },
-  { text: "Reading is to the mind what exercise is to the body.", author: "Richard Steele" },
-  { text: "The more that you read, the more things you will know.", author: "Dr. Seuss" },
-  { text: "A book is a device to ignite the imagination.", author: "Alan Bennett" },
-  { text: "Books are the quietest and most constant of friends.", author: "Charles William Eliot" },
-  { text: "Reading is a conversation. All books talk. But a good book listens as well.", author: "Mark Haddon" }
-];
-
-const YEARLY_QUOTES = [
-  { text: "Keep reading. It's one of the most marvelous adventures anyone can have.", author: "Lloyd Alexander" },
-  { text: "Books are a uniquely portable magic.", author: "Stephen King" },
-  { text: "A library is not a luxury but one of the necessities of life.", author: "Henry Ward Beecher" },
-  { text: "There are many little ways to enlarge your world. Love of books is the best of all.", author: "Jacqueline Kennedy" },
-  { text: "Some books leave us free and some books make us free.", author: "Ralph Waldo Emerson" },
-  { text: "A book is a dream that you hold in your hand.", author: "Neil Gaiman" }
-];
+import { PoemDetailModal } from './PoemsPage';
+import { WordDetailModal } from './WordDetailModal';
 
 interface DashboardProps {
   books: Book[];
@@ -45,6 +34,30 @@ interface DashboardProps {
   setDailyGoal: (g: number) => Promise<void>;
   yearlyGoal: number | null;
   setYearlyGoal: (g: number) => Promise<void>;
+  readPoemsCount?: number;
+  savedPoemsCount?: number;
+  favoritePoemsCount?: number;
+  favoritePoems?: Poem[];
+  savedWordsCount?: number;
+  savedWords?: SavedWord[];
+  isFavoritePoem?: (id: string) => boolean;
+  isReadPoem?: (id: string) => boolean;
+  isSavedPoem?: (id: string) => boolean;
+  onToggleFavoritePoem?: (poem: Poem) => void;
+  onToggleReadPoem?: (poem: Poem) => void;
+  onToggleSavedPoem?: (poem: Poem) => void;
+  onRemoveWord?: (wordId: string) => void;
+}
+
+function getWordDetails(w: any) {
+  if (!w) return { word: '', phonetic: '', definition: '' };
+  const word = w.entries?.[0]?.word || w.word || w.id || '';
+  const phonetic = w.entries?.[0]?.phonetic || w.phonetic || '';
+  const definition =
+    w.entries?.[0]?.meanings?.[0]?.definitions?.[0]?.definition ||
+    w.definition ||
+    '';
+  return { word, phonetic, definition };
 }
 
 export function Dashboard({
@@ -56,6 +69,19 @@ export function Dashboard({
   setDailyGoal,
   yearlyGoal,
   setYearlyGoal,
+  readPoemsCount = 0,
+  savedPoemsCount = 0,
+  favoritePoemsCount = 0,
+  favoritePoems = [],
+  savedWordsCount = 0,
+  savedWords = [],
+  isFavoritePoem = () => false,
+  isReadPoem = () => false,
+  isSavedPoem = () => false,
+  onToggleFavoritePoem = () => {},
+  onToggleReadPoem = () => {},
+  onToggleSavedPoem = () => {},
+  onRemoveWord = () => {},
 }: DashboardProps) {
   const total = books.length;
   const onShelf = books.filter((b) => b.status === 'on-shelf').length;
@@ -69,18 +95,21 @@ export function Dashboard({
   const activeIndex = Math.min(activeReadingIndex, Math.max(0, readingBooks.length - 1));
   const activeBook = readingBooks[activeIndex];
 
+  // Modals State
+  const [selectedPoemForModal, setSelectedPoemForModal] = useState<Poem | null>(null);
+  const [selectedWordForModal, setSelectedWordForModal] = useState<SavedWord | null>(null);
+
   // Compute streaks
   const { currentStreak, highestStreak } = calculateStreaks(streakLog);
   const { maxPages, recordDate } = getHighestPagesRecord(streakLog);
 
-  // Deterministic daily and yearly quotes that change once per day
-  const motivationalQuotes = useMemo(() => {
-    const day = new Date().getDate();
-    return {
-      daily: DAILY_QUOTES[day % DAILY_QUOTES.length],
-      yearly: YEARLY_QUOTES[day % YEARLY_QUOTES.length],
-    };
-  }, []);
+  // Latest favorite poem to display on dashboard
+  const latestFavoritePoem = useMemo(() => {
+    if (favoritePoems && favoritePoems.length > 0) {
+      return favoritePoems[favoritePoems.length - 1];
+    }
+    return null;
+  }, [favoritePoems]);
 
   // Local editing states
   const [editingGoal, setEditingGoal] = useState(false);
@@ -129,29 +158,31 @@ export function Dashboard({
     .sort((a, b) => (b.dateFinished ?? '').localeCompare(a.dateFinished ?? ''))
     .slice(0, 5);
 
-  const showQuotes = recentlyFinished.length >= 3;
-
+  // Take 2-3 most recently saved words
+  const recentSavedWords = useMemo(() => {
+    return [...savedWords].slice(-2).reverse();
+  }, [savedWords]);
 
   const stats = [
-    { label: 'Total Books', value: total, icon: Library, tone: 'ink' as const },
-    { label: 'On Shelf', value: onShelf, icon: BookMarked, tone: 'brass' as const },
-    { label: 'The Hunt List', value: wishlist, icon: ShoppingBag, tone: 'purple' as const },
-    { label: 'Currently Reading', value: reading, icon: BookOpen, tone: 'forest' as const },
-    { label: 'Read', value: read, icon: CheckCircle2, tone: 'ink' as const },
-    { label: 'Favorites', value: favorites, icon: Heart, tone: 'burgundy' as const },
+    { label: 'Total Books', value: total, icon: Library, tone: 'ink' as const, viewKey: 'on-shelf' as ViewKey },
+    { label: 'On Shelf', value: onShelf, icon: BookMarked, tone: 'brass' as const, viewKey: 'on-shelf' as ViewKey },
+    { label: 'The Hunt List', value: wishlist, icon: ShoppingBag, tone: 'purple' as const, viewKey: 'wishlist' as ViewKey },
+    { label: 'Currently Reading', value: reading, icon: BookOpen, tone: 'forest' as const, viewKey: 'reading' as ViewKey },
+    { label: 'Read', value: read, icon: CheckCircle2, tone: 'ink' as const, viewKey: 'read' as ViewKey },
+    { label: 'Favorites', value: favorites, icon: Heart, tone: 'burgundy' as const, viewKey: 'favorites' as ViewKey },
   ];
 
   const toneClasses: Record<string, string> = {
     ink: 'bg-ink text-paper dark:bg-paper/10 dark:text-paper',
     brass: 'bg-brass-500 text-white',
-    purple: 'bg-purple-500 text-white',
+    purple: 'bg-brass-500 text-white',
     forest: 'bg-forest-500 text-white',
     burgundy: 'bg-burgundy-500 text-white',
   };
 
   return (
     <div className="space-y-8">
-      {/* Stat Cards Grid */}
+      {/* ─── Top 6 Stat Cards Grid ─────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {stats.map((s, i) => (
           <motion.div
@@ -159,35 +190,42 @@ export function Dashboard({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, delay: i * 0.04 }}
-            className="rounded-xl2 border border-ink/10 bg-surface p-4 shadow-card dark:border-paper/10 dark:bg-surface-dark"
+            onClick={() => onSelectView && onSelectView(s.viewKey)}
+            className="group cursor-pointer rounded-xl2 border border-ink/10 bg-surface p-4 shadow-card transition-all hover:border-brass-500/40 hover:shadow-cardHover dark:border-paper/10 dark:bg-surface-dark"
           >
-            <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-lg ${toneClasses[s.tone]}`}>
-              <s.icon size={16} />
+            <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${toneClasses[s.tone]} transition-transform group-hover:scale-105`}>
+              <s.icon size={18} />
             </div>
-            <p className="font-display text-2xl font-semibold text-ink dark:text-paper">{s.value}</p>
-            <p className="mt-0.5 text-xs text-ink-muted dark:text-paper/50">{s.label}</p>
+            <p className="font-display text-2xl font-bold text-ink dark:text-paper">{s.value}</p>
+            <p className="mt-0.5 text-xs font-medium text-ink-muted dark:text-paper/50">{s.label}</p>
           </motion.div>
         ))}
       </div>
 
-      {/* Main Grid: Row 1 - Active Reads, Reading Streaks & Pages Read */}
+      {/* ─── Row 1: Currently Reading, Streak, Pages Read ───────────── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Card 1: Currently Reading (Active Read) */}
+        {/* Card 1: Currently Reading */}
         <div className="rounded-xl2 border border-ink/10 bg-surface p-5 shadow-card dark:border-paper/10 dark:bg-surface-dark flex flex-col justify-between min-h-[250px]">
           <div>
-            <h3 className="mb-4 font-display text-base font-medium text-ink dark:text-paper">
-              Currently Reading
+            <h3 className="mb-4 font-display text-base font-medium text-ink dark:text-paper flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <BookOpen size={16} className="text-forest-500" /> Currently Reading
+              </span>
+              {readingBooks.length > 0 && (
+                <span className="rounded-full bg-forest-50 px-2 py-0.5 text-[10px] font-bold text-forest-700 dark:bg-forest-500/15 dark:text-forest-300">
+                  {readingBooks.length} active
+                </span>
+              )}
             </h3>
             {activeBook ? (
               <div className="space-y-4">
                 <div className="flex gap-4">
-                  {/* Book Cover */}
                   <div
                     role="button"
                     tabIndex={0}
                     onClick={() => onOpen(activeBook)}
                     onKeyDown={(e) => e.key === 'Enter' && onOpen(activeBook)}
-                    className="h-28 w-20 shrink-0 overflow-hidden rounded-lg bg-paper-soft dark:bg-bgdark-soft shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+                    className="h-28 w-20 shrink-0 overflow-hidden rounded-lg bg-paper-soft dark:bg-bgdark-soft shadow-sm cursor-pointer hover:opacity-90 transition-opacity border border-ink/5 dark:border-paper/5"
                   >
                     {activeBook.coverUrl ? (
                       <img
@@ -202,7 +240,6 @@ export function Dashboard({
                       </div>
                     )}
                   </div>
-                  {/* Book Info */}
                   <div className="flex-1 min-w-0">
                     <h4
                       onClick={() => onOpen(activeBook)}
@@ -224,7 +261,6 @@ export function Dashboard({
                   </div>
                 </div>
 
-                {/* Progress bar */}
                 <div>
                   {activeBook.totalPages && activeBook.totalPages > 0 ? (
                     <div>
@@ -262,7 +298,6 @@ export function Dashboard({
                   )}
                 </div>
 
-                {/* Carousel Navigation at the Bottom */}
                 {readingBooks.length > 1 && (
                   <div className="flex items-center justify-between pt-3 border-t border-ink/5 dark:border-paper/5 mt-4">
                     <span className="text-[11px] text-ink-faint dark:text-paper/40 font-medium">
@@ -277,7 +312,6 @@ export function Dashboard({
                           )
                         }
                         className="rounded-lg border border-ink/10 p-1 hover:bg-ink/5 dark:border-paper/10 dark:hover:bg-paper/5 transition-colors text-ink dark:text-paper"
-                        aria-label="Previous reading book"
                       >
                         <ChevronLeft size={14} />
                       </button>
@@ -289,7 +323,6 @@ export function Dashboard({
                           )
                         }
                         className="rounded-lg border border-ink/10 p-1 hover:bg-ink/5 dark:border-paper/10 dark:hover:bg-paper/5 transition-colors text-ink dark:text-paper"
-                        aria-label="Next reading book"
                       >
                         <ChevronRight size={14} />
                       </button>
@@ -319,7 +352,7 @@ export function Dashboard({
           </div>
         </div>
 
-        {/* Card 2: Reading Streaks */}
+        {/* Card 2: Reading Streak */}
         <div className="rounded-xl2 border border-ink/10 bg-surface p-5 shadow-card dark:border-paper/10 dark:bg-surface-dark flex flex-col justify-between min-h-[250px]">
           <div>
             <h3 className="mb-4 font-display text-base font-medium text-ink dark:text-paper">
@@ -384,42 +417,125 @@ export function Dashboard({
                   {totalPagesRead.toLocaleString()}
                 </p>
                 <p className="text-xs text-ink-muted dark:text-paper/50 mt-0.5">
-                  Total pages read till date
+                  Total pages completed till date
                 </p>
               </div>
             </div>
-            <p className="text-[11px] text-ink-faint dark:text-paper/40 mt-4 leading-normal">
-              Calculates all pages of completed books plus current pages read in books you're reading.
-            </p>
           </div>
 
-          <div className="mt-5 flex items-center gap-2.5 rounded-lg bg-paper-soft px-3 py-2.5 dark:bg-paper/5">
+          <div className="mt-5 flex items-center justify-between gap-2.5 rounded-lg bg-paper-soft px-3.5 py-2.5 dark:bg-paper/5">
             <span className="text-xs text-ink-muted dark:text-paper/60">
-              Happy reading! Keep the numbers growing.
+              View full reading statistics
             </span>
+            {onSelectView && (
+              <button
+                onClick={() => onSelectView('stats')}
+                className="text-xs font-semibold text-brass-600 hover:underline dark:text-brass-400"
+              >
+                View Stats →
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Row 2: Recently Finished (1/3) + Daily Reading Target (1/3) + Yearly Reading Goal (1/3) */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Recently Finished — 1 col */}
-        <div className="rounded-xl2 border border-ink/10 bg-surface p-5 shadow-card dark:border-paper/10 dark:bg-surface-dark lg:col-span-1 flex flex-col justify-between min-h-[250px]">
+      {/* ─── Row 2 (Matching Designer Skeleton Image): ────────────── */}
+      {/* Column 1: Recently Finished Books (Full Height)             */}
+      {/* Column 2 (50/50 Split): Word Library (Top) | Daily Goal (Bottom) */}
+      {/* Column 3 (50/50 Split): Poem Widget (Top)  | Yearly Goal (Bottom) */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 items-stretch">
+        {/* Column 1 (1/3 width): Recently Finished Books (Full Height) */}
+        <div className="rounded-xl2 border border-ink/10 bg-surface p-5 shadow-card dark:border-paper/10 dark:bg-surface-dark flex flex-col justify-between h-full min-h-[300px]">
           <div>
             <h3 className="mb-3 flex items-center gap-1.5 font-display text-base font-medium text-ink dark:text-paper">
-              <CheckCircle2 size={15} className="text-forest-500" /> Recently Finished
+              <CheckCircle2 size={16} className="text-forest-500" /> Recently Finished Books
             </h3>
             <ActivityList books={recentlyFinished} onOpen={onOpen} />
           </div>
+
+          {onSelectView && (
+            <div className="mt-4 pt-3 border-t border-ink/5 dark:border-paper/5 flex items-center justify-between">
+              <span className="text-xs text-ink-muted dark:text-paper/60">View all completed</span>
+              <button
+                onClick={() => onSelectView('read')}
+                className="text-xs font-semibold text-forest-600 hover:underline dark:text-forest-400"
+              >
+                All Finished →
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Daily Reading Target — 1 col */}
-        <div className="rounded-xl2 border border-ink/10 bg-surface p-5 shadow-card dark:border-paper/10 dark:bg-surface-dark lg:col-span-1 flex flex-col justify-between min-h-[250px]">
-          <div className="flex-1 flex flex-col justify-between">
+        {/* Column 2 (1/3 width): 50/50 Split for Word Lib (Top) & Daily Goal (Bottom) */}
+        <div className="flex flex-col gap-4 h-full justify-between">
+          {/* Top 50%: Word Library Widget (Clicking word opens WordDetailModal directly) */}
+          <div className="flex-1 rounded-xl2 border border-ink/10 bg-surface p-4 shadow-card dark:border-paper/10 dark:bg-surface-dark flex flex-col justify-between">
             <div>
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="flex items-center gap-1.5 font-display text-base font-medium text-ink dark:text-paper">
-                  <Target size={15} className="text-purple-500" /> Daily Target
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="flex items-center gap-1.5 font-display text-sm font-semibold text-ink dark:text-paper">
+                  <BookA size={15} className="text-brass-500" /> Word Library
+                </h3>
+                <span className="rounded-full bg-brass-50 px-2 py-0.5 text-[10px] font-bold text-brass-700 dark:bg-brass-500/15 dark:text-brass-300">
+                  {savedWordsCount} saved
+                </span>
+              </div>
+
+              {recentSavedWords.length > 0 ? (
+                <div className="space-y-1.5 mt-1">
+                  {recentSavedWords.map((item, idx) => {
+                    const details = getWordDetails(item);
+                    return (
+                      <button
+                        type="button"
+                        key={item.id || idx}
+                        onClick={() => setSelectedWordForModal(item)}
+                        className="w-full text-left rounded-lg bg-paper-soft/70 p-2 dark:bg-bgdark-soft/70 border border-ink/5 dark:border-paper/5 flex items-center justify-between gap-2 hover:border-brass-500/30 hover:bg-paper-soft transition-all cursor-pointer group"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <span className="font-display text-xs font-bold text-ink dark:text-paper group-hover:text-brass-600 dark:group-hover:text-brass-400 transition-colors truncate block">
+                            {details.word}
+                          </span>
+                          {details.definition && (
+                            <span className="text-[10px] text-ink-muted dark:text-paper/60 line-clamp-1 block">
+                              {details.definition}
+                            </span>
+                          )}
+                        </div>
+                        {details.phonetic && (
+                          <span className="text-[9px] text-brass-600 dark:text-brass-400 font-mono shrink-0">
+                            {details.phonetic}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-ink-muted dark:text-paper/50 mt-1 leading-relaxed">
+                  Save new words and definitions while reading.
+                </p>
+              )}
+            </div>
+
+            <div className="mt-3 pt-2 border-t border-ink/5 dark:border-paper/5 flex items-center justify-between text-xs">
+              <span className="text-ink-muted dark:text-paper/60 font-medium">Vocabulary Collection</span>
+              {onSelectView && (
+                <button
+                  onClick={() => onSelectView('word-library')}
+                  className="font-semibold text-brass-600 hover:underline dark:text-brass-400 flex items-center gap-1"
+                >
+                  Open <ArrowRight size={11} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom 50%: Daily Target Widget with Forest Green Theme */}
+          <div className="flex-1 rounded-xl2 border border-ink/10 bg-surface p-4 shadow-card dark:border-paper/10 dark:bg-surface-dark flex flex-col justify-between">
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="flex items-center gap-1.5 font-display text-sm font-semibold text-ink dark:text-paper">
+                  <Target size={15} className="text-forest-500" /> Daily Target
                 </h3>
                 {dailyGoal === null && (
                   <button
@@ -427,7 +543,7 @@ export function Dashboard({
                       setEditingDailyGoal((v) => !v);
                       setDailyGoalInput('');
                     }}
-                    className="text-xs font-medium text-purple-600 hover:underline dark:text-purple-300"
+                    className="text-xs font-medium text-forest-600 hover:underline dark:text-forest-300"
                   >
                     {editingDailyGoal ? 'Close' : 'Set Goal'}
                   </button>
@@ -443,142 +559,172 @@ export function Dashboard({
                     setDailyGoal(n);
                     setEditingDailyGoal(false);
                   }}
-                  className="flex flex-col gap-3 mt-2"
+                  className="flex items-center gap-2 mt-1"
                 >
-                  <p className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-lg px-2.5 py-1.5 leading-relaxed">
-                    ⚠️ Once set, today's goal cannot be changed.
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      step="1"
-                      value={dailyGoalInput}
-                      onChange={(e) => setDailyGoalInput(e.target.value.replace(/[^0-9]/g, ''))}
-                      placeholder="e.g. 20"
-                      className="w-full rounded-lg border border-ink/10 bg-paper px-2.5 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-purple-400 dark:border-paper/10 dark:bg-bgdark dark:text-paper"
-                    />
-                    <button
-                      type="submit"
-                      className="rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-paper dark:bg-purple-500 dark:text-bgdark shrink-0"
-                    >
-                      Set
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-ink-faint dark:text-paper/40 leading-relaxed">
-                    How many pages do you want to finish today?
-                  </p>
+                  <input
+                    type="number"
+                    min={1}
+                    step="1"
+                    value={dailyGoalInput}
+                    onChange={(e) => setDailyGoalInput(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="20 pages"
+                    className="w-full rounded-lg border border-ink/10 bg-paper px-2 py-1 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-forest-400 dark:border-paper/10 dark:bg-bgdark dark:text-paper"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-ink px-2.5 py-1 text-xs font-medium text-paper dark:bg-forest-500 dark:text-bgdark shrink-0"
+                  >
+                    Save
+                  </button>
                 </form>
               ) : dailyGoal === null ? (
-                <div className="flex items-center gap-4 mt-2">
-                  <div className="relative flex items-center justify-center shrink-0">
-                    <svg height={80} width={80} className="rotate-[-90deg]">
-                      <circle
-                        stroke="currentColor"
-                        fill="transparent"
-                        strokeWidth={6}
-                        r={32}
-                        cx={40}
-                        cy={40}
-                        className="text-ink/10 dark:text-paper/10 stroke-dashed"
-                      />
-                    </svg>
-                    <div className="absolute flex flex-col items-center justify-center">
-                      <Target size={18} className="text-ink-faint dark:text-paper/30" />
-                    </div>
-                  </div>
-                  <div className="min-w-0">
-                    <h4 className="font-display text-sm font-semibold text-purple-600 dark:text-purple-400">
-                      No Daily Goal
-                    </h4>
-                    <p className="text-xs text-ink-muted dark:text-paper/50 mt-0.5 leading-snug">
-                      "Step by step, page by page." Set a target for today!
-                    </p>
-                  </div>
-                </div>
+                <p className="text-xs text-ink-muted dark:text-paper/50 mt-1 leading-snug">
+                  Set a daily page target to track reading habits.
+                </p>
               ) : (
-                <div className="flex items-center gap-5 mt-2">
-                  {/* SVG Progress Ring */}
+                /* Daily Goal Circular Progress Wheel Display */
+                <div className="flex items-center gap-3.5 mt-1">
                   <div className="relative flex items-center justify-center shrink-0">
-                    <svg height={80} width={80} className="rotate-[-90deg]">
+                    <svg height={54} width={54} className="rotate-[-90deg]">
                       <circle
                         stroke="currentColor"
                         fill="transparent"
-                        strokeWidth={6}
-                        r={32}
-                        cx={40}
-                        cy={40}
+                        strokeWidth={5}
+                        r={22}
+                        cx={27}
+                        cy={27}
                         className="text-ink/10 dark:text-paper/10"
                       />
                       <circle
                         stroke="currentColor"
                         fill="transparent"
-                        strokeWidth={6}
-                        strokeDasharray={201.06}
-                        strokeDashoffset={201.06 - (dailyGoalPct / 100) * 201.06}
+                        strokeWidth={5}
+                        strokeDasharray={138.23}
+                        strokeDashoffset={138.23 - (dailyGoalPct / 100) * 138.23}
                         strokeLinecap="round"
-                        r={32}
-                        cx={40}
-                        cy={40}
-                        className="text-purple-500 dark:text-purple-400 transition-all duration-300"
+                        r={22}
+                        cx={27}
+                        cy={27}
+                        className="text-forest-500 dark:text-forest-400 transition-all duration-300"
                       />
                     </svg>
                     <div className="absolute flex flex-col items-center justify-center">
-                      <span className="text-xs font-bold text-ink dark:text-paper">{dailyGoalPct}%</span>
+                      <span className="text-[10px] font-bold text-ink dark:text-paper">{dailyGoalPct}%</span>
                     </div>
                   </div>
 
-                  <div>
-                    <p className="font-display text-2xl font-bold text-ink dark:text-paper">
+                  <div className="min-w-0">
+                    <p className="font-display text-lg font-bold text-ink dark:text-paper">
                       {pagesReadToday}
-                      <span className="text-sm font-normal text-ink-faint dark:text-paper/40"> / {dailyGoal} pages</span>
+                      <span className="text-xs font-normal text-ink-faint dark:text-paper/40"> / {dailyGoal} pgs</span>
                     </p>
-                    <p className="text-[11px] text-ink-muted dark:text-paper/50 mt-1">
-                      Completed for today
-                    </p>
+                    <p className="text-[11px] text-ink-muted dark:text-paper/50 mt-0.5">Completed today</p>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Motivational Quote */}
-            {!editingDailyGoal && showQuotes && (
-              <div className="mt-4 py-2 border-t border-ink/5 dark:border-paper/5 text-center flex flex-col items-center justify-center">
-                <p className="text-[11px] text-ink-muted dark:text-paper/50 italic leading-relaxed max-w-[240px]">
-                  "{motivationalQuotes.daily.text}"
-                </p>
-                <p className="text-[9px] text-ink-faint dark:text-paper/30 mt-0.5">
-                  — {motivationalQuotes.daily.author}
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-5 flex items-center justify-between gap-2.5 rounded-lg bg-paper-soft px-3.5 py-2.5 dark:bg-paper/5">
-            <span className="text-xs text-ink-muted dark:text-paper/60 truncate mr-2">
-              {dailyGoal === null
-                ? "🎯 Set today's goal."
-                : pagesReadToday >= dailyGoal
-                ? "🎉 Goal achieved!"
-                : `${Math.max(0, dailyGoal - pagesReadToday)} page${Math.max(0, dailyGoal - pagesReadToday) === 1 ? '' : 's'} left today.`}
-            </span>
-            {onSelectView && (
-              <button
-                onClick={() => onSelectView('daily-goals')}
-                className="text-xs font-semibold text-purple-600 hover:underline dark:text-purple-300 shrink-0"
-              >
-                Log & History →
-              </button>
-            )}
+            <div className="mt-3 pt-2 border-t border-ink/5 dark:border-paper/5 flex items-center justify-between text-xs">
+              <span className="text-ink-muted dark:text-paper/60 font-medium">{dailyGoalPct}% done</span>
+              {onSelectView && (
+                <button
+                  onClick={() => onSelectView('daily-goals')}
+                  className="font-semibold text-forest-600 hover:underline dark:text-forest-400"
+                >
+                  History →
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Reading Goal — 1 col */}
-        <div className="rounded-xl2 border border-ink/10 bg-surface p-5 shadow-card dark:border-paper/10 dark:bg-surface-dark lg:col-span-1 flex flex-col justify-between min-h-[250px]">
-          <div className="flex-1 flex flex-col justify-between">
+        {/* Column 3 (1/3 width): 50/50 Split for Poem (Top) & Yearly Goal (Bottom) */}
+        <div className="flex flex-col gap-4 h-full justify-between">
+          {/* Top 50%: Poem Widget Opening Poem Reader Modal Directly on Click */}
+          <div className="flex-1 rounded-xl2 border border-ink/10 bg-surface p-4 shadow-card dark:border-paper/10 dark:bg-surface-dark flex flex-col justify-between">
             <div>
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="flex items-center gap-1.5 font-display text-base font-medium text-ink dark:text-paper">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="flex items-center gap-1.5 font-display text-sm font-semibold text-ink dark:text-paper">
+                  <ScrollText size={15} className="text-brass-500" /> Poetry Corner
+                </h3>
+                {/* Pure Icon + Number Badges (No Text Labels) */}
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-forest-700 dark:text-forest-300 bg-forest-50 dark:bg-forest-500/15 px-2 py-0.5 rounded-full"
+                    title={`${readPoemsCount} Read Poems`}
+                  >
+                    <CheckCircle2 size={12} /> {readPoemsCount}
+                  </span>
+                  <span
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-brass-700 dark:text-brass-300 bg-brass-50 dark:bg-brass-500/15 px-2 py-0.5 rounded-full"
+                    title={`${savedPoemsCount} Saved for Later`}
+                  >
+                    <Bookmark size={12} /> {savedPoemsCount}
+                  </span>
+                  <span
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-burgundy-700 dark:text-burgundy-300 bg-burgundy-50 dark:bg-burgundy-500/15 px-2 py-0.5 rounded-full"
+                    title={`${favoritePoemsCount} Favorite Poems`}
+                  >
+                    <Heart size={12} /> {favoritePoemsCount}
+                  </span>
+                </div>
+              </div>
+
+              {/* Latest Favorite Poem Card Button (Opens Poem Reader Modal directly on click!) */}
+              {latestFavoritePoem ? (
+                <button
+                  type="button"
+                  onClick={() => setSelectedPoemForModal(latestFavoritePoem)}
+                  className="w-full text-left rounded-lg bg-paper-soft/70 p-2.5 dark:bg-bgdark-soft/70 border border-ink/5 dark:border-paper/5 hover:border-brass-500/30 hover:bg-paper-soft transition-all cursor-pointer group"
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="font-display text-xs font-bold text-ink dark:text-paper group-hover:text-brass-600 dark:group-hover:text-brass-400 transition-colors truncate">
+                      {latestFavoritePoem.title}
+                    </p>
+                    <span className="text-[10px] italic font-serif text-brass-600 dark:text-brass-400 shrink-0">
+                      by {latestFavoritePoem.author}
+                    </span>
+                  </div>
+                  {latestFavoritePoem.lines && latestFavoritePoem.lines.length > 0 && (
+                    <p className="font-serif text-[11px] italic text-ink-muted dark:text-paper/70 line-clamp-2 leading-relaxed border-l-2 border-brass-500/30 pl-2 mt-1.5">
+                      "{latestFavoritePoem.lines.slice(0, 2).filter((l) => l.trim().length > 0).join(' / ')}"
+                    </p>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onSelectView && onSelectView('poems')}
+                  className="w-full text-left rounded-lg bg-paper-soft/40 p-2.5 dark:bg-bgdark-soft/40 border border-dashed border-ink/10 dark:border-paper/10 hover:border-brass-500/30 transition-all cursor-pointer group"
+                >
+                  <p className="font-display text-xs font-semibold text-ink dark:text-paper group-hover:text-brass-600 dark:group-hover:text-brass-400 transition-colors">
+                    No favorites added yet
+                  </p>
+                  <p className="text-[11px] text-ink-muted dark:text-paper/50 mt-0.5">
+                    Click here to explore classic poems and add your favorites.
+                  </p>
+                </button>
+              )}
+            </div>
+
+            <div className="mt-3 pt-2 border-t border-ink/5 dark:border-paper/5 flex items-center justify-between text-xs">
+              <span className="text-ink-muted dark:text-paper/60 font-medium">Poetry Collection</span>
+              {onSelectView && (
+                <button
+                  onClick={() => onSelectView('poems')}
+                  className="font-semibold text-brass-600 hover:underline dark:text-brass-400 flex items-center gap-1"
+                >
+                  Explore <ArrowRight size={11} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom 50%: Yearly Goal Widget */}
+          <div className="flex-1 rounded-xl2 border border-ink/10 bg-surface p-4 shadow-card dark:border-paper/10 dark:bg-surface-dark flex flex-col justify-between">
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="flex items-center gap-1.5 font-display text-sm font-semibold text-ink dark:text-paper">
                   <Target size={15} className="text-brass-500" /> {currentYear} Goal
                 </h3>
                 <button
@@ -601,86 +747,78 @@ export function Dashboard({
                     setGoal(n);
                     setEditingGoal(false);
                   }}
-                  className="flex flex-col gap-3 mt-2"
+                  className="flex items-center gap-2 mt-1"
                 >
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      step="1"
-                      value={goalInput}
-                      onChange={(e) => setGoalInput(e.target.value.replace(/[^0-9]/g, ''))}
-                      placeholder="e.g. 12"
-                      className="w-full rounded-lg border border-ink/10 bg-paper px-2.5 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 dark:bg-bgdark dark:text-paper"
-                    />
-                    <button
-                      type="submit"
-                      className="rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-paper dark:bg-brass-500 dark:text-bgdark shrink-0"
-                    >
-                      Save
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-ink-faint dark:text-paper/40 leading-relaxed">
-                    How many books do you aim to complete in {currentYear}?
-                  </p>
+                  <input
+                    type="number"
+                    min={1}
+                    step="1"
+                    value={goalInput}
+                    onChange={(e) => setGoalInput(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="12 books"
+                    className="w-full rounded-lg border border-ink/10 bg-paper px-2 py-1 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-brass-400 dark:border-paper/10 dark:bg-bgdark dark:text-paper"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-ink px-2.5 py-1 text-xs font-medium text-paper dark:bg-brass-500 dark:text-bgdark shrink-0"
+                  >
+                    Save
+                  </button>
                 </form>
               ) : goal === null ? (
-                <div className="mt-2 space-y-2">
-                  <h4 className="font-display text-sm font-semibold text-brass-600 dark:text-brass-400">
-                    No Annual Goal
-                  </h4>
-                  <p className="text-xs text-ink-muted dark:text-paper/50 leading-relaxed">
-                    "A book is a dream that you hold in your hand." Set your yearly reading target.
-                  </p>
-                </div>
+                <p className="text-xs text-ink-muted dark:text-paper/50 mt-1 leading-snug">
+                  Set annual book goal.
+                </p>
               ) : (
-                <>
-                  <p className="font-display text-3xl font-bold text-ink dark:text-paper">
+                <div>
+                  <p className="font-display text-xl font-bold text-ink dark:text-paper">
                     {readThisYear}
-                    <span className="text-base font-normal text-ink-faint dark:text-paper/40"> / {goal} books</span>
+                    <span className="text-xs font-normal text-ink-faint dark:text-paper/40"> / {goal} books</span>
                   </p>
-                  <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-ink/10 dark:bg-paper/10">
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-ink/10 dark:bg-paper/10">
                     <div className="h-full rounded-full bg-brass-500 transition-all" style={{ width: `${goalPct}%` }} />
                   </div>
-                  <p className="mt-2 text-xs text-ink-muted dark:text-paper/50">
-                    {goalPct}% of your {currentYear} goal.
-                  </p>
-                </>
+                </div>
               )}
             </div>
 
-            {/* Motivational Quote */}
-            {!editingGoal && showQuotes && (
-              <div className="mt-4 py-2 border-t border-ink/5 dark:border-paper/5 text-center flex flex-col items-center justify-center">
-                <p className="text-[11px] text-ink-muted dark:text-paper/50 italic leading-relaxed max-w-[240px]">
-                  "{motivationalQuotes.yearly.text}"
-                </p>
-                <p className="text-[9px] text-ink-faint dark:text-paper/30 mt-0.5">
-                  — {motivationalQuotes.yearly.author}
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-5 flex items-center justify-between gap-2.5 rounded-lg bg-paper-soft px-3.5 py-2.5 dark:bg-paper/5">
-            <span className="text-xs text-ink-muted dark:text-paper/60 truncate mr-2">
-              {goal === null
-                ? "🎯 Set yearly target."
-                : readThisYear >= goal
-                ? '🎉 Goal reached!'
-                : `${goal - readThisYear} book${goal - readThisYear === 1 ? '' : 's'} left.`}
-            </span>
-            {onSelectView && (
-              <button
-                onClick={() => onSelectView('yearly-goals')}
-                className="text-xs font-semibold text-brass-600 hover:underline dark:text-brass-400 shrink-0"
-              >
-                View History →
-              </button>
-            )}
+            <div className="mt-3 pt-2 border-t border-ink/5 dark:border-paper/5 flex items-center justify-between text-xs">
+              <span className="text-ink-muted dark:text-paper/60 font-medium">{goalPct}% done</span>
+              {onSelectView && (
+                <button
+                  onClick={() => onSelectView('yearly-goals')}
+                  className="font-semibold text-brass-600 hover:underline dark:text-brass-400"
+                >
+                  History →
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* ─── Poem Reader Modal ────────────────────────────────────────── */}
+      {selectedPoemForModal && (
+        <PoemDetailModal
+          poem={selectedPoemForModal}
+          onClose={() => setSelectedPoemForModal(null)}
+          isRead={isReadPoem(selectedPoemForModal.id)}
+          isSaved={isSavedPoem(selectedPoemForModal.id)}
+          isFavorite={isFavoritePoem(selectedPoemForModal.id)}
+          onToggleRead={() => onToggleReadPoem(selectedPoemForModal)}
+          onToggleSaved={() => onToggleSavedPoem(selectedPoemForModal)}
+          onToggleFavorite={() => onToggleFavoritePoem(selectedPoemForModal)}
+        />
+      )}
+
+      {/* ─── Word Detail Modal ────────────────────────────────────────── */}
+      {selectedWordForModal && (
+        <WordDetailModal
+          word={selectedWordForModal}
+          onClose={() => setSelectedWordForModal(null)}
+          onRemove={(id) => onRemoveWord(id)}
+        />
+      )}
     </div>
   );
 }

@@ -25,11 +25,13 @@ import {
   Zap,
   Eye,
   EyeOff,
-  Camera
+  Camera,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from './ui/Button';
+import { Modal } from './ui/Modal';
 import { auth, db } from '../firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, updateProfile } from 'firebase/auth';
 import type { Book } from '../types/book';
 import type { StreakLog } from './StreakManager';
@@ -45,6 +47,8 @@ interface ProfileProps {
   streakLog: StreakLog;
   acknowledgedBadgeIds: string[];
   onAcknowledgeBadges: (badgeIds: string[]) => void;
+  resetModalOpen?: boolean;
+  onCloseResetModal?: () => void;
 }
 
 interface Badge {
@@ -306,7 +310,9 @@ export function Profile({
   books,
   streakLog,
   acknowledgedBadgeIds,
-  onAcknowledgeBadges
+  onAcknowledgeBadges,
+  resetModalOpen,
+  onCloseResetModal,
 }: ProfileProps) {
   const [name, setName] = useState(currentUser.name);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -323,6 +329,23 @@ export function Profile({
   const [pwdLoading, setPwdLoading] = useState(false);
   const [pwdSuccess, setPwdSuccess] = useState('');
   const [pwdError, setPwdError] = useState('');
+
+  // Reset Account Data Modal states
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetPassword, setResetPassword] = useState('');
+  const [showResetPwd, setShowResetPwd] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState('');
+
+  useEffect(() => {
+    if (typeof resetModalOpen === 'boolean') {
+      setShowResetModal(resetModalOpen);
+      if (!resetModalOpen) {
+        setResetPassword('');
+        setResetError('');
+      }
+    }
+  }, [resetModalOpen]);
 
   // Avatar
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
@@ -367,7 +390,7 @@ export function Profile({
   const earnedBadges = BADGES.filter(b =>
     b.isEarned({ booksRead: totalBooksRead, pagesRead: totalPagesRead, highestStreak }, books)
   );
-  
+
   // Calculate highest badge for motivation sidebar
   const highestBadge = earnedBadges.length > 0 ? earnedBadges[earnedBadges.length - 1] : null;
 
@@ -385,20 +408,20 @@ export function Profile({
 
   const formattedCreation = userCreationTime
     ? new Date(userCreationTime).toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      })
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
     : 'Recently';
 
   const formattedLastSignIn = userLastSignIn
     ? new Date(userLastSignIn).toLocaleString(undefined, {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
     : 'Just now';
 
   // Check if current user is the shared demo user to prevent lockouts
@@ -438,7 +461,7 @@ export function Profile({
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isDemoUser) return;
-    
+
     setPwdError('');
     setPwdSuccess('');
 
@@ -483,6 +506,56 @@ export function Profile({
     }
   };
 
+  const handleConfirmResetData = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetPassword.trim()) {
+      setResetError('Please enter your password.');
+      return;
+    }
+
+    setResetLoading(true);
+    setResetError('');
+
+    try {
+      const user = auth.currentUser;
+      if (!user || !user.email) {
+        throw new Error('User session not found.');
+      }
+
+      // 1. Re-authenticate password
+      const credential = EmailAuthProvider.credential(user.email, resetPassword);
+      await reauthenticateWithCredential(user, credential);
+
+      // 2. Wipe all user data in Firestore
+      const userId = user.uid;
+
+      // Delete books collection
+      const booksSnap = await getDocs(collection(db, 'users', userId, 'books'));
+      const deletePromises = booksSnap.docs.map((d) => deleteDoc(d.ref));
+      await Promise.all(deletePromises);
+
+      // Reset settings & streaks
+      await setDoc(doc(db, 'users', userId, 'settings', 'dailyGoal'), { dailyGoal: null, history: {} });
+      await setDoc(doc(db, 'users', userId, 'settings', 'goal'), { yearlyGoal: null, history: {} });
+      await setDoc(doc(db, 'users', userId, 'settings', 'wordLibrary'), { words: [] });
+      await setDoc(doc(db, 'users', userId, 'settings', 'poems'), { read: [], saved: [], favorites: [] });
+      await setDoc(doc(db, 'users', userId, 'settings', 'badges'), { acknowledgedBadgeIds: [] });
+      await setDoc(doc(db, 'users', userId, 'streaks', 'log'), { log: {} });
+
+      // Reload page to start with fresh empty user state
+      window.location.reload();
+    } catch (err: any) {
+      console.error('Data reset error:', err);
+      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        setResetError('Incorrect password. Please re-enter your password.');
+      } else {
+        setResetError(err.message || 'Failed to reset data. Please check your password and try again.');
+      }
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   // Close celebration modal and acknowledge the badge achievement
   const handleClaimBadge = () => {
     if (activeCelebrationBadge) {
@@ -516,27 +589,27 @@ export function Profile({
   const securityAnimate = isMobile
     ? {}
     : {
-        x: showSecurity ? 220 : 0,
-        y: 0,
-        opacity: showSecurity ? 1 : 0,
-        scale: showSecurity ? 1 : 0.95,
-      };
+      x: showSecurity ? 220 : 0,
+      y: 0,
+      opacity: showSecurity ? 1 : 0,
+      scale: showSecurity ? 1 : 0.95,
+    };
 
   const achievementsAnimate = isMobile
     ? {}
     : {
-        x: showAchievements ? 220 : 0,
-        y: 0,
-        opacity: showAchievements ? 1 : 0,
-        scale: showAchievements ? 1 : 0.95,
-      };
+      x: showAchievements ? 220 : 0,
+      y: 0,
+      opacity: showAchievements ? 1 : 0,
+      scale: showAchievements ? 1 : 0.95,
+    };
 
   // Motivation board content (Left Side-Board)
   const motivationIcon = highestBadge ? highestBadge.icon : 'BookOpen';
   const MotivationIconComponent = iconMap[motivationIcon];
   const motivationTitle = highestBadge ? highestBadge.title : 'Journey Begins';
-  const motivationText = highestBadge 
-    ? highestBadge.motivationalText 
+  const motivationText = highestBadge
+    ? highestBadge.motivationalText
     : "A single page starts the epic. Read books, complete pages, or log streaks to claim your first badge!";
   const motivationLabel = highestBadge ? `— Highest Badge` : '— Welcome Reader';
 
@@ -544,332 +617,664 @@ export function Profile({
 
   return (
     <>
-    <div className="relative mx-auto max-w-5xl flex flex-col items-center justify-start overflow-x-hidden py-4">
-      
-      {/* Dynamic Confetti & Modals Celebration Overlay */}
-      {activeCelebrationBadge && CelebrationIconComponent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bgdark/80 backdrop-blur-md overflow-hidden">
-          <ConfettiEffect />
+      <div className="relative mx-auto max-w-5xl flex flex-col items-center justify-start overflow-x-hidden py-4">
 
-          {/* Rotating Backdrop Gold Flares */}
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 15, repeat: Infinity, ease: 'linear' }}
-            className="absolute h-[500px] w-[500px] rounded-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#B8863F]/10 via-[#A855F7]/5 to-transparent blur-3xl pointer-events-none z-0"
-          />
+        {/* Dynamic Confetti & Modals Celebration Overlay */}
+        {activeCelebrationBadge && CelebrationIconComponent && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-bgdark/80 backdrop-blur-md overflow-hidden">
+            <ConfettiEffect />
 
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 150, damping: 20 }}
-            className="relative w-[90%] sm:w-[400px] rounded-xl2 border border-brass-500/20 bg-gradient-to-br from-white via-white to-paper-soft dark:from-[#211C17] dark:via-[#211C17] dark:to-[#1C1712] p-6 text-center shadow-[0_20px_50px_rgba(0,0,0,0.3),_0_0_40px_rgba(184,134,63,0.06)] z-50 flex flex-col items-center gap-5"
-          >
-            <div className="space-y-1">
-              <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-brass-600 dark:text-brass-400">
-                Congratulations!
-              </span>
-              <h2 className="font-display text-xl font-bold text-ink dark:text-paper">
-                New Badge Unlocked
-              </h2>
-            </div>
-
-            {/* Glowing Large Medal Badge */}
-            <div className="relative w-28 h-28 flex items-center justify-center my-2">
-              <div className="absolute inset-0 bg-gradient-to-tr from-brass-400 to-purple-500 rounded-full blur-md opacity-25 animate-pulse" />
-              <div className={`relative w-24 h-24 rounded-full border-2 flex items-center justify-center ${activeCelebrationBadge.colorClass} shadow-md`}>
-                <CelebrationIconComponent size={42} className="animate-bounce" />
-              </div>
-            </div>
-
-            <div className="space-y-1.5 px-2">
-              <h3 className="font-display text-lg font-bold text-ink dark:text-paper leading-snug">
-                {activeCelebrationBadge.title}
-              </h3>
-              <p className="text-xs text-ink-muted dark:text-paper/50">
-                {activeCelebrationBadge.description}
-              </p>
-              <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-forest-500/10 text-forest-600 dark:bg-forest-500/20 dark:text-forest-400">
-                Earned: {activeCelebrationBadge.requirementText}
-              </span>
-            </div>
-
-            <p className="font-serif italic text-xs text-ink-muted dark:text-paper/60 px-4 leading-relaxed">
-              "{activeCelebrationBadge.motivationalText}"
-            </p>
-
-            <Button
-              onClick={handleClaimBadge}
-              className="mt-2 w-full py-2.5 text-xs font-bold uppercase tracking-wider bg-brass-500 text-bgdark hover:bg-brass-400 border-none shadow-[0_4px_12px_rgba(184,134,63,0.15)]"
-            >
-              Fantastic!
-            </Button>
-          </motion.div>
-        </div>
-      )}
-
-      {/* Badge Detail Popup */}
-      {selectedBadge && (() => {
-        const SelectedIconComponent = iconMap[selectedBadge.icon];
-        return (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-bgdark/70 backdrop-blur-sm"
-            onClick={() => setSelectedBadge(null)}
-          >
+            {/* Rotating Backdrop Gold Flares */}
             <motion.div
-              initial={{ scale: 0.88, opacity: 0, y: 12 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              transition={{ type: 'spring', stiffness: 260, damping: 22 }}
-              onClick={(e) => e.stopPropagation()}
-              className="relative w-[90%] sm:w-[320px] rounded-2xl border border-brass-500/15 bg-gradient-to-br from-white via-white to-paper-soft dark:from-[#211C17] dark:via-[#211C17] dark:to-[#1C1712] p-6 text-center shadow-[0_24px_60px_rgba(0,0,0,0.3),_0_0_40px_rgba(184,134,63,0.05)] flex flex-col items-center gap-4"
-            >
-              {/* Close button */}
-              <button
-                onClick={() => setSelectedBadge(null)}
-                className="absolute top-3 right-3 rounded-full p-1 text-ink-faint dark:text-paper/30 hover:text-ink dark:hover:text-paper hover:bg-ink/5 dark:hover:bg-paper/10 transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
+              animate={{ rotate: 360 }}
+              transition={{ duration: 15, repeat: Infinity, ease: 'linear' }}
+              className="absolute h-[500px] w-[500px] rounded-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#B8863F]/10 via-[#A855F7]/5 to-transparent blur-3xl pointer-events-none z-0"
+            />
 
-              {/* Badge icon */}
-              <div className="relative w-20 h-20 flex items-center justify-center">
-                <div className="absolute inset-0 rounded-full blur-lg opacity-30 bg-gradient-to-tr from-brass-400 to-purple-500" />
-                <div className={`relative w-16 h-16 rounded-full border-2 flex items-center justify-center shadow-md ${selectedBadge.colorClass}`}>
-                  <SelectedIconComponent size={30} />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 150, damping: 20 }}
+              className="relative w-[90%] sm:w-[400px] rounded-xl2 border border-brass-500/20 bg-gradient-to-br from-white via-white to-paper-soft dark:from-[#211C17] dark:via-[#211C17] dark:to-[#1C1712] p-6 text-center shadow-[0_20px_50px_rgba(0,0,0,0.3),_0_0_40px_rgba(184,134,63,0.06)] z-50 flex flex-col items-center gap-5"
+            >
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-brass-600 dark:text-brass-400">
+                  Congratulations!
+                </span>
+                <h2 className="font-display text-xl font-bold text-ink dark:text-paper">
+                  New Badge Unlocked
+                </h2>
+              </div>
+
+              {/* Glowing Large Medal Badge */}
+              <div className="relative w-28 h-28 flex items-center justify-center my-2">
+                <div className="absolute inset-0 bg-gradient-to-tr from-brass-400 to-purple-500 rounded-full blur-md opacity-25 animate-pulse" />
+                <div className={`relative w-24 h-24 rounded-full border-2 flex items-center justify-center ${activeCelebrationBadge.colorClass} shadow-md`}>
+                  <CelebrationIconComponent size={42} className="animate-bounce" />
                 </div>
               </div>
 
-              {/* Badge info */}
-              <div className="space-y-1.5">
-                <span className="inline-block text-[9px] font-bold uppercase tracking-[0.18em] text-brass-600 dark:text-brass-400">
-                  Achievement Unlocked
-                </span>
-                <h3 className="font-display text-base font-bold text-ink dark:text-paper leading-tight">
-                  {selectedBadge.title}
+              <div className="space-y-1.5 px-2">
+                <h3 className="font-display text-lg font-bold text-ink dark:text-paper leading-snug">
+                  {activeCelebrationBadge.title}
                 </h3>
-                <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-forest-500/10 text-forest-600 dark:bg-forest-500/20 dark:text-forest-400">
-                  {selectedBadge.requirementText}
+                <p className="text-xs text-ink-muted dark:text-paper/50">
+                  {activeCelebrationBadge.description}
+                </p>
+                <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-forest-500/10 text-forest-600 dark:bg-forest-500/20 dark:text-forest-400">
+                  Earned: {activeCelebrationBadge.requirementText}
                 </span>
               </div>
 
-              <p className="text-[11px] text-ink-muted dark:text-paper/60 leading-relaxed">
-                {selectedBadge.description}
+              <p className="font-serif italic text-xs text-ink-muted dark:text-paper/60 px-4 leading-relaxed">
+                "{activeCelebrationBadge.motivationalText}"
               </p>
 
-              <p className="font-serif italic text-[11px] text-ink-muted dark:text-paper/50 px-3 leading-relaxed border-l-2 border-brass-500/30 text-left">
-                &ldquo;{selectedBadge.motivationalText}&rdquo;
-              </p>
+              <Button
+                onClick={handleClaimBadge}
+                className="mt-2 w-full py-2.5 text-xs font-bold uppercase tracking-wider bg-brass-500 text-bgdark hover:bg-brass-400 border-none shadow-[0_4px_12px_rgba(184,134,63,0.15)]"
+              >
+                Fantastic!
+              </Button>
             </motion.div>
           </div>
-        );
-      })()}
+        )}
 
-      {/* Subtle Dotted Background Grid overlay */}
-      <div className="absolute inset-0 bg-[radial-gradient(rgba(184,134,63,0.06)_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none z-0" />
-
-      {/* Floating Background Glow Blobs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <motion.div
-          animate={{
-            x: [0, 30, -30, 0],
-            y: [0, -25, 25, 0],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-          className="absolute top-[5%] left-[15%] h-[320px] w-[320px] rounded-full bg-brass-500/5 dark:bg-brass-500/10 blur-[100px]"
-        />
-        <motion.div
-          animate={{
-            x: [0, -30, 30, 0],
-            y: [0, 30, -30, 0],
-          }}
-          transition={{
-            duration: 25,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: 3
-          }}
-          className="absolute bottom-[15%] right-[15%] h-[350px] w-[350px] rounded-full bg-purple-500/5 dark:bg-purple-500/5 blur-[120px]"
-        />
-      </div>
-
-      {/* Faint Floating Sparkle Vectors */}
-      <motion.div
-        animate={{
-          y: [0, -12, 12, 0],
-          x: [0, 8, -8, 0],
-          opacity: [0.15, 0.35, 0.15],
-        }}
-        transition={{
-          duration: 8,
-          repeat: Infinity,
-          ease: "easeInOut",
-        }}
-        className="absolute top-4 right-12 text-brass-500/20 dark:text-brass-400/10 z-0 pointer-events-none"
-      >
-        <Sparkles size={16} />
-      </motion.div>
-      <motion.div
-        animate={{
-          y: [0, 10, -10, 0],
-          x: [0, -10, 10, 0],
-          opacity: [0.12, 0.28, 0.12],
-        }}
-        transition={{
-          duration: 10,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 2
-        }}
-        className="absolute bottom-16 left-8 text-purple-500/15 dark:text-purple-400/8 z-0 pointer-events-none"
-      >
-        <Sparkles size={14} />
-      </motion.div>
-
-      {/* ======================================================= */}
-      {/* MOBILE LAYOUT (flex column, normal document flow)        */}
-      {/* ======================================================= */}
-      {isMobile && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-          className="relative w-full px-4 flex flex-col gap-4 z-10"
-        >
-          {/* Mobile: Mini info boards row */}
-          {!showSecurity && !showAchievements && (
-            <div className="grid grid-cols-2 gap-3">
-              {/* Motivation mini card */}
-              <div className="rounded-xl border border-ink/5 bg-gradient-to-br from-white/60 to-paper-soft/30 dark:from-[#211C17]/60 dark:to-[#1C1712]/30 backdrop-blur-sm p-3 flex flex-col items-center text-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brass-500/10 text-brass-600 dark:text-brass-400">
-                  <MotivationIconComponent size={16} />
-                </div>
-                <p className="font-display text-[10px] font-bold text-brass-600 dark:text-brass-400 tracking-wide uppercase leading-tight">
-                  {motivationTitle}
-                </p>
-                <p className="font-serif italic text-[10px] text-ink-muted dark:text-paper/50 leading-relaxed line-clamp-3">
-                  "{motivationText}"
-                </p>
-              </div>
-
-              {/* Achievements mini card */}
-              <button
-                onClick={() => setShowAchievements(true)}
-                className="rounded-xl border border-ink/5 bg-gradient-to-br from-white/60 to-paper-soft/30 dark:from-[#211C17]/60 dark:to-[#1C1712]/30 backdrop-blur-sm p-3 flex flex-col items-center text-center gap-2 cursor-pointer group w-full text-left"
+        {/* Badge Detail Popup */}
+        {selectedBadge && (() => {
+          const SelectedIconComponent = iconMap[selectedBadge.icon];
+          return (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-bgdark/70 backdrop-blur-sm"
+              onClick={() => setSelectedBadge(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.88, opacity: 0, y: 12 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+                onClick={(e) => e.stopPropagation()}
+                className="relative w-[90%] sm:w-[320px] rounded-2xl border border-brass-500/15 bg-gradient-to-br from-white via-white to-paper-soft dark:from-[#211C17] dark:via-[#211C17] dark:to-[#1C1712] p-6 text-center shadow-[0_24px_60px_rgba(0,0,0,0.3),_0_0_40px_rgba(184,134,63,0.05)] flex flex-col items-center gap-4"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 group-hover:scale-105 transition-transform duration-200">
-                  <Award size={16} />
-                </div>
-                <p className="font-display text-[10px] font-bold text-purple-600 dark:text-purple-400 tracking-wide uppercase leading-tight">
-                  Achievements
-                </p>
-                <p className="text-[10px] text-ink-muted dark:text-paper/50 font-medium">
-                  <span className="font-bold text-purple-600 dark:text-purple-400">{earnedBadges.length}</span>/{BADGES.length} Badges
-                </p>
-                <div className="flex gap-1 justify-center flex-wrap">
-                  {BADGES.slice(0, 4).map((badge) => {
-                    const earned = badge.isEarned({ booksRead: totalBooksRead, pagesRead: totalPagesRead, highestStreak }, books);
-                    const IconComponent = iconMap[badge.icon];
-                    return (
-                      <div
-                        key={badge.id}
-                        className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all duration-300 ${
-                          earned
-                            ? getFilledBadgeColor(badge.id)
-                            : 'text-ink-faint border-ink/5 bg-ink/5 dark:text-paper/10 dark:border-paper/5'
-                        }`}
-                      >
-                        <IconComponent size={10} />
-                      </div>
-                    );
-                  })}
-                </div>
-                <span className="text-[9px] font-bold text-purple-500 uppercase tracking-widest group-hover:underline">
-                  Tap to View All
-                </span>
-              </button>
-            </div>
-          )}
+                {/* Close button */}
+                <button
+                  onClick={() => setSelectedBadge(null)}
+                  className="absolute top-3 right-3 rounded-full p-1 text-ink-faint dark:text-paper/30 hover:text-ink dark:hover:text-paper hover:bg-ink/5 dark:hover:bg-paper/10 transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                </button>
 
-          {/* Mobile: Profile Card (always shown unless a panel is open) */}
-          {!showSecurity && !showAchievements && (
-            <div className="w-full rounded-xl2 border border-ink/10 dark:border-paper/10 bg-gradient-to-br from-white via-white/95 to-paper-soft/90 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#1C1712]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55)] p-5">
-              <form onSubmit={handleUpdateName} className="flex flex-col gap-4">
-                {/* Avatar + Name */}
-                <div className="flex flex-col items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setAvatarPickerOpen(true)}
-                    className="relative group w-20 h-20 focus:outline-none"
-                    title="Change avatar"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-tr from-brass-400 to-purple-500 rounded-full blur opacity-25 group-hover:opacity-40 transition-opacity duration-300" />
-                    <div className="relative w-full h-full rounded-full bg-paper-soft dark:bg-bgdark-soft border border-brass-500/20 flex items-center justify-center overflow-hidden shadow-sm">
-                      {currentAvatar ? (
-                        <img src={currentAvatar.src} alt={currentAvatar.label} className="w-full h-full object-cover rounded-full" />
-                      ) : (
-                        <UserIcon className="w-9 h-9 text-brass-500 dark:text-brass-400" strokeWidth={1.5} />
+                {/* Badge icon */}
+                <div className="relative w-20 h-20 flex items-center justify-center">
+                  <div className="absolute inset-0 rounded-full blur-lg opacity-30 bg-gradient-to-tr from-brass-400 to-purple-500" />
+                  <div className={`relative w-16 h-16 rounded-full border-2 flex items-center justify-center shadow-md ${selectedBadge.colorClass}`}>
+                    <SelectedIconComponent size={30} />
+                  </div>
+                </div>
+
+                {/* Badge info */}
+                <div className="space-y-1.5">
+                  <span className="inline-block text-[9px] font-bold uppercase tracking-[0.18em] text-brass-600 dark:text-brass-400">
+                    Achievement Unlocked
+                  </span>
+                  <h3 className="font-display text-base font-bold text-ink dark:text-paper leading-tight">
+                    {selectedBadge.title}
+                  </h3>
+                  <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-forest-500/10 text-forest-600 dark:bg-forest-500/20 dark:text-forest-400">
+                    {selectedBadge.requirementText}
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-ink-muted dark:text-paper/60 leading-relaxed">
+                  {selectedBadge.description}
+                </p>
+
+                <p className="font-serif italic text-[11px] text-ink-muted dark:text-paper/50 px-3 leading-relaxed border-l-2 border-brass-500/30 text-left">
+                  &ldquo;{selectedBadge.motivationalText}&rdquo;
+                </p>
+              </motion.div>
+            </div>
+          );
+        })()}
+
+        {/* Subtle Dotted Background Grid overlay */}
+        <div className="absolute inset-0 bg-[radial-gradient(rgba(184,134,63,0.06)_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none z-0" />
+
+        {/* Floating Background Glow Blobs */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+          <motion.div
+            animate={{
+              x: [0, 30, -30, 0],
+              y: [0, -25, 25, 0],
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+            className="absolute top-[5%] left-[15%] h-[320px] w-[320px] rounded-full bg-brass-500/5 dark:bg-brass-500/10 blur-[100px]"
+          />
+          <motion.div
+            animate={{
+              x: [0, -30, 30, 0],
+              y: [0, 30, -30, 0],
+            }}
+            transition={{
+              duration: 25,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 3
+            }}
+            className="absolute bottom-[15%] right-[15%] h-[350px] w-[350px] rounded-full bg-purple-500/5 dark:bg-purple-500/5 blur-[120px]"
+          />
+        </div>
+
+        {/* Faint Floating Sparkle Vectors */}
+        <motion.div
+          animate={{
+            y: [0, -12, 12, 0],
+            x: [0, 8, -8, 0],
+            opacity: [0.15, 0.35, 0.15],
+          }}
+          transition={{
+            duration: 8,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          className="absolute top-4 right-12 text-brass-500/20 dark:text-brass-400/10 z-0 pointer-events-none"
+        >
+          <Sparkles size={16} />
+        </motion.div>
+        <motion.div
+          animate={{
+            y: [0, 10, -10, 0],
+            x: [0, -10, 10, 0],
+            opacity: [0.12, 0.28, 0.12],
+          }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 2
+          }}
+          className="absolute bottom-16 left-8 text-purple-500/15 dark:text-purple-400/8 z-0 pointer-events-none"
+        >
+          <Sparkles size={14} />
+        </motion.div>
+
+        {/* ======================================================= */}
+        {/* MOBILE LAYOUT (flex column, normal document flow)        */}
+        {/* ======================================================= */}
+        {isMobile && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="relative w-full px-4 flex flex-col gap-4 z-10"
+          >
+            {/* Mobile: Mini info boards row */}
+            {!showSecurity && !showAchievements && (
+              <div className="grid grid-cols-2 gap-3">
+                {/* Motivation mini card */}
+                <div className="rounded-xl border border-ink/5 bg-gradient-to-br from-white/60 to-paper-soft/30 dark:from-[#211C17]/60 dark:to-[#1C1712]/30 backdrop-blur-sm p-3 flex flex-col items-center text-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brass-500/10 text-brass-600 dark:text-brass-400">
+                    <MotivationIconComponent size={16} />
+                  </div>
+                  <p className="font-display text-[10px] font-bold text-brass-600 dark:text-brass-400 tracking-wide uppercase leading-tight">
+                    {motivationTitle}
+                  </p>
+                  <p className="font-serif italic text-[10px] text-ink-muted dark:text-paper/50 leading-relaxed line-clamp-3">
+                    "{motivationText}"
+                  </p>
+                </div>
+
+                {/* Achievements mini card */}
+                <button
+                  onClick={() => setShowAchievements(true)}
+                  className="rounded-xl border border-ink/5 bg-gradient-to-br from-white/60 to-paper-soft/30 dark:from-[#211C17]/60 dark:to-[#1C1712]/30 backdrop-blur-sm p-3 flex flex-col items-center text-center gap-2 cursor-pointer group w-full text-left"
+                >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 group-hover:scale-105 transition-transform duration-200">
+                    <Award size={16} />
+                  </div>
+                  <p className="font-display text-[10px] font-bold text-purple-600 dark:text-purple-400 tracking-wide uppercase leading-tight">
+                    Achievements
+                  </p>
+                  <p className="text-[10px] text-ink-muted dark:text-paper/50 font-medium">
+                    <span className="font-bold text-purple-600 dark:text-purple-400">{earnedBadges.length}</span>/{BADGES.length} Badges
+                  </p>
+                  <div className="flex gap-1 justify-center flex-wrap">
+                    {BADGES.slice(0, 4).map((badge) => {
+                      const earned = badge.isEarned({ booksRead: totalBooksRead, pagesRead: totalPagesRead, highestStreak }, books);
+                      const IconComponent = iconMap[badge.icon];
+                      return (
+                        <div
+                          key={badge.id}
+                          className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all duration-300 ${earned
+                              ? getFilledBadgeColor(badge.id)
+                              : 'text-ink-faint border-ink/5 bg-ink/5 dark:text-paper/10 dark:border-paper/5'
+                            }`}
+                        >
+                          <IconComponent size={10} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <span className="text-[9px] font-bold text-purple-500 uppercase tracking-widest group-hover:underline">
+                    Tap to View All
+                  </span>
+                </button>
+              </div>
+            )}
+
+            {/* Mobile: Profile Card (always shown unless a panel is open) */}
+            {!showSecurity && !showAchievements && (
+              <div className="w-full rounded-xl2 border border-ink/10 dark:border-paper/10 bg-gradient-to-br from-white via-white/95 to-paper-soft/90 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#1C1712]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55)] p-5">
+                <form onSubmit={handleUpdateName} className="flex flex-col gap-4">
+                  {/* Avatar + Name */}
+                  <div className="flex flex-col items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAvatarPickerOpen(true)}
+                      className="relative group w-20 h-20 focus:outline-none"
+                      title="Change avatar"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-tr from-brass-400 to-purple-500 rounded-full blur opacity-25 group-hover:opacity-40 transition-opacity duration-300" />
+                      <div className="relative w-full h-full rounded-full bg-paper-soft dark:bg-bgdark-soft border border-brass-500/20 flex items-center justify-center overflow-hidden shadow-sm">
+                        {currentAvatar ? (
+                          <img src={currentAvatar.src} alt={currentAvatar.label} className="w-full h-full object-cover rounded-full" />
+                        ) : (
+                          <UserIcon className="w-9 h-9 text-brass-500 dark:text-brass-400" strokeWidth={1.5} />
+                        )}
+                      </div>
+                      {/* Camera overlay on hover */}
+                      <div className="absolute inset-0 rounded-full bg-bgdark/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <Camera size={18} className="text-white" />
+                      </div>
+                    </button>
+                    <div className="text-center">
+                      <h3 className="font-display text-base font-bold text-ink dark:text-paper">{currentUser.name}</h3>
+                      <p className="text-xs text-ink-muted dark:text-paper/50 font-mono">@{currentUser.username}</p>
+                      {currentAvatar && (
+                        <p className="text-[10px] font-semibold text-brass-600 dark:text-brass-400 mt-0.5">{currentAvatar.label}</p>
                       )}
                     </div>
-                    {/* Camera overlay on hover */}
-                    <div className="absolute inset-0 rounded-full bg-bgdark/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <Camera size={18} className="text-white" />
+                  </div>
+
+                  {/* Account Info */}
+                  <div className="rounded-lg bg-paper-soft/80 dark:bg-bgdark-soft/40 p-2.5 border border-ink/5 dark:border-paper/5 space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <div className="flex items-center gap-1.5 text-ink-muted dark:text-paper/60 font-medium">
+                        <Calendar size={12} className="text-brass-500" />
+                        <span>Member Since</span>
+                      </div>
+                      <span className="font-semibold text-ink dark:text-paper text-right">{formattedCreation}</span>
                     </div>
-                  </button>
-                  <div className="text-center">
-                    <h3 className="font-display text-base font-bold text-ink dark:text-paper">{currentUser.name}</h3>
-                    <p className="text-xs text-ink-muted dark:text-paper/50 font-mono">@{currentUser.username}</p>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <div className="flex items-center gap-1.5 text-ink-muted dark:text-paper/60 font-medium">
+                        <Clock size={12} className="text-brass-500" />
+                        <span>Last Active</span>
+                      </div>
+                      <span className="font-semibold text-ink dark:text-paper text-right">{formattedLastSignIn}</span>
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-lg bg-paper-soft/60 dark:bg-bgdark-soft/30 p-2 border border-ink/5 dark:border-paper/5 text-center">
+                      <p className="text-[10px] uppercase font-bold text-ink-faint dark:text-paper/40 tracking-wider">Books Read</p>
+                      <p className="text-lg font-bold text-brass-600 dark:text-brass-400 mt-0.5">{totalBooksRead}</p>
+                    </div>
+                    <div className="rounded-lg bg-paper-soft/60 dark:bg-bgdark-soft/30 p-2 border border-ink/5 dark:border-paper/5 text-center">
+                      <p className="text-[10px] uppercase font-bold text-ink-faint dark:text-paper/40 tracking-wider">Pages Read</p>
+                      <p className="text-lg font-bold text-purple-600 dark:text-purple-400 mt-0.5">{totalPagesRead}</p>
+                    </div>
+                  </div>
+
+                  {/* Display Name Field */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">Display Name</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      disabled={nameLoading}
+                      placeholder="Enter your name"
+                      className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200"
+                    />
+                  </div>
+
+                  {nameError && (
+                    <div className="p-2 rounded-lg bg-burgundy-500/10 border border-burgundy-500/20 text-[11px] font-semibold text-burgundy-600 dark:text-burgundy-400 flex items-center gap-1.5">
+                      <AlertCircle size={12} className="shrink-0" />{nameError}
+                    </div>
+                  )}
+                  {nameSuccess && (
+                    <div className="p-2 rounded-lg bg-forest-500/10 border border-forest-500/20 text-[11px] font-semibold text-forest-600 dark:text-forest-400 flex items-center gap-1.5">
+                      <CheckCircle2 size={12} className="shrink-0" />{nameSuccess}
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      disabled={nameLoading || name.trim() === currentUser.name}
+                      className="w-full py-2.5 text-xs font-bold uppercase tracking-wider bg-brass-500 text-bgdark hover:bg-brass-400"
+                    >
+                      {nameLoading ? <><Loader2 size={14} className="animate-spin mr-1.5" />Updating...</> : 'Update Display Name'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setShowSecurity(true)}
+                      className="w-full py-2 text-xs font-semibold uppercase tracking-wider text-brass-600 dark:text-brass-400 hover:bg-brass-500/5"
+                    >
+                      Update Password
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Mobile: Security Panel */}
+            {showSecurity && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="w-full rounded-xl2 border border-ink/10 dark:border-paper/10 bg-gradient-to-br from-white via-white/95 to-paper-soft/90 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#1C1712]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55)] p-5"
+              >
+                <form onSubmit={handleUpdatePassword} className="flex flex-col gap-4">
+                  <div className="flex items-center gap-2.5 border-b border-ink/5 dark:border-paper/5 pb-3">
+                    <button type="button" onClick={() => setShowSecurity(false)} className="rounded-full p-1 text-ink-muted hover:bg-ink/5 dark:text-paper/60">
+                      <ArrowLeft size={16} />
+                    </button>
+                    <Key size={16} className="text-brass-500" />
+                    <h3 className="font-display text-base font-semibold text-ink dark:text-paper">Update Password</h3>
+                  </div>
+
+                  {isDemoUser && (
+                    <div className="p-2.5 rounded-lg bg-brass-500/10 border border-brass-500/15 text-[10.5px] font-semibold text-brass-600 dark:text-brass-400 flex items-center gap-2">
+                      <AlertCircle size={14} className="shrink-0 text-brass-500" />
+                      Password changes are disabled for the shared demo account.
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">Current Password</label>
+                    <div className="relative">
+                      <input type={showCurrentPwd ? 'text' : 'password'} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
+                        placeholder={isDemoUser ? "Disabled for demo user" : "Enter current password"}
+                        className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 pr-9 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
+                      <button type="button" onClick={() => setShowCurrentPwd(v => !v)} disabled={pwdLoading || isDemoUser}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40 hover:text-ink dark:hover:text-paper transition-colors disabled:opacity-40" tabIndex={-1}>
+                        {showCurrentPwd ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">New Password</label>
+                    <div className="relative">
+                      <input type={showNewPwd ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
+                        placeholder={isDemoUser ? "Disabled for demo user" : "Minimum 6 characters"}
+                        className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 pr-9 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
+                      <button type="button" onClick={() => setShowNewPwd(v => !v)} disabled={pwdLoading || isDemoUser}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40 hover:text-ink dark:hover:text-paper transition-colors disabled:opacity-40" tabIndex={-1}>
+                        {showNewPwd ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">Confirm Password</label>
+                    <div className="relative">
+                      <input type={showConfirmPwd ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
+                        placeholder={isDemoUser ? "Disabled for demo user" : "Re-enter new password"}
+                        className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2.5 pr-9 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
+                      <button type="button" onClick={() => setShowConfirmPwd(v => !v)} disabled={pwdLoading || isDemoUser}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40 hover:text-ink dark:hover:text-paper transition-colors disabled:opacity-40" tabIndex={-1}>
+                        {showConfirmPwd ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {pwdError && (
+                    <div className="p-2 rounded-lg bg-burgundy-500/10 border border-burgundy-500/20 text-[11px] font-semibold text-burgundy-600 dark:text-burgundy-400 flex items-center gap-1.5">
+                      <AlertCircle size={12} className="shrink-0" />{pwdError}
+                    </div>
+                  )}
+                  {pwdSuccess && (
+                    <div className="p-2 rounded-lg bg-forest-500/10 border border-forest-500/20 text-[11px] font-semibold text-forest-600 dark:text-forest-400 flex items-center gap-1.5">
+                      <CheckCircle2 size={12} className="shrink-0" />{pwdSuccess}
+                    </div>
+                  )}
+
+                  <Button
+                    type="submit"
+                    disabled={pwdLoading || isDemoUser || !currentPassword || !newPassword || !confirmPassword}
+                    className="w-full py-2.5 text-xs font-bold uppercase tracking-wider bg-brass-500 text-bgdark hover:bg-brass-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {pwdLoading ? <><Loader2 size={12} className="animate-spin mr-1.5" />Updating...</> : 'Change Password'}
+                  </Button>
+                </form>
+              </motion.div>
+            )}
+
+            {/* Mobile: Achievements Panel */}
+            {showAchievements && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="w-full rounded-xl2 border border-ink/10 dark:border-paper/10 bg-gradient-to-br from-white via-white/95 to-paper-soft/90 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#1C1712]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55)] p-5"
+              >
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-2.5 border-b border-ink/5 dark:border-paper/5 pb-3">
+                    <button type="button" onClick={() => setShowAchievements(false)} className="rounded-full p-1 text-ink-muted hover:bg-ink/5 dark:text-paper/60">
+                      <ArrowLeft size={16} />
+                    </button>
+                    <Award size={16} className="text-purple-500" />
+                    <h3 className="font-display text-base font-semibold text-ink dark:text-paper">Unlocked Badges</h3>
+                  </div>
+
+                  <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-ink/10">
+                    {BADGES.map((badge) => {
+                      const earned = badge.isEarned({ booksRead: totalBooksRead, pagesRead: totalPagesRead, highestStreak }, books);
+                      const IconComponent = iconMap[badge.icon];
+                      return (
+                        <div
+                          key={badge.id}
+                          onClick={() => earned ? setSelectedBadge(badge) : undefined}
+                          className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all duration-300 ${earned
+                              ? 'bg-gradient-to-r from-white via-white/95 to-[#B8863F]/5 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#B8863F]/5 border-[#B8863F]/20 dark:border-[#B8863F]/15 shadow-[0_0_12px_rgba(184,134,63,0.05)] cursor-pointer hover:shadow-[0_0_18px_rgba(184,134,63,0.12)] hover:border-[#B8863F]/35 active:scale-[0.98]'
+                              : 'bg-paper-soft/10 dark:bg-bgdark-soft/10 border-dashed border-ink/10 dark:border-paper/10 opacity-60'
+                            }`}
+                        >
+                          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border ${earned ? badge.colorClass : 'text-ink-faint border-ink/10 bg-ink/5 dark:text-paper/20 dark:border-paper/10 dark:bg-paper/5'
+                            }`}>
+                            <IconComponent size={20} className={earned ? 'animate-pulse' : ''} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1">
+                              <p className={`text-xs font-bold truncate ${earned ? 'text-ink dark:text-paper' : 'text-ink-faint dark:text-paper/40'}`}>
+                                {badge.title}
+                              </p>
+                              <span className={`shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${earned ? 'bg-forest-500/10 text-forest-600 dark:bg-forest-500/20 dark:text-forest-400' : 'bg-ink/5 text-ink-faint dark:bg-paper/5 dark:text-paper/30'
+                                }`}>
+                                {earned ? 'Unlocked' : badge.requirementText}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-ink-muted dark:text-paper/50 truncate mt-0.5">
+                              {badge.description}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </motion.div>
+        )}
+
+        {/* ======================================================= */}
+        {/* DESKTOP LAYOUT (absolute positioned animated panels)    */}
+        {/* ======================================================= */}
+        {!isMobile && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: "easeOut", delay: 0.1 }}
+            style={{ transformStyle: 'preserve-3d', perspective: 1000 }}
+            className="relative w-full max-w-4xl flex items-center justify-center min-h-[550px] overflow-visible z-10"
+          >
+            {/* LEFT LITERARY SIDE-BOARD (Motivation board) */}
+            <motion.div
+              initial={{ opacity: 0, x: -360 }}
+              animate={{
+                opacity: isExpanded ? 0 : 1,
+                x: isExpanded ? -270 : -340,
+                scale: isExpanded ? 0.95 : 1,
+              }}
+              transition={{ type: 'spring', stiffness: 120, damping: 18 }}
+              style={{ pointerEvents: isExpanded ? 'none' : 'auto' }}
+              className="absolute w-[220px] h-[320px] rounded-xl border border-ink/5 bg-gradient-to-br from-white/45 to-paper-soft/25 dark:from-[#211C17]/45 dark:to-[#1C1712]/25 backdrop-blur-sm shadow-[0_10px_30px_-8px_rgba(0,0,0,0.1),_0_0_20px_rgba(184,134,63,0.02)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.45),_0_0_30px_rgba(184,134,63,0.03)] flex flex-col justify-center items-center text-center gap-3 select-none px-4"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brass-500/10 text-brass-600 dark:text-brass-400">
+                <MotivationIconComponent size={18} />
+              </div>
+              <p className="font-display text-xs font-bold text-brass-600 dark:text-brass-400 tracking-wide uppercase">
+                {motivationTitle}
+              </p>
+              <p className="font-serif italic text-[11px] text-ink-muted dark:text-paper/50 leading-relaxed px-1">
+                "{motivationText}"
+              </p>
+              <p className="text-[9px] font-semibold text-ink-faint dark:text-paper/30 tracking-wider font-sans uppercase">
+                {motivationLabel}
+              </p>
+            </motion.div>
+
+            {/* RIGHT LITERARY SIDE-BOARD (Achievements preview) */}
+            <motion.div
+              initial={{ opacity: 0, x: 360 }}
+              animate={{
+                opacity: isExpanded ? 0 : 1,
+                x: isExpanded ? 270 : 340,
+                scale: isExpanded ? 0.95 : 1,
+              }}
+              transition={{ type: 'spring', stiffness: 120, damping: 18 }}
+              style={{ pointerEvents: isExpanded ? 'none' : 'auto' }}
+              onClick={() => setShowAchievements(true)}
+              className="absolute w-[220px] h-[320px] rounded-xl border border-ink/5 bg-gradient-to-br from-white/45 to-paper-soft/25 dark:from-[#211C17]/45 dark:to-[#1C1712]/25 backdrop-blur-sm shadow-[0_10px_30px_-8px_rgba(0,0,0,0.1),_0_0_20px_rgba(184,134,63,0.02)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.45),_0_0_30px_rgba(184,134,63,0.03)] flex flex-col justify-center items-center text-center gap-4 cursor-pointer select-none group px-4"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 group-hover:scale-105 transition-transform duration-200">
+                <Award size={18} />
+              </div>
+              <div className="space-y-1">
+                <p className="font-display text-xs font-bold text-purple-600 dark:text-purple-400 tracking-wide uppercase">
+                  My Achievements
+                </p>
+                <p className="text-[11px] text-ink-muted dark:text-paper/50 font-medium">
+                  Badges Unlocked: <span className="font-bold text-purple-600 dark:text-purple-400">{earnedBadges.length} / {BADGES.length}</span>
+                </p>
+              </div>
+              <div className="flex gap-1.5 justify-center items-center">
+                {BADGES.slice(0, 4).map((badge) => {
+                  const earned = badge.isEarned({ booksRead: totalBooksRead, pagesRead: totalPagesRead, highestStreak }, books);
+                  const IconComponent = iconMap[badge.icon];
+                  return (
+                    <div
+                      key={badge.id}
+                      className={`w-6 h-6 rounded-full border flex items-center justify-center text-[10px] transition-all duration-300 ${earned
+                          ? getFilledBadgeColor(badge.id)
+                          : 'text-ink-faint border-ink/5 bg-ink/5 dark:text-paper/10 dark:border-paper/5'
+                        }`}
+                      title={badge.title}
+                    >
+                      <IconComponent size={11} />
+                    </div>
+                  );
+                })}
+                {BADGES.length > 4 && (
+                  <div className="w-6 h-6 rounded-full border border-ink/5 bg-ink/5 dark:border-paper/5 flex items-center justify-center text-[9px] font-bold text-ink-faint dark:text-paper/40">
+                    +{BADGES.length - 4}
+                  </div>
+                )}
+              </div>
+              <span className="text-[9px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest mt-2 group-hover:underline">
+                View All Badges
+              </span>
+            </motion.div>
+
+            {/* Profile Card */}
+            <motion.div
+              animate={profileAnimate}
+              transition={{ type: 'spring', stiffness: 120, damping: 18 }}
+              className="absolute w-[420px] h-[530px] rounded-xl2 border border-ink/10 dark:border-paper/10 bg-gradient-to-br from-white via-white/95 to-paper-soft/90 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#1C1712]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15),_0_0_40px_rgba(184,134,63,0.04)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55),_0_0_50px_rgba(184,134,63,0.06)] flex flex-col justify-between p-6 z-10 overflow-hidden"
+            >
+              <form onSubmit={handleUpdateName} className="h-full flex flex-col justify-between z-10">
+                <div className="space-y-3">
+                  <div className="flex flex-col items-center gap-1 mx-auto mt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setAvatarPickerOpen(true)}
+                      className="relative group w-24 h-24 focus:outline-none"
+                      title="Change avatar"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-tr from-brass-400 to-purple-500 rounded-full blur opacity-25 group-hover:opacity-40 transition-opacity duration-300" />
+                      <div className="relative w-full h-full rounded-full bg-paper-soft dark:bg-bgdark-soft border border-brass-500/20 flex items-center justify-center overflow-hidden shadow-sm">
+                        {currentAvatar ? (
+                          <img src={currentAvatar.src} alt={currentAvatar.label} className="w-full h-full object-cover rounded-full" />
+                        ) : (
+                          <UserIcon className="w-11 h-11 text-brass-500 dark:text-brass-400" strokeWidth={1.5} />
+                        )}
+                      </div>
+                      {/* Camera overlay on hover */}
+                      <div className="absolute inset-0 rounded-full bg-bgdark/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <Camera size={20} className="text-white" />
+                      </div>
+                    </button>
                     {currentAvatar && (
-                      <p className="text-[10px] font-semibold text-brass-600 dark:text-brass-400 mt-0.5">{currentAvatar.label}</p>
+                      <span className="text-[10px] font-semibold text-brass-600 dark:text-brass-400">{currentAvatar.label}</span>
                     )}
                   </div>
-                </div>
-
-                {/* Account Info */}
-                <div className="rounded-lg bg-paper-soft/80 dark:bg-bgdark-soft/40 p-2.5 border border-ink/5 dark:border-paper/5 space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <div className="flex items-center gap-1.5 text-ink-muted dark:text-paper/60 font-medium">
-                      <Calendar size={12} className="text-brass-500" />
-                      <span>Member Since</span>
+                  <div className="text-center space-y-0.5">
+                    <h3 className="font-display text-lg font-bold text-ink dark:text-paper leading-snug">{currentUser.name}</h3>
+                    <p className="text-xs text-ink-muted dark:text-paper/50 font-medium font-mono">@{currentUser.username}</p>
+                  </div>
+                  <div className="rounded-lg bg-paper-soft/80 dark:bg-bgdark-soft/40 p-2.5 border border-ink/5 dark:border-paper/5 space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <div className="flex items-center gap-1.5 text-ink-muted dark:text-paper/60 font-medium">
+                        <Calendar size={13} className="text-brass-500" /><span>Member Since</span>
+                      </div>
+                      <span className="font-semibold text-ink dark:text-paper">{formattedCreation}</span>
                     </div>
-                    <span className="font-semibold text-ink dark:text-paper text-right">{formattedCreation}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <div className="flex items-center gap-1.5 text-ink-muted dark:text-paper/60 font-medium">
-                      <Clock size={12} className="text-brass-500" />
-                      <span>Last Active</span>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <div className="flex items-center gap-1.5 text-ink-muted dark:text-paper/60 font-medium">
+                        <Clock size={13} className="text-brass-500" /><span>Last Active</span>
+                      </div>
+                      <span className="font-semibold text-ink dark:text-paper text-right">{formattedLastSignIn}</span>
                     </div>
-                    <span className="font-semibold text-ink dark:text-paper text-right">{formattedLastSignIn}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mt-1.5">
+                    <div className="rounded-lg bg-paper-soft/60 dark:bg-bgdark-soft/30 p-2 border border-ink/5 dark:border-paper/5 text-center">
+                      <p className="text-[10px] uppercase font-bold text-ink-faint dark:text-paper/40 tracking-wider">Books Read</p>
+                      <p className="text-lg font-bold text-brass-600 dark:text-brass-400 mt-0.5">{totalBooksRead}</p>
+                    </div>
+                    <div className="rounded-lg bg-paper-soft/60 dark:bg-bgdark-soft/30 p-2 border border-ink/5 dark:border-paper/5 text-center">
+                      <p className="text-[10px] uppercase font-bold text-ink-faint dark:text-paper/40 tracking-wider">Pages Read</p>
+                      <p className="text-lg font-bold text-purple-600 dark:text-purple-400 mt-0.5">{totalPagesRead}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">Display Name</label>
+                    <input
+                      type="text" value={name} onChange={(e) => setName(e.target.value)} disabled={nameLoading} placeholder="Enter your name"
+                      className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200"
+                    />
                   </div>
                 </div>
-
-                {/* Stats */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-lg bg-paper-soft/60 dark:bg-bgdark-soft/30 p-2 border border-ink/5 dark:border-paper/5 text-center">
-                    <p className="text-[10px] uppercase font-bold text-ink-faint dark:text-paper/40 tracking-wider">Books Read</p>
-                    <p className="text-lg font-bold text-brass-600 dark:text-brass-400 mt-0.5">{totalBooksRead}</p>
-                  </div>
-                  <div className="rounded-lg bg-paper-soft/60 dark:bg-bgdark-soft/30 p-2 border border-ink/5 dark:border-paper/5 text-center">
-                    <p className="text-[10px] uppercase font-bold text-ink-faint dark:text-paper/40 tracking-wider">Pages Read</p>
-                    <p className="text-lg font-bold text-purple-600 dark:text-purple-400 mt-0.5">{totalPagesRead}</p>
-                  </div>
-                </div>
-
-                {/* Display Name Field */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">Display Name</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    disabled={nameLoading}
-                    placeholder="Enter your name"
-                    className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200"
-                  />
-                </div>
-
                 {nameError && (
                   <div className="p-2 rounded-lg bg-burgundy-500/10 border border-burgundy-500/20 text-[11px] font-semibold text-burgundy-600 dark:text-burgundy-400 flex items-center gap-1.5">
                     <AlertCircle size={12} className="shrink-0" />{nameError}
@@ -880,92 +1285,80 @@ export function Profile({
                     <CheckCircle2 size={12} className="shrink-0" />{nameSuccess}
                   </div>
                 )}
-
-                <div className="flex flex-col gap-2">
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    disabled={nameLoading || name.trim() === currentUser.name}
-                    className="w-full py-2.5 text-xs font-bold uppercase tracking-wider bg-brass-500 text-bgdark hover:bg-brass-400"
-                  >
+                <div className="flex flex-col gap-1.5 pt-1.5 items-center w-full">
+                  <Button type="submit" variant="primary" disabled={nameLoading || name.trim() === currentUser.name}
+                    className="w-full sm:w-2/3 py-2.5 text-xs font-bold uppercase tracking-wider bg-brass-500 text-bgdark hover:bg-brass-400">
                     {nameLoading ? <><Loader2 size={14} className="animate-spin mr-1.5" />Updating...</> : 'Update Display Name'}
                   </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setShowSecurity(true)}
-                    className="w-full py-2 text-xs font-semibold uppercase tracking-wider text-brass-600 dark:text-brass-400 hover:bg-brass-500/5"
-                  >
-                    Update Password
-                  </Button>
+                  {!isExpanded && (
+                    <Button type="button" variant="ghost" onClick={() => setShowSecurity(true)}
+                      className="w-full sm:w-2/3 py-1.5 text-xs font-semibold uppercase tracking-wider text-brass-600 dark:text-brass-400 hover:bg-brass-500/5 hover:text-brass-500">
+                      Update Password
+                    </Button>
+                  )}
                 </div>
               </form>
-            </div>
-          )}
+            </motion.div>
 
-          {/* Mobile: Security Panel */}
-          {showSecurity && (
+            {/* Security Card */}
             <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className="w-full rounded-xl2 border border-ink/10 dark:border-paper/10 bg-gradient-to-br from-white via-white/95 to-paper-soft/90 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#1C1712]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55)] p-5"
+              animate={securityAnimate}
+              transition={{ type: 'spring', stiffness: 120, damping: 18 }}
+              style={{ pointerEvents: showSecurity ? 'auto' : 'none' }}
+              className="absolute w-[420px] h-[530px] rounded-xl2 border border-ink/10 dark:border-paper/10 bg-gradient-to-br from-white via-white/95 to-paper-soft/90 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#1C1712]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15),_0_0_40px_rgba(184,134,63,0.04)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55),_0_0_50px_rgba(184,134,63,0.06)] flex flex-col justify-between p-6 z-0 overflow-hidden"
             >
-              <form onSubmit={handleUpdatePassword} className="flex flex-col gap-4">
-                <div className="flex items-center gap-2.5 border-b border-ink/5 dark:border-paper/5 pb-3">
-                  <button type="button" onClick={() => setShowSecurity(false)} className="rounded-full p-1 text-ink-muted hover:bg-ink/5 dark:text-paper/60">
-                    <ArrowLeft size={16} />
-                  </button>
-                  <Key size={16} className="text-brass-500" />
-                  <h3 className="font-display text-base font-semibold text-ink dark:text-paper">Update Password</h3>
-                </div>
-
-                {isDemoUser && (
-                  <div className="p-2.5 rounded-lg bg-brass-500/10 border border-brass-500/15 text-[10.5px] font-semibold text-brass-600 dark:text-brass-400 flex items-center gap-2">
-                    <AlertCircle size={14} className="shrink-0 text-brass-500" />
-                    Password changes are disabled for the shared demo account.
-                  </div>
-                )}
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">Current Password</label>
-                  <div className="relative">
-                    <input type={showCurrentPwd ? 'text' : 'password'} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
-                      placeholder={isDemoUser ? "Disabled for demo user" : "Enter current password"}
-                      className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 pr-9 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
-                    <button type="button" onClick={() => setShowCurrentPwd(v => !v)} disabled={pwdLoading || isDemoUser}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40 hover:text-ink dark:hover:text-paper transition-colors disabled:opacity-40" tabIndex={-1}>
-                      {showCurrentPwd ? <EyeOff size={14} /> : <Eye size={14} />}
+              <form onSubmit={handleUpdatePassword} className="h-full flex flex-col justify-between z-10">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2.5 border-b border-ink/5 dark:border-paper/5 pb-2.5">
+                    <button type="button" onClick={() => setShowSecurity(false)} className="rounded-full p-1 text-ink-muted hover:bg-ink/5 dark:text-paper/60 dark:hover:bg-paper/10 transition-colors" title="Back to Profile">
+                      <ArrowLeft size={16} />
                     </button>
+                    <Key size={16} className="text-brass-500" />
+                    <h3 className="font-display text-base font-semibold text-ink dark:text-paper">Update Password</h3>
+                  </div>
+                  {isDemoUser && (
+                    <div className="p-2.5 rounded-lg bg-brass-500/10 border border-brass-500/15 text-[10.5px] font-semibold text-brass-600 dark:text-brass-400 flex items-center gap-2 leading-relaxed">
+                      <AlertCircle size={14} className="shrink-0 text-brass-500" />
+                      Password changes are disabled for the shared demo account.
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">Current Password</label>
+                    <div className="relative">
+                      <input type={showCurrentPwd ? 'text' : 'password'} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
+                        placeholder={isDemoUser ? "Disabled for demo user" : "Enter current password"}
+                        className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 pr-9 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
+                      <button type="button" onClick={() => setShowCurrentPwd(v => !v)} disabled={pwdLoading || isDemoUser}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40 hover:text-ink dark:hover:text-paper transition-colors disabled:opacity-40" tabIndex={-1}>
+                        {showCurrentPwd ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">New Password</label>
+                    <div className="relative">
+                      <input type={showNewPwd ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
+                        placeholder={isDemoUser ? "Disabled for demo user" : "Minimum 6 characters"}
+                        className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 pr-9 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
+                      <button type="button" onClick={() => setShowNewPwd(v => !v)} disabled={pwdLoading || isDemoUser}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40 hover:text-ink dark:hover:text-paper transition-colors disabled:opacity-40" tabIndex={-1}>
+                        {showNewPwd ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">Confirm Password</label>
+                    <div className="relative">
+                      <input type={showConfirmPwd ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
+                        placeholder={isDemoUser ? "Disabled for demo user" : "Re-enter new password"}
+                        className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2.5 pr-9 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
+                      <button type="button" onClick={() => setShowConfirmPwd(v => !v)} disabled={pwdLoading || isDemoUser}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40 hover:text-ink dark:hover:text-paper transition-colors disabled:opacity-40" tabIndex={-1}>
+                        {showConfirmPwd ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">New Password</label>
-                  <div className="relative">
-                    <input type={showNewPwd ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
-                      placeholder={isDemoUser ? "Disabled for demo user" : "Minimum 6 characters"}
-                      className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 pr-9 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
-                    <button type="button" onClick={() => setShowNewPwd(v => !v)} disabled={pwdLoading || isDemoUser}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40 hover:text-ink dark:hover:text-paper transition-colors disabled:opacity-40" tabIndex={-1}>
-                      {showNewPwd ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">Confirm Password</label>
-                  <div className="relative">
-                    <input type={showConfirmPwd ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
-                      placeholder={isDemoUser ? "Disabled for demo user" : "Re-enter new password"}
-                      className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2.5 pr-9 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
-                    <button type="button" onClick={() => setShowConfirmPwd(v => !v)} disabled={pwdLoading || isDemoUser}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40 hover:text-ink dark:hover:text-paper transition-colors disabled:opacity-40" tabIndex={-1}>
-                      {showConfirmPwd ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </div>
-                </div>
-
                 {pwdError && (
                   <div className="p-2 rounded-lg bg-burgundy-500/10 border border-burgundy-500/20 text-[11px] font-semibold text-burgundy-600 dark:text-burgundy-400 flex items-center gap-1.5">
                     <AlertCircle size={12} className="shrink-0" />{pwdError}
@@ -976,400 +1369,72 @@ export function Profile({
                     <CheckCircle2 size={12} className="shrink-0" />{pwdSuccess}
                   </div>
                 )}
-
-                <Button
-                  type="submit"
-                  disabled={pwdLoading || isDemoUser || !currentPassword || !newPassword || !confirmPassword}
-                  className="w-full py-2.5 text-xs font-bold uppercase tracking-wider bg-brass-500 text-bgdark hover:bg-brass-400 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {pwdLoading ? <><Loader2 size={12} className="animate-spin mr-1.5" />Updating...</> : 'Change Password'}
-                </Button>
+                <div className="flex justify-end pt-1.5">
+                  <Button type="submit" disabled={pwdLoading || isDemoUser || !currentPassword || !newPassword || !confirmPassword}
+                    className="w-full sm:w-auto py-2 px-5 text-xs font-bold uppercase tracking-wider bg-brass-500 text-bgdark hover:bg-brass-400 disabled:opacity-50 disabled:cursor-not-allowed">
+                    {pwdLoading ? <><Loader2 size={12} className="animate-spin mr-1.5" />Updating...</> : 'Change Password'}
+                  </Button>
+                </div>
               </form>
             </motion.div>
-          )}
 
-          {/* Mobile: Achievements Panel */}
-          {showAchievements && (
+            {/* Achievements Card */}
             <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className="w-full rounded-xl2 border border-ink/10 dark:border-paper/10 bg-gradient-to-br from-white via-white/95 to-paper-soft/90 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#1C1712]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55)] p-5"
+              animate={achievementsAnimate}
+              transition={{ type: 'spring', stiffness: 120, damping: 18 }}
+              style={{ pointerEvents: showAchievements ? 'auto' : 'none' }}
+              className="absolute w-[420px] h-[530px] rounded-xl2 border border-ink/10 dark:border-paper/10 bg-gradient-to-br from-white via-white/95 to-paper-soft/90 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#1C1712]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15),_0_0_40px_rgba(184,134,63,0.04)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55),_0_0_50px_rgba(184,134,63,0.06)] flex flex-col justify-between p-6 z-0 overflow-hidden"
             >
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-2.5 border-b border-ink/5 dark:border-paper/5 pb-3">
-                  <button type="button" onClick={() => setShowAchievements(false)} className="rounded-full p-1 text-ink-muted hover:bg-ink/5 dark:text-paper/60">
-                    <ArrowLeft size={16} />
-                  </button>
-                  <Award size={16} className="text-purple-500" />
-                  <h3 className="font-display text-base font-semibold text-ink dark:text-paper">Unlocked Badges</h3>
-                </div>
-
-                <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-ink/10">
-                  {BADGES.map((badge) => {
-                    const earned = badge.isEarned({ booksRead: totalBooksRead, pagesRead: totalPagesRead, highestStreak }, books);
-                    const IconComponent = iconMap[badge.icon];
-                    return (
-                      <div
-                        key={badge.id}
-                        onClick={() => earned ? setSelectedBadge(badge) : undefined}
-                        className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all duration-300 ${
-                          earned
-                            ? 'bg-gradient-to-r from-white via-white/95 to-[#B8863F]/5 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#B8863F]/5 border-[#B8863F]/20 dark:border-[#B8863F]/15 shadow-[0_0_12px_rgba(184,134,63,0.05)] cursor-pointer hover:shadow-[0_0_18px_rgba(184,134,63,0.12)] hover:border-[#B8863F]/35 active:scale-[0.98]'
-                            : 'bg-paper-soft/10 dark:bg-bgdark-soft/10 border-dashed border-ink/10 dark:border-paper/10 opacity-60'
-                        }`}
-                      >
-                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border ${
-                          earned ? badge.colorClass : 'text-ink-faint border-ink/10 bg-ink/5 dark:text-paper/20 dark:border-paper/10 dark:bg-paper/5'
-                        }`}>
-                          <IconComponent size={20} className={earned ? 'animate-pulse' : ''} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-1">
-                            <p className={`text-xs font-bold truncate ${earned ? 'text-ink dark:text-paper' : 'text-ink-faint dark:text-paper/40'}`}>
-                              {badge.title}
-                            </p>
-                            <span className={`shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
-                              earned ? 'bg-forest-500/10 text-forest-600 dark:bg-forest-500/20 dark:text-forest-400' : 'bg-ink/5 text-ink-faint dark:bg-paper/5 dark:text-paper/30'
+              <div className="h-full flex flex-col justify-between z-10">
+                <div className="space-y-4 flex flex-col h-full">
+                  <div className="flex items-center gap-2.5 border-b border-ink/5 dark:border-paper/5 pb-2.5">
+                    <button type="button" onClick={() => setShowAchievements(false)} className="rounded-full p-1 text-ink-muted hover:bg-ink/5 dark:text-paper/60 dark:hover:bg-paper/10 transition-colors" title="Back to Profile">
+                      <ArrowLeft size={16} />
+                    </button>
+                    <Award size={16} className="text-purple-500" />
+                    <h3 className="font-display text-base font-semibold text-ink dark:text-paper">Unlocked Badges</h3>
+                  </div>
+                  <div className="flex-1 overflow-y-auto pr-1 space-y-2 max-h-[400px] scrollbar-thin scrollbar-thumb-ink/10">
+                    {BADGES.map((badge) => {
+                      const earned = badge.isEarned({ booksRead: totalBooksRead, pagesRead: totalPagesRead, highestStreak }, books);
+                      const IconComponent = iconMap[badge.icon];
+                      return (
+                        <div
+                          key={badge.id}
+                          onClick={() => earned ? setSelectedBadge(badge) : undefined}
+                          className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all duration-300 ${earned
+                              ? 'bg-gradient-to-r from-white via-white/95 to-[#B8863F]/5 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#B8863F]/5 border-[#B8863F]/20 dark:border-[#B8863F]/15 shadow-[0_0_12px_rgba(184,134,63,0.05)] cursor-pointer hover:shadow-[0_0_18px_rgba(184,134,63,0.12)] hover:border-[#B8863F]/35 active:scale-[0.98]'
+                              : 'bg-paper-soft/10 dark:bg-bgdark-soft/10 border-dashed border-ink/10 dark:border-paper/10 opacity-60'
+                            }`}
+                        >
+                          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border ${earned ? badge.colorClass : 'text-ink-faint border-ink/10 bg-ink/5 dark:text-paper/20 dark:border-paper/10 dark:bg-paper/5'
                             }`}>
-                              {earned ? 'Unlocked' : badge.requirementText}
-                            </span>
+                            <IconComponent size={20} className={earned ? 'animate-pulse' : ''} />
                           </div>
-                          <p className="text-[10px] text-ink-muted dark:text-paper/50 truncate mt-0.5">
-                            {badge.description}
-                          </p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <p className={`text-xs font-bold truncate ${earned ? 'text-ink dark:text-paper' : 'text-ink-faint dark:text-paper/40'}`}>
+                                {badge.title}
+                              </p>
+                              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${earned ? 'bg-forest-500/10 text-forest-600 dark:bg-forest-500/20 dark:text-forest-400' : 'bg-ink/5 text-ink-faint dark:bg-paper/5 dark:text-paper/30'
+                                }`}>
+                                {earned ? 'Unlocked' : badge.requirementText}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-ink-muted dark:text-paper/50 truncate mt-0.5">
+                              {badge.description}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </motion.div>
-          )}
-        </motion.div>
-      )}
-
-      {/* ======================================================= */}
-      {/* DESKTOP LAYOUT (absolute positioned animated panels)    */}
-      {/* ======================================================= */}
-      {!isMobile && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut", delay: 0.1 }}
-          style={{ transformStyle: 'preserve-3d', perspective: 1000 }}
-          className="relative w-full max-w-4xl flex items-center justify-center min-h-[550px] overflow-visible z-10"
-        >
-          {/* LEFT LITERARY SIDE-BOARD (Motivation board) */}
-          <motion.div
-            initial={{ opacity: 0, x: -360 }}
-            animate={{
-              opacity: isExpanded ? 0 : 1,
-              x: isExpanded ? -270 : -340,
-              scale: isExpanded ? 0.95 : 1,
-            }}
-            transition={{ type: 'spring', stiffness: 120, damping: 18 }}
-            style={{ pointerEvents: isExpanded ? 'none' : 'auto' }}
-            className="absolute w-[220px] h-[320px] rounded-xl border border-ink/5 bg-gradient-to-br from-white/45 to-paper-soft/25 dark:from-[#211C17]/45 dark:to-[#1C1712]/25 backdrop-blur-sm shadow-[0_10px_30px_-8px_rgba(0,0,0,0.1),_0_0_20px_rgba(184,134,63,0.02)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.45),_0_0_30px_rgba(184,134,63,0.03)] flex flex-col justify-center items-center text-center gap-3 select-none px-4"
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brass-500/10 text-brass-600 dark:text-brass-400">
-              <MotivationIconComponent size={18} />
-            </div>
-            <p className="font-display text-xs font-bold text-brass-600 dark:text-brass-400 tracking-wide uppercase">
-              {motivationTitle}
-            </p>
-            <p className="font-serif italic text-[11px] text-ink-muted dark:text-paper/50 leading-relaxed px-1">
-              "{motivationText}"
-            </p>
-            <p className="text-[9px] font-semibold text-ink-faint dark:text-paper/30 tracking-wider font-sans uppercase">
-              {motivationLabel}
-            </p>
           </motion.div>
-
-          {/* RIGHT LITERARY SIDE-BOARD (Achievements preview) */}
-          <motion.div
-            initial={{ opacity: 0, x: 360 }}
-            animate={{
-              opacity: isExpanded ? 0 : 1,
-              x: isExpanded ? 270 : 340,
-              scale: isExpanded ? 0.95 : 1,
-            }}
-            transition={{ type: 'spring', stiffness: 120, damping: 18 }}
-            style={{ pointerEvents: isExpanded ? 'none' : 'auto' }}
-            onClick={() => setShowAchievements(true)}
-            className="absolute w-[220px] h-[320px] rounded-xl border border-ink/5 bg-gradient-to-br from-white/45 to-paper-soft/25 dark:from-[#211C17]/45 dark:to-[#1C1712]/25 backdrop-blur-sm shadow-[0_10px_30px_-8px_rgba(0,0,0,0.1),_0_0_20px_rgba(184,134,63,0.02)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.45),_0_0_30px_rgba(184,134,63,0.03)] flex flex-col justify-center items-center text-center gap-4 cursor-pointer select-none group px-4"
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 group-hover:scale-105 transition-transform duration-200">
-              <Award size={18} />
-            </div>
-            <div className="space-y-1">
-              <p className="font-display text-xs font-bold text-purple-600 dark:text-purple-400 tracking-wide uppercase">
-                My Achievements
-              </p>
-              <p className="text-[11px] text-ink-muted dark:text-paper/50 font-medium">
-                Badges Unlocked: <span className="font-bold text-purple-600 dark:text-purple-400">{earnedBadges.length} / {BADGES.length}</span>
-              </p>
-            </div>
-            <div className="flex gap-1.5 justify-center items-center">
-              {BADGES.slice(0, 4).map((badge) => {
-                const earned = badge.isEarned({ booksRead: totalBooksRead, pagesRead: totalPagesRead, highestStreak }, books);
-                const IconComponent = iconMap[badge.icon];
-                return (
-                  <div
-                    key={badge.id}
-                    className={`w-6 h-6 rounded-full border flex items-center justify-center text-[10px] transition-all duration-300 ${
-                      earned
-                        ? getFilledBadgeColor(badge.id)
-                        : 'text-ink-faint border-ink/5 bg-ink/5 dark:text-paper/10 dark:border-paper/5'
-                    }`}
-                    title={badge.title}
-                  >
-                    <IconComponent size={11} />
-                  </div>
-                );
-              })}
-              {BADGES.length > 4 && (
-                <div className="w-6 h-6 rounded-full border border-ink/5 bg-ink/5 dark:border-paper/5 flex items-center justify-center text-[9px] font-bold text-ink-faint dark:text-paper/40">
-                  +{BADGES.length - 4}
-                </div>
-              )}
-            </div>
-            <span className="text-[9px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest mt-2 group-hover:underline">
-              View All Badges
-            </span>
-          </motion.div>
-
-          {/* Profile Card */}
-          <motion.div
-            animate={profileAnimate}
-            transition={{ type: 'spring', stiffness: 120, damping: 18 }}
-            className="absolute w-[420px] h-[530px] rounded-xl2 border border-ink/10 dark:border-paper/10 bg-gradient-to-br from-white via-white/95 to-paper-soft/90 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#1C1712]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15),_0_0_40px_rgba(184,134,63,0.04)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55),_0_0_50px_rgba(184,134,63,0.06)] flex flex-col justify-between p-6 z-10 overflow-hidden"
-          >
-            <form onSubmit={handleUpdateName} className="h-full flex flex-col justify-between z-10">
-              <div className="space-y-3">
-                <div className="flex flex-col items-center gap-1 mx-auto mt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setAvatarPickerOpen(true)}
-                    className="relative group w-24 h-24 focus:outline-none"
-                    title="Change avatar"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-tr from-brass-400 to-purple-500 rounded-full blur opacity-25 group-hover:opacity-40 transition-opacity duration-300" />
-                    <div className="relative w-full h-full rounded-full bg-paper-soft dark:bg-bgdark-soft border border-brass-500/20 flex items-center justify-center overflow-hidden shadow-sm">
-                      {currentAvatar ? (
-                        <img src={currentAvatar.src} alt={currentAvatar.label} className="w-full h-full object-cover rounded-full" />
-                      ) : (
-                        <UserIcon className="w-11 h-11 text-brass-500 dark:text-brass-400" strokeWidth={1.5} />
-                      )}
-                    </div>
-                    {/* Camera overlay on hover */}
-                    <div className="absolute inset-0 rounded-full bg-bgdark/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <Camera size={20} className="text-white" />
-                    </div>
-                  </button>
-                  {currentAvatar && (
-                    <span className="text-[10px] font-semibold text-brass-600 dark:text-brass-400">{currentAvatar.label}</span>
-                  )}
-                </div>
-                <div className="text-center space-y-0.5">
-                  <h3 className="font-display text-lg font-bold text-ink dark:text-paper leading-snug">{currentUser.name}</h3>
-                  <p className="text-xs text-ink-muted dark:text-paper/50 font-medium font-mono">@{currentUser.username}</p>
-                </div>
-                <div className="rounded-lg bg-paper-soft/80 dark:bg-bgdark-soft/40 p-2.5 border border-ink/5 dark:border-paper/5 space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <div className="flex items-center gap-1.5 text-ink-muted dark:text-paper/60 font-medium">
-                      <Calendar size={13} className="text-brass-500" /><span>Member Since</span>
-                    </div>
-                    <span className="font-semibold text-ink dark:text-paper">{formattedCreation}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <div className="flex items-center gap-1.5 text-ink-muted dark:text-paper/60 font-medium">
-                      <Clock size={13} className="text-brass-500" /><span>Last Active</span>
-                    </div>
-                    <span className="font-semibold text-ink dark:text-paper text-right">{formattedLastSignIn}</span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3 mt-1.5">
-                  <div className="rounded-lg bg-paper-soft/60 dark:bg-bgdark-soft/30 p-2 border border-ink/5 dark:border-paper/5 text-center">
-                    <p className="text-[10px] uppercase font-bold text-ink-faint dark:text-paper/40 tracking-wider">Books Read</p>
-                    <p className="text-lg font-bold text-brass-600 dark:text-brass-400 mt-0.5">{totalBooksRead}</p>
-                  </div>
-                  <div className="rounded-lg bg-paper-soft/60 dark:bg-bgdark-soft/30 p-2 border border-ink/5 dark:border-paper/5 text-center">
-                    <p className="text-[10px] uppercase font-bold text-ink-faint dark:text-paper/40 tracking-wider">Pages Read</p>
-                    <p className="text-lg font-bold text-purple-600 dark:text-purple-400 mt-0.5">{totalPagesRead}</p>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">Display Name</label>
-                  <input
-                    type="text" value={name} onChange={(e) => setName(e.target.value)} disabled={nameLoading} placeholder="Enter your name"
-                    className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200"
-                  />
-                </div>
-              </div>
-              {nameError && (
-                <div className="p-2 rounded-lg bg-burgundy-500/10 border border-burgundy-500/20 text-[11px] font-semibold text-burgundy-600 dark:text-burgundy-400 flex items-center gap-1.5">
-                  <AlertCircle size={12} className="shrink-0" />{nameError}
-                </div>
-              )}
-              {nameSuccess && (
-                <div className="p-2 rounded-lg bg-forest-500/10 border border-forest-500/20 text-[11px] font-semibold text-forest-600 dark:text-forest-400 flex items-center gap-1.5">
-                  <CheckCircle2 size={12} className="shrink-0" />{nameSuccess}
-                </div>
-              )}
-              <div className="flex flex-col gap-1.5 pt-1.5 items-center w-full">
-                <Button type="submit" variant="primary" disabled={nameLoading || name.trim() === currentUser.name}
-                  className="w-full sm:w-2/3 py-2.5 text-xs font-bold uppercase tracking-wider bg-brass-500 text-bgdark hover:bg-brass-400">
-                  {nameLoading ? <><Loader2 size={14} className="animate-spin mr-1.5" />Updating...</> : 'Update Display Name'}
-                </Button>
-                {!isExpanded && (
-                  <Button type="button" variant="ghost" onClick={() => setShowSecurity(true)}
-                    className="w-full sm:w-2/3 py-1.5 text-xs font-semibold uppercase tracking-wider text-brass-600 dark:text-brass-400 hover:bg-brass-500/5 hover:text-brass-500">
-                    Update Password
-                  </Button>
-                )}
-              </div>
-            </form>
-          </motion.div>
-
-          {/* Security Card */}
-          <motion.div
-            animate={securityAnimate}
-            transition={{ type: 'spring', stiffness: 120, damping: 18 }}
-            style={{ pointerEvents: showSecurity ? 'auto' : 'none' }}
-            className="absolute w-[420px] h-[530px] rounded-xl2 border border-ink/10 dark:border-paper/10 bg-gradient-to-br from-white via-white/95 to-paper-soft/90 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#1C1712]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15),_0_0_40px_rgba(184,134,63,0.04)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55),_0_0_50px_rgba(184,134,63,0.06)] flex flex-col justify-between p-6 z-0 overflow-hidden"
-          >
-            <form onSubmit={handleUpdatePassword} className="h-full flex flex-col justify-between z-10">
-              <div className="space-y-4">
-                <div className="flex items-center gap-2.5 border-b border-ink/5 dark:border-paper/5 pb-2.5">
-                  <button type="button" onClick={() => setShowSecurity(false)} className="rounded-full p-1 text-ink-muted hover:bg-ink/5 dark:text-paper/60 dark:hover:bg-paper/10 transition-colors" title="Back to Profile">
-                    <ArrowLeft size={16} />
-                  </button>
-                  <Key size={16} className="text-brass-500" />
-                  <h3 className="font-display text-base font-semibold text-ink dark:text-paper">Update Password</h3>
-                </div>
-                {isDemoUser && (
-                  <div className="p-2.5 rounded-lg bg-brass-500/10 border border-brass-500/15 text-[10.5px] font-semibold text-brass-600 dark:text-brass-400 flex items-center gap-2 leading-relaxed">
-                    <AlertCircle size={14} className="shrink-0 text-brass-500" />
-                    Password changes are disabled for the shared demo account.
-                  </div>
-                )}
-                <div className="space-y-1">
-                  <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">Current Password</label>
-                  <div className="relative">
-                    <input type={showCurrentPwd ? 'text' : 'password'} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
-                      placeholder={isDemoUser ? "Disabled for demo user" : "Enter current password"}
-                      className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 pr-9 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
-                    <button type="button" onClick={() => setShowCurrentPwd(v => !v)} disabled={pwdLoading || isDemoUser}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40 hover:text-ink dark:hover:text-paper transition-colors disabled:opacity-40" tabIndex={-1}>
-                      {showCurrentPwd ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">New Password</label>
-                  <div className="relative">
-                    <input type={showNewPwd ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
-                      placeholder={isDemoUser ? "Disabled for demo user" : "Minimum 6 characters"}
-                      className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2 pr-9 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
-                    <button type="button" onClick={() => setShowNewPwd(v => !v)} disabled={pwdLoading || isDemoUser}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40 hover:text-ink dark:hover:text-paper transition-colors disabled:opacity-40" tabIndex={-1}>
-                      {showNewPwd ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-faint dark:text-paper/40">Confirm Password</label>
-                  <div className="relative">
-                    <input type={showConfirmPwd ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={pwdLoading || isDemoUser}
-                      placeholder={isDemoUser ? "Disabled for demo user" : "Re-enter new password"}
-                      className="w-full rounded-lg border border-ink/10 bg-paper dark:bg-bgdark px-3 py-2.5 pr-9 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-brass-400 dark:border-paper/10 transition-all duration-200 disabled:opacity-65" />
-                    <button type="button" onClick={() => setShowConfirmPwd(v => !v)} disabled={pwdLoading || isDemoUser}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40 hover:text-ink dark:hover:text-paper transition-colors disabled:opacity-40" tabIndex={-1}>
-                      {showConfirmPwd ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-              {pwdError && (
-                <div className="p-2 rounded-lg bg-burgundy-500/10 border border-burgundy-500/20 text-[11px] font-semibold text-burgundy-600 dark:text-burgundy-400 flex items-center gap-1.5">
-                  <AlertCircle size={12} className="shrink-0" />{pwdError}
-                </div>
-              )}
-              {pwdSuccess && (
-                <div className="p-2 rounded-lg bg-forest-500/10 border border-forest-500/20 text-[11px] font-semibold text-forest-600 dark:text-forest-400 flex items-center gap-1.5">
-                  <CheckCircle2 size={12} className="shrink-0" />{pwdSuccess}
-                </div>
-              )}
-              <div className="flex justify-end pt-1.5">
-                <Button type="submit" disabled={pwdLoading || isDemoUser || !currentPassword || !newPassword || !confirmPassword}
-                  className="w-full sm:w-auto py-2 px-5 text-xs font-bold uppercase tracking-wider bg-brass-500 text-bgdark hover:bg-brass-400 disabled:opacity-50 disabled:cursor-not-allowed">
-                  {pwdLoading ? <><Loader2 size={12} className="animate-spin mr-1.5" />Updating...</> : 'Change Password'}
-                </Button>
-              </div>
-            </form>
-          </motion.div>
-
-          {/* Achievements Card */}
-          <motion.div
-            animate={achievementsAnimate}
-            transition={{ type: 'spring', stiffness: 120, damping: 18 }}
-            style={{ pointerEvents: showAchievements ? 'auto' : 'none' }}
-            className="absolute w-[420px] h-[530px] rounded-xl2 border border-ink/10 dark:border-paper/10 bg-gradient-to-br from-white via-white/95 to-paper-soft/90 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#1C1712]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15),_0_0_40px_rgba(184,134,63,0.04)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55),_0_0_50px_rgba(184,134,63,0.06)] flex flex-col justify-between p-6 z-0 overflow-hidden"
-          >
-            <div className="h-full flex flex-col justify-between z-10">
-              <div className="space-y-4 flex flex-col h-full">
-                <div className="flex items-center gap-2.5 border-b border-ink/5 dark:border-paper/5 pb-2.5">
-                  <button type="button" onClick={() => setShowAchievements(false)} className="rounded-full p-1 text-ink-muted hover:bg-ink/5 dark:text-paper/60 dark:hover:bg-paper/10 transition-colors" title="Back to Profile">
-                    <ArrowLeft size={16} />
-                  </button>
-                  <Award size={16} className="text-purple-500" />
-                  <h3 className="font-display text-base font-semibold text-ink dark:text-paper">Unlocked Badges</h3>
-                </div>
-                <div className="flex-1 overflow-y-auto pr-1 space-y-2 max-h-[400px] scrollbar-thin scrollbar-thumb-ink/10">
-                  {BADGES.map((badge) => {
-                    const earned = badge.isEarned({ booksRead: totalBooksRead, pagesRead: totalPagesRead, highestStreak }, books);
-                    const IconComponent = iconMap[badge.icon];
-                    return (
-                      <div
-                        key={badge.id}
-                        onClick={() => earned ? setSelectedBadge(badge) : undefined}
-                        className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all duration-300 ${
-                          earned
-                            ? 'bg-gradient-to-r from-white via-white/95 to-[#B8863F]/5 dark:from-[#211C17]/95 dark:via-[#211C17]/90 dark:to-[#B8863F]/5 border-[#B8863F]/20 dark:border-[#B8863F]/15 shadow-[0_0_12px_rgba(184,134,63,0.05)] cursor-pointer hover:shadow-[0_0_18px_rgba(184,134,63,0.12)] hover:border-[#B8863F]/35 active:scale-[0.98]'
-                            : 'bg-paper-soft/10 dark:bg-bgdark-soft/10 border-dashed border-ink/10 dark:border-paper/10 opacity-60'
-                        }`}
-                      >
-                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border ${
-                          earned ? badge.colorClass : 'text-ink-faint border-ink/10 bg-ink/5 dark:text-paper/20 dark:border-paper/10 dark:bg-paper/5'
-                        }`}>
-                          <IconComponent size={20} className={earned ? 'animate-pulse' : ''} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <p className={`text-xs font-bold truncate ${earned ? 'text-ink dark:text-paper' : 'text-ink-faint dark:text-paper/40'}`}>
-                              {badge.title}
-                            </p>
-                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
-                              earned ? 'bg-forest-500/10 text-forest-600 dark:bg-forest-500/20 dark:text-forest-400' : 'bg-ink/5 text-ink-faint dark:bg-paper/5 dark:text-paper/30'
-                            }`}>
-                              {earned ? 'Unlocked' : badge.requirementText}
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-ink-muted dark:text-paper/50 truncate mt-0.5">
-                            {badge.description}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </div>
+        )}
+      </div>
 
       {/* Avatar Picker Modal */}
       <AvatarPicker
@@ -1378,6 +1443,99 @@ export function Profile({
         onSelect={handleSelectAvatar}
         onClose={() => setAvatarPickerOpen(false)}
       />
+
+      {/* Reset Account Data Confirmation Modal */}
+      <Modal
+        open={showResetModal}
+        onClose={() => {
+          setShowResetModal(false);
+          setResetPassword('');
+          setResetError('');
+          if (onCloseResetModal) onCloseResetModal();
+        }}
+        title="Reset All Account Data"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <div className="rounded-xl border border-burgundy-500/30 bg-burgundy-50/50 dark:bg-burgundy-950/20 p-4 text-ink dark:text-paper space-y-2">
+            <div className="flex items-center gap-2 text-burgundy-600 dark:text-burgundy-400 font-bold text-sm">
+              <AlertTriangle size={18} className="shrink-0 text-burgundy-500" />
+              <span>Warning: Permanent Data Erasure</span>
+            </div>
+            <p className="text-xs leading-relaxed text-burgundy-950/90 dark:text-burgundy-200/90">
+              If you proceed, <strong>ALL</strong> of your books, reading progress, saved poems, vocabulary library, streaks, and personal goals will be <strong>permanently deleted</strong>. You will be treated as a fresh new user.
+            </p>
+            <p className="text-[11px] font-bold text-burgundy-700 dark:text-burgundy-300 uppercase tracking-wider">
+              This action CANNOT be undone.
+            </p>
+          </div>
+
+          <form onSubmit={handleConfirmResetData} className="space-y-3 pt-1">
+            <div className="space-y-1">
+              <label className="block text-xs font-bold text-ink dark:text-paper">
+                Re-enter your password to confirm:
+              </label>
+              <div className="relative">
+                <input
+                  type={showResetPwd ? 'text' : 'password'}
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  disabled={resetLoading}
+                  placeholder="Enter your current account password"
+                  className="w-full rounded-lg border border-ink/15 bg-paper dark:bg-bgdark px-3 py-2 pr-9 text-sm text-ink dark:text-paper focus:outline-none focus:ring-2 focus:ring-burgundy-500 dark:border-paper/15"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowResetPwd((v) => !v)}
+                  disabled={resetLoading}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint dark:text-paper/40 hover:text-ink dark:hover:text-paper"
+                  tabIndex={-1}
+                >
+                  {showResetPwd ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+            </div>
+
+            {resetError && (
+              <div className="p-2.5 rounded-lg bg-burgundy-500/10 border border-burgundy-500/20 text-xs font-semibold text-burgundy-600 dark:text-burgundy-400 flex items-center gap-1.5 leading-snug">
+                <AlertCircle size={14} className="shrink-0 text-burgundy-500" />
+                {resetError}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowResetModal(false);
+                  setResetPassword('');
+                  setResetError('');
+                }}
+                disabled={resetLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="danger"
+                size="sm"
+                disabled={resetLoading || !resetPassword.trim()}
+                className="font-bold text-xs px-4 py-2"
+              >
+                {resetLoading ? (
+                  <span className="flex items-center gap-1.5">
+                    <Loader2 size={13} className="animate-spin" /> Resetting Data...
+                  </span>
+                ) : (
+                  'Yes, Reset All Data'
+                )}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </Modal>
     </>
   );
 }

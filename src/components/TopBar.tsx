@@ -1,4 +1,4 @@
-import { Search, Plus, Menu, Download, Upload, X } from 'lucide-react';
+import { Search, Plus, Menu, Download, Upload, X, RotateCcw } from 'lucide-react';
 import type { FilterState, SortState } from '../types/book';
 import { SortDropdown } from './SortDropdown';
 import { FilterPopover } from './FilterPopover';
@@ -19,6 +19,9 @@ interface TopBarProps {
   onImportClick: () => void;
   onOpenMobileMenu: () => void;
   showControls?: boolean;
+  showImportExport?: boolean;
+  showResetData?: boolean;
+  onResetData?: () => void;
 }
 
 export function TopBar({
@@ -36,6 +39,9 @@ export function TopBar({
   onImportClick,
   onOpenMobileMenu,
   showControls = true,
+  showImportExport = false,
+  showResetData = false,
+  onResetData,
 }: TopBarProps) {
   return (
     <div className="sticky top-0 z-20 border-b border-ink/10 bg-paper/90 backdrop-blur-md dark:border-paper/10 dark:bg-bgdark/90">
@@ -55,12 +61,27 @@ export function TopBar({
           )}
         </div>
         <div className="hidden items-center gap-2 sm:flex">
-          <Button variant="ghost" size="sm" onClick={onImportClick} title="Import JSON backup">
-            <Download size={14} /> Import
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onExport} title="Export library as JSON">
-            <Upload size={14} /> Export
-          </Button>
+          {showImportExport && (
+            <>
+              <Button variant="ghost" size="sm" onClick={onImportClick} title="Import JSON backup">
+                <Download size={14} /> Import
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onExport} title="Export library as JSON">
+                <Upload size={14} /> Export
+              </Button>
+            </>
+          )}
+          {showResetData && onResetData && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onResetData}
+              title="Reset all account data"
+              className="text-burgundy-600 dark:text-burgundy-400 hover:bg-burgundy-500/10 hover:text-burgundy-700 font-semibold"
+            >
+              <RotateCcw size={14} /> Reset
+            </Button>
+          )}
         </div>
         <Button variant="primary" size="sm" onClick={onAddBook}>
           <Plus size={15} /> Add Book

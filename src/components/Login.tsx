@@ -13,8 +13,9 @@ import {
   Eye,
   EyeOff,
   Quote,
-  Check,
-  ArrowRight
+  ScrollText,
+  BookA,
+  ArrowRight,
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { auth } from '../firebase';
@@ -183,103 +184,115 @@ export function Login({ onLoginSuccess }: LoginProps) {
       />
       <div className="absolute top-[30%] right-[20%] h-96 w-96 rounded-full bg-purple-500/5 blur-[150px] pointer-events-none" />
 
-      {/* LEFT PANEL - Beautiful Brand Showcase & Quote (Desktop only) */}
-      <div className="hidden md:flex w-1/2 flex-col justify-between p-12 lg:p-16 bg-gradient-to-b from-[#1C1712] to-[#15120E] border-r border-[#FAF7F1]/5 relative overflow-hidden">
+      {/* LEFT PANEL - Beautiful Brand Showcase & Feature Cards (Desktop only) */}
+      <div className="hidden md:flex w-1/2 flex-col justify-between p-10 lg:p-14 bg-gradient-to-b from-[#1C1712] to-[#15120E] border-r border-[#FAF7F1]/5 relative overflow-hidden">
         {/* Glow behind layout */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(184,134,63,0.03),transparent_60%)] pointer-events-none" />
 
         {/* Logo/Brand Header */}
-        <div className="flex items-center gap-2.5 z-10">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brass-500 text-bgdark shadow-lg shadow-brass-500/20">
-            <Library size={20} className="stroke-[2.5]" />
+        <div className="flex items-center gap-3 z-10">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brass-500 text-bgdark shadow-lg shadow-brass-500/25">
+            <Library size={26} className="stroke-[2.5]" />
           </div>
-          <span className="font-display text-xl font-bold tracking-tight text-white">Cursus</span>
+          <span className="font-display text-2xl lg:text-3xl font-bold tracking-tight text-white">Cursus</span>
         </div>
 
-        {/* Main Pitch */}
-        <div className="my-auto space-y-12 z-10 max-w-xl">
-          <div className="space-y-6">
-            <motion.h1 
+        {/* Main Pitch & Feature Overview */}
+        <div className="my-auto space-y-8 z-10 max-w-xl">
+          <div className="space-y-4">
+            <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
-              className="font-display text-3xl lg:text-[40px] font-semibold leading-[1.2] text-[#FAF7F1]"
+              className="font-display text-3xl lg:text-[38px] font-semibold leading-[1.2] text-[#FAF7F1]"
             >
               Your reading journey, <br />
               <span className="text-brass-400 italic font-serif">beautifully</span> documented.
             </motion.h1>
-            <motion.p 
+            <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.1 }}
-              className="text-sm lg:text-base text-[#FAF7F1]/60 leading-relaxed"
+              className="text-xs lg:text-sm text-[#FAF7F1]/70 leading-relaxed"
             >
-              Keep your digital bookshelf organized, build long-lasting reading streaks, and capture notes as you flip the pages.
+              Organize digital bookshelves, track reading progress & habits, discover smart recommendations, explore classic poetry, build your vocabulary library, and enjoy an ambient Reading Nook.
             </motion.p>
           </div>
 
-          {/* Interactive Floating Mock UI Cards */}
-          <div className="relative pt-6 h-56">
-            {/* Card 1: Currently Reading */}
+          {/* Interactive Feature Highlights Showcase Grid */}
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            {/* Feature 1: Digital Library & Progress */}
             <motion.div
-              animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute left-0 top-0 w-72 bg-[#1E1A15]/80 border border-[#FAF7F1]/10 rounded-xl2 p-4 shadow-xl backdrop-blur-md"
+              animate={{ y: [0, -4, 0] }}
+              transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+              className="bg-[#1E1A15]/80 border border-[#FAF7F1]/10 rounded-xl p-3.5 shadow-xl backdrop-blur-md space-y-1.5"
             >
-              <div className="flex gap-3">
-                <div className="w-12 h-16 bg-gradient-to-br from-brass-600 to-brass-700 rounded shadow-md flex items-center justify-center text-[#FAF7F1]/30">
-                  <BookOpen size={20} />
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-brass-500/15 text-brass-400 flex items-center justify-center">
+                  <BookOpen size={15} />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <span className="inline-block text-[10px] font-semibold text-brass-400 bg-brass-500/10 px-2 py-0.5 rounded-full mb-1">
-                    READING
-                  </span>
-                  <h4 className="text-xs font-bold text-white truncate">The Shadow of the Wind</h4>
-                  <p className="text-[10px] text-[#FAF7F1]/50 truncate">Carlos Ruiz Zafón</p>
-                </div>
+                <span className="text-[11px] font-bold text-white">Digital Library</span>
               </div>
-              <div className="mt-4 space-y-1">
-                <div className="flex justify-between text-[10px] font-medium text-[#FAF7F1]/60">
-                  <span>Progress</span>
-                  <span>68%</span>
-                </div>
-                <div className="w-full bg-[#FAF7F1]/10 rounded-full h-1.5 overflow-hidden">
-                  <div className="bg-brass-500 h-full rounded-full" style={{ width: '68%' }} />
-                </div>
-              </div>
+              <p className="text-[10px] text-[#FAF7F1]/60 leading-snug">
+                Organize shelves & track page progress seamlessly.
+              </p>
             </motion.div>
 
-            {/* Card 2: Streak Tracker */}
+            {/* Feature 2: Smart Book Recommendations */}
             <motion.div
-              animate={{ y: [0, -8, 0] }}
-              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 2.5 }}
-              className="absolute right-4 bottom-2 w-64 bg-[#1E1A15]/80 border border-[#FAF7F1]/10 rounded-xl2 p-4 shadow-xl backdrop-blur-md"
+              animate={{ y: [0, -6, 0] }}
+              transition={{ duration: 5.5, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+              className="bg-[#1E1A15]/80 border border-[#FAF7F1]/10 rounded-xl p-3.5 shadow-xl backdrop-blur-md space-y-1.5"
             >
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-forest-500/20 text-forest-400 flex items-center justify-center">
-                  <Flame size={20} className="text-brass-500 fill-brass-500/20 animate-pulse" />
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-purple-500/15 text-purple-400 flex items-center justify-center">
+                  <Sparkles size={15} />
                 </div>
-                <div>
-                  <h4 className="text-xs font-bold text-white">Daily Streak</h4>
-                  <p className="text-[10px] text-[#FAF7F1]/50">12 Days Active</p>
+                <span className="text-[11px] font-bold text-white">Smart Discoveries</span>
+              </div>
+              <p className="text-[10px] text-[#FAF7F1]/60 leading-snug">
+                Tailored book recommendations by genre & similarity.
+              </p>
+            </motion.div>
+
+            {/* Feature 3: Classic Poetry & Vocabulary */}
+            <motion.div
+              animate={{ y: [0, -5, 0] }}
+              transition={{ duration: 6.5, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
+              className="bg-[#1E1A15]/80 border border-[#FAF7F1]/10 rounded-xl p-3.5 shadow-xl backdrop-blur-md space-y-1.5"
+            >
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-brass-500/15 text-brass-400 flex items-center justify-center">
+                  <ScrollText size={15} />
                 </div>
+                <span className="text-[11px] font-bold text-white">Poetry & Word Lib</span>
               </div>
-              <div className="flex justify-between gap-1.5 mt-3">
-                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => (
-                  <div key={idx} className="flex flex-col items-center gap-1">
-                    <span className="text-[8px] font-bold text-[#FAF7F1]/40">{day}</span>
-                    <div className={`h-4 w-4 rounded-full flex items-center justify-center text-[8px] ${idx < 5 ? 'bg-brass-500 text-bgdark font-bold' : 'bg-[#FAF7F1]/5 text-[#FAF7F1]/30'}`}>
-                      {idx < 5 ? <Check size={8} className="stroke-[3]" /> : ''}
-                    </div>
-                  </div>
-                ))}
+              <p className="text-[10px] text-[#FAF7F1]/60 leading-snug">
+                Read classic poems & build custom word dictionaries.
+              </p>
+            </motion.div>
+
+            {/* Feature 4: Streaks & Reading Nook */}
+            <motion.div
+              animate={{ y: [0, -7, 0] }}
+              transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut', delay: 3 }}
+              className="bg-[#1E1A15]/80 border border-[#FAF7F1]/10 rounded-xl p-3.5 shadow-xl backdrop-blur-md space-y-1.5"
+            >
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-forest-500/15 text-forest-400 flex items-center justify-center">
+                  <Flame size={15} className="text-brass-400 fill-brass-400/20" />
+                </div>
+                <span className="text-[11px] font-bold text-white">Streaks & Nook</span>
               </div>
+              <p className="text-[10px] text-[#FAF7F1]/60 leading-snug">
+                Track reading streaks & enjoy ambient timer sessions.
+              </p>
             </motion.div>
           </div>
         </div>
 
         {/* Dynamic Literary Quote Slideshow */}
-        <div className="min-h-[70px] border-t border-[#FAF7F1]/5 pt-6 z-10">
+        <div className="min-h-[60px] border-t border-[#FAF7F1]/5 pt-4 z-10">
           <AnimatePresence mode="wait">
             <motion.div
               key={quoteIndex}
@@ -287,15 +300,15 @@ export function Login({ onLoginSuccess }: LoginProps) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.6 }}
-              className="space-y-1.5"
+              className="space-y-1"
             >
               <div className="flex gap-2 text-brass-400">
-                <Quote size={14} className="opacity-60 flex-shrink-0" />
-                <p className="font-display text-xs lg:text-sm italic text-[#FAF7F1]/80 leading-relaxed font-serif">
+                <Quote size={13} className="opacity-60 flex-shrink-0" />
+                <p className="font-display text-xs italic text-[#FAF7F1]/80 leading-relaxed font-serif">
                   {QUOTES[quoteIndex].text}
                 </p>
               </div>
-              <p className="text-[10px] font-semibold tracking-wider text-brass-400/70 pl-6 uppercase">
+              <p className="text-[9px] font-semibold tracking-wider text-brass-400/70 pl-5 uppercase">
                 — {QUOTES[quoteIndex].author}
               </p>
             </motion.div>
@@ -306,11 +319,11 @@ export function Login({ onLoginSuccess }: LoginProps) {
       {/* RIGHT PANEL - Authentication Form */}
       <div className="w-full md:w-1/2 flex flex-col justify-center items-center p-6 md:p-12 lg:p-16 relative">
         {/* Mobile Header */}
-        <div className="md:hidden absolute top-8 left-8 flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brass-500 text-bgdark">
-            <Library size={16} />
+        <div className="md:hidden absolute top-8 left-8 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brass-500 text-bgdark shadow-md">
+            <Library size={22} className="stroke-[2.5]" />
           </div>
-          <span className="font-display text-lg font-bold text-white">Cursus</span>
+          <span className="font-display text-xl font-bold text-white">Cursus</span>
         </div>
 
         <motion.div
@@ -435,22 +448,6 @@ export function Login({ onLoginSuccess }: LoginProps) {
             </Button>
           </form>
 
-          {/* Toggle between Sign In and Sign Up (hidden for now) */}
-          {/* <div className="text-center">
-            <button
-              type="button"
-              onClick={() => {
-                // Note: Add 'setIsSignUp' back to the useState hook on line 39 to restore functionality
-                setIsSignUp(!isSignUp);
-                setError('');
-              }}
-              disabled={loading}
-              className="text-xs text-brass-400 hover:text-brass-300 transition-colors font-semibold focus:outline-none"
-            >
-              {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
-            </button>
-          </div> */}
-
           {/* Guest / Demo Access Divider */}
           <div className="relative flex items-center justify-center my-6">
             <div className="absolute inset-0 flex items-center">
@@ -466,7 +463,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
             type="button"
             onClick={handleDemoLogin}
             disabled={loading}
-            className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-[#FAF7F1]/5 hover:bg-[#FAF7F1]/10 border border-[#FAF7F1]/10 hover:border-[#FAF7F1]/20 font-semibold text-xs text-[#FAF7F1]/80 hover:text-white transition-all duration-200"
+            className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-[#FAF7F1]/5 hover:bg-[#FAF7F1]/10 border border-[#FAF7F1]/10 hover:border-[#FAF7F1]/20 font-semibold text-xs text-[#FAF7F1]/80 hover:text-[#FAF7F1] transition-all duration-200"
           >
             <Sparkles size={14} className="text-brass-400" />
             Sign in as Demo User
@@ -491,4 +488,3 @@ export function Login({ onLoginSuccess }: LoginProps) {
     </div>
   );
 }
-

@@ -14,6 +14,7 @@ import {
   BookA,
   Timer,
   Sparkles,
+  ScrollText,
 } from 'lucide-react';
 import type { ViewKey } from '../types/book';
 import { classNames } from '../utils/helpers';
@@ -57,16 +58,17 @@ export function Sidebar({
     { key: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
   ];
   const shelfItems: NavItem[] = [
-    { key: 'on-shelf', label: 'On Shelf', icon: BookMarked, count: counts['on-shelf'] },
-    { key: 'wishlist', label: 'The Hunt List', icon: ShoppingBag, count: counts['wishlist'] },
-    { key: 'reading', label: 'Reading', icon: BookOpen, count: counts['reading'] },
-    { key: 'read', label: 'Read', icon: CheckCircle2, count: counts['read'] },
+    { key: 'on-shelf', label: 'On Shelf', icon: BookMarked },
+    { key: 'wishlist', label: 'The Hunt List', icon: ShoppingBag },
+    { key: 'reading', label: 'Reading', icon: BookOpen },
+    { key: 'read', label: 'Read', icon: CheckCircle2 },
   ];
   const otherItems: NavItem[] = [
+    { key: 'favorites', label: 'Favorites', icon: Heart },
     { key: 'recommendations', label: 'Discover Books', icon: Sparkles },
-    { key: 'streaks', label: 'Reading Streaks', icon: Flame },
-    { key: 'favorites', label: 'Favorites', icon: Heart, count: counts['favorites'] },
+    { key: 'poems', label: 'Poems', icon: ScrollText },
     { key: 'word-library', label: 'Word Library', icon: BookA },
+    { key: 'streaks', label: 'Reading Streaks', icon: Flame },
     { key: 'timer', label: 'The Reading Nook', icon: Timer },
   ];
 
@@ -122,11 +124,11 @@ export function Sidebar({
         )}
       >
         <div className="mb-6 flex items-center justify-between px-2">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-ink text-paper dark:bg-brass-500 dark:text-bgdark">
-              <Library size={17} />
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-ink text-paper dark:bg-brass-500 dark:text-bgdark shadow-sm">
+              <Library size={22} className="stroke-[2.2]" />
             </div>
-            <span className="font-display text-[17px] font-semibold text-ink dark:text-paper">
+            <span className="font-display text-xl font-bold tracking-tight text-ink dark:text-paper">
               Cursus
             </span>
           </div>

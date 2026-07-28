@@ -27,9 +27,11 @@ import {
   BookA,
   Timer,
   Sparkles,
+  ScrollText,
 } from 'lucide-react';
 import { RecommendationsPage } from './components/RecommendationsPage';
 import { FavoritesView } from './components/FavoritesView';
+import { PoemsPage } from './components/PoemsPage';
 
 import { StreakManager } from './components/StreakManager';
 import type { StreakLog } from './components/StreakManager';
@@ -42,9 +44,11 @@ import { DailyGoalsPage } from './components/DailyGoalsPage';
 import { YearlyGoalsPage } from './components/YearlyGoalsPage';
 import { WordLibraryPage } from './components/WordLibraryPage';
 import { FocusTimerPage } from './components/FocusTimerPage';
+import { DynamicIslandTimerPill } from './components/DynamicIslandTimerPill';
+import { useFocusTimer } from './hooks/useFocusTimer';
 import { getLocalDateString } from './utils/helpers';
 import { useWordLibrary } from './hooks/useWordLibrary';
-import { useFocusTimer } from './hooks/useFocusTimer';
+import { usePoems } from './hooks/usePoems';
 import { seedDemoDataIfEmpty } from './utils/demoData';
 
 const viewMeta: Record<ViewKey, { title: string; subtitle: string }> = {
@@ -62,6 +66,7 @@ const viewMeta: Record<ViewKey, { title: string; subtitle: string }> = {
   'word-library': { title: 'Word Library', subtitle: 'Look up words and build your vocabulary' },
   timer: { title: 'The Reading Nook', subtitle: 'Your quiet space for focus and study' },
   recommendations: { title: 'Discover Books', subtitle: 'Personalized recommendations, genre exploration & discovery' },
+  poems: { title: 'Poems', subtitle: 'Search classic poetry, mark as read, and save for later' },
 };
 
 const TAB_EXPLANATIONS: Record<ViewKey, { title: string; description: string; icon: React.ElementType }> = {
@@ -135,6 +140,11 @@ const TAB_EXPLANATIONS: Record<ViewKey, { title: string; description: string; ic
     description: 'Discover your next favorite read through personalized activity scoring, unexplored genre exploration, and custom category browsing.',
     icon: Sparkles,
   },
+  poems: {
+    title: 'Poetry Library',
+    description: 'Explore timeless poetry using PoetryDB. Search classic poems by title or author, read full verses, track completed poems, and save favorites for later.',
+    icon: ScrollText,
+  },
 };
 
 function App() {
@@ -145,6 +155,7 @@ function App() {
     useBooks(currentUser?.id);
   const { theme, toggleTheme } = useTheme();
   const { savedWords, addWord, removeWord, isWordSaved } = useWordLibrary(currentUser?.id);
+  const poems = usePoems(currentUser?.id);
 
   const [streakLog, setStreakLogState] = useState<StreakLog>({});
 
@@ -156,6 +167,9 @@ function App() {
   // Yearly Goal state
   const [yearlyGoal, setYearlyGoalState] = useState<number | null>(null);
   const [yearlyGoalHistory, setYearlyGoalHistory] = useState<Record<string, number>>({});
+
+  // Reset Account Data Modal State
+  const [resetModalOpen, setResetModalOpen] = useState(false);
 
   // Sync daily goal with Firestore
   useEffect(() => {
@@ -291,14 +305,14 @@ function App() {
     async (newLog: StreakLog | ((prev: StreakLog) => StreakLog)) => {
       if (!currentUser) return;
       const docRef = doc(db, 'users', currentUser.id, 'streaks', 'log');
-      
+
       let nextLog: StreakLog;
       if (typeof newLog === 'function') {
         nextLog = newLog(streakLog);
       } else {
         nextLog = newLog;
       }
-      
+
       await setDoc(docRef, { log: nextLog });
     },
     [currentUser, streakLog]
@@ -369,7 +383,7 @@ function App() {
       wishlist: books.filter((b) => b.status === 'wishlist').length,
       reading: books.filter((b) => b.status === 'reading').length,
       read: books.filter((b) => b.status === 'read').length,
-      favorites: books.filter((b) => b.favorite).length,
+      favorites: books.filter((b) => b.favorite).length + poems.favoritePoems.length,
       stats: 0,
       streaks: 0,
       profile: 0,
@@ -378,8 +392,9 @@ function App() {
       'word-library': 0,
       timer: 0,
       recommendations: 0,
+      poems: poems.readPoems.length,
     }),
-    [books]
+    [books, poems.readPoems.length, poems.favoritePoems.length]
   );
 
   const filteredSorted = useMemo(() => {
@@ -515,27 +530,19 @@ function App() {
           onImportClick={() => fileInputRef.current?.click()}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
           showControls={showTopBarControls}
+          showImportExport={view === 'profile'}
+          showResetData={view === 'profile'}
+          onResetData={() => setResetModalOpen(true)}
         />
 
         {/* Top Floating Hover Pills Container (Demo Mode & Active Timer) */}
         <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 pointer-events-auto">
-          {/* Active Focus Session Floating Pill (Shown ONLY if timer is running AND user left 'timer' tab) */}
-          {focusTimer.isRunning && view !== 'timer' && (
-            <button
-              onClick={() => setView('timer')}
-              className="group relative flex items-center gap-2.5 rounded-full border-2 border-brass-500/50 bg-brass-500/25 px-4 py-1.5 text-sm font-bold text-ink shadow-md backdrop-blur-md dark:border-brass-400/50 dark:bg-brass-500/30 dark:text-paper transition-all duration-200 hover:scale-105 hover:bg-brass-500/35 hover:shadow-brass-500/20"
-            >
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brass-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brass-500"></span>
-              </span>
-              <Timer size={16} className="text-brass-700 dark:text-brass-300 stroke-[2.5]" />
-              <span className="font-mono text-sm font-bold tracking-tight">{focusTimer.activeFormattedTime}</span>
-              <div className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 hidden w-60 rounded-xl border border-ink/10 bg-surface p-3 text-xs font-normal text-center text-ink-muted shadow-xl dark:border-paper/10 dark:bg-surface-dark dark:text-paper/70 group-hover:block transition-all z-50">
-                Active reading session running. Click to return to The Reading Nook.
-              </div>
-            </button>
-          )}
+          {/* Active Focus Session Dynamic Island Floating Pill */}
+          <DynamicIslandTimerPill
+            timerHook={focusTimer}
+            onNavigateToTimer={() => setView('timer')}
+            visible={focusTimer.isRunning && view !== 'timer'}
+          />
 
           {/* Demo Mode Pill */}
           {currentUser?.username === 'demo' && (
@@ -598,6 +605,19 @@ function App() {
                 setDailyGoal={handleUpdateDailyGoal}
                 yearlyGoal={yearlyGoal}
                 setYearlyGoal={handleUpdateYearlyGoal}
+                readPoemsCount={poems.readPoems.length}
+                savedPoemsCount={poems.savedPoems.length}
+                favoritePoemsCount={poems.favoritePoems.length}
+                favoritePoems={poems.favoritePoems}
+                savedWordsCount={savedWords.length}
+                savedWords={savedWords}
+                isFavoritePoem={poems.isFavorite}
+                isReadPoem={poems.isRead}
+                isSavedPoem={poems.isSaved}
+                onToggleFavoritePoem={poems.toggleFavorite}
+                onToggleReadPoem={poems.toggleRead}
+                onToggleSavedPoem={poems.toggleSaved}
+                onRemoveWord={removeWord}
               />
             );
           })()}
@@ -651,6 +671,24 @@ function App() {
             />
           )}
 
+          {view === 'poems' && (
+            <PoemsPage
+              readPoems={poems.readPoems}
+              savedPoems={poems.savedPoems}
+              favoritePoems={poems.favoritePoems}
+              onMarkAsRead={poems.markAsRead}
+              onRemoveFromRead={poems.removeFromRead}
+              isRead={poems.isRead}
+              onSaveForLater={poems.saveForLater}
+              onRemoveFromSaved={poems.removeFromSaved}
+              isSaved={poems.isSaved}
+              isFavorite={poems.isFavorite}
+              onToggleRead={poems.toggleRead}
+              onToggleSaved={poems.toggleSaved}
+              onToggleFavorite={poems.toggleFavorite}
+            />
+          )}
+
           {view === 'profile' && currentUser && (
             <Profile
               currentUser={currentUser}
@@ -659,6 +697,8 @@ function App() {
               streakLog={streakLog}
               acknowledgedBadgeIds={acknowledgedBadgeIds}
               onAcknowledgeBadges={handleAcknowledgeBadges}
+              resetModalOpen={resetModalOpen}
+              onCloseResetModal={() => setResetModalOpen(false)}
             />
           )}
 
@@ -670,6 +710,14 @@ function App() {
               onSetStatus={handleSetStatus}
               onDeleteBook={deleteBook}
               onOpenAddBook={() => setAddOpen(true)}
+              favoritePoems={poems.favoritePoems}
+              isFavoritePoem={poems.isFavorite}
+              isReadPoem={poems.isRead}
+              isSavedPoem={poems.isSaved}
+              onToggleFavoritePoem={poems.toggleFavorite}
+              onToggleReadPoem={poems.toggleRead}
+              onToggleSavedPoem={poems.toggleSaved}
+              onNavigateToPoems={() => setView('poems')}
             />
           )}
 
