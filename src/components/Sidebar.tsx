@@ -30,7 +30,7 @@ interface NavItem {
 interface SidebarProps {
   active: ViewKey;
   onSelect: (v: ViewKey) => void;
-  counts: Record<ViewKey, number>;
+  counts?: Record<ViewKey, number>;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
   mobileOpen: boolean;
@@ -44,7 +44,7 @@ interface SidebarProps {
 export function Sidebar({
   active,
   onSelect,
-  counts,
+  counts: _counts,
   theme,
   onToggleTheme,
   mobileOpen,
@@ -58,10 +58,10 @@ export function Sidebar({
     { key: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
   ];
   const shelfItems: NavItem[] = [
-    { key: 'on-shelf', label: 'On Shelf', icon: BookMarked, count: counts['on-shelf'] },
-    { key: 'wishlist', label: 'The Hunt List', icon: ShoppingBag, count: counts['wishlist'] },
-    { key: 'reading', label: 'Reading', icon: BookOpen, count: counts['reading'] },
-    { key: 'read', label: 'Read', icon: CheckCircle2, count: counts['read'] },
+    { key: 'on-shelf', label: 'On Shelf', icon: BookMarked },
+    { key: 'wishlist', label: 'The Hunt List', icon: ShoppingBag },
+    { key: 'reading', label: 'Reading', icon: BookOpen },
+    { key: 'read', label: 'Read', icon: CheckCircle2 },
   ];
   const otherItems: NavItem[] = [
     { key: 'favorites', label: 'Favorites', icon: Heart },
@@ -93,18 +93,6 @@ export function Sidebar({
           <ActiveIcon size={16} strokeWidth={isActive ? 2.4 : 2} />
           {item.label}
         </span>
-        {typeof item.count === 'number' && (
-          <span
-            className={classNames(
-              'rounded-full px-1.5 py-0.5 text-[11px] tabular-nums',
-              isActive
-                ? 'bg-paper/20 text-paper dark:bg-bgdark/20 dark:text-bgdark'
-                : 'bg-ink/5 text-ink-faint dark:bg-paper/10 dark:text-paper/50'
-            )}
-          >
-            {item.count}
-          </span>
-        )}
       </button>
     );
   };
