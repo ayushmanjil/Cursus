@@ -58,10 +58,10 @@ export function Sidebar({
     { key: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
   ];
   const shelfItems: NavItem[] = [
-    { key: 'on-shelf', label: 'On Shelf', icon: BookMarked },
-    { key: 'wishlist', label: 'The Hunt List', icon: ShoppingBag },
-    { key: 'reading', label: 'Reading', icon: BookOpen },
-    { key: 'read', label: 'Read', icon: CheckCircle2 },
+    { key: 'on-shelf', label: 'On Shelf', icon: BookMarked, count: counts['on-shelf'] },
+    { key: 'wishlist', label: 'The Hunt List', icon: ShoppingBag, count: counts['wishlist'] },
+    { key: 'reading', label: 'Reading', icon: BookOpen, count: counts['reading'] },
+    { key: 'read', label: 'Read', icon: CheckCircle2, count: counts['read'] },
   ];
   const otherItems: NavItem[] = [
     { key: 'favorites', label: 'Favorites', icon: Heart },

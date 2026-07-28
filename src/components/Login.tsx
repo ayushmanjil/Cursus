@@ -14,7 +14,6 @@ import {
   EyeOff,
   Quote,
   ScrollText,
-  BookA,
   ArrowRight,
 } from 'lucide-react';
 import { Button } from './ui/Button';
