@@ -129,51 +129,56 @@ export function FavoritesView({
     <div className="space-y-6">
       {/* Sub Navigation Bar */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-ink/10 dark:border-paper/10 pb-4">
-        <div className="inline-flex rounded-xl bg-paper-soft p-1 dark:bg-bgdark-soft border border-ink/5 dark:border-paper/5">
-          <button
-            onClick={() => setSubTab('books')}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
-              subTab === 'books'
-                ? 'bg-surface text-ink shadow-sm dark:bg-surface-dark dark:text-paper'
-                : 'text-ink-muted hover:text-ink dark:text-paper/60 dark:hover:text-paper'
-            }`}
-          >
-            <Heart size={14} className={subTab === 'books' ? 'fill-burgundy-500 text-burgundy-500' : ''} />
-            Favorite Books
-            <span className="ml-1 rounded-full bg-ink/5 px-2 py-0.5 text-[10px] font-bold text-ink-muted dark:bg-paper/10 dark:text-paper/60">
-              {favoriteBooks.length}
-            </span>
-          </button>
+        <div className="w-full sm:w-auto">
+          <div className="grid grid-cols-3 sm:flex items-center gap-1 rounded-xl bg-paper-soft p-1 dark:bg-bgdark-soft border border-ink/5 dark:border-paper/5 w-full sm:w-fit">
+            <button
+              onClick={() => setSubTab('books')}
+              className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg px-2 sm:px-4 py-2 text-xs font-semibold transition-all ${
+                subTab === 'books'
+                  ? 'bg-surface text-ink shadow-sm dark:bg-surface-dark dark:text-paper'
+                  : 'text-ink-muted hover:text-ink dark:text-paper/60 dark:hover:text-paper'
+              }`}
+            >
+              <Heart size={14} className={subTab === 'books' ? 'fill-burgundy-500 text-burgundy-500' : ''} />
+              <span className="hidden sm:inline">Favorite Books</span>
+              <span className="sm:hidden">Books</span>
+              <span className="ml-0.5 sm:ml-1 rounded-full bg-ink/5 px-1.5 sm:px-2 py-0.5 text-[10px] font-bold text-ink-muted dark:bg-paper/10 dark:text-paper/60">
+                {favoriteBooks.length}
+              </span>
+            </button>
 
-          <button
-            onClick={() => setSubTab('authors')}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
-              subTab === 'authors'
-                ? 'bg-surface text-ink shadow-sm dark:bg-surface-dark dark:text-paper'
-                : 'text-ink-muted hover:text-ink dark:text-paper/60 dark:hover:text-paper'
-            }`}
-          >
-            <UserCheck size={14} className={subTab === 'authors' ? 'text-burgundy-500' : ''} />
-            Favorite Authors
-            <span className="ml-1 rounded-full bg-ink/5 px-2 py-0.5 text-[10px] font-bold text-ink-muted dark:bg-paper/10 dark:text-paper/60">
-              {favoriteAuthors.length}
-            </span>
-          </button>
+            <button
+              onClick={() => setSubTab('authors')}
+              className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg px-2 sm:px-4 py-2 text-xs font-semibold transition-all ${
+                subTab === 'authors'
+                  ? 'bg-surface text-ink shadow-sm dark:bg-surface-dark dark:text-paper'
+                  : 'text-ink-muted hover:text-ink dark:text-paper/60 dark:hover:text-paper'
+              }`}
+            >
+              <UserCheck size={14} className={subTab === 'authors' ? 'text-burgundy-500' : ''} />
+              <span className="hidden sm:inline">Favorite Authors</span>
+              <span className="sm:hidden">Authors</span>
+              <span className="ml-0.5 sm:ml-1 rounded-full bg-ink/5 px-1.5 sm:px-2 py-0.5 text-[10px] font-bold text-ink-muted dark:bg-paper/10 dark:text-paper/60">
+                {favoriteAuthors.length}
+              </span>
+            </button>
 
-          <button
-            onClick={() => setSubTab('poems')}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
-              subTab === 'poems'
-                ? 'bg-surface text-ink shadow-sm dark:bg-surface-dark dark:text-paper'
-                : 'text-ink-muted hover:text-ink dark:text-paper/60 dark:hover:text-paper'
-            }`}
-          >
-            <ScrollText size={14} className={subTab === 'poems' ? 'text-burgundy-500' : ''} />
-            Favorite Poems
-            <span className="ml-1 rounded-full bg-ink/5 px-2 py-0.5 text-[10px] font-bold text-ink-muted dark:bg-paper/10 dark:text-paper/60">
-              {favoritePoems.length}
-            </span>
-          </button>
+            <button
+              onClick={() => setSubTab('poems')}
+              className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg px-2 sm:px-4 py-2 text-xs font-semibold transition-all ${
+                subTab === 'poems'
+                  ? 'bg-surface text-ink shadow-sm dark:bg-surface-dark dark:text-paper'
+                  : 'text-ink-muted hover:text-ink dark:text-paper/60 dark:hover:text-paper'
+              }`}
+            >
+              <ScrollText size={14} className={subTab === 'poems' ? 'text-burgundy-500' : ''} />
+              <span className="hidden sm:inline">Favorite Poems</span>
+              <span className="sm:hidden">Poems</span>
+              <span className="ml-0.5 sm:ml-1 rounded-full bg-ink/5 px-1.5 sm:px-2 py-0.5 text-[10px] font-bold text-ink-muted dark:bg-paper/10 dark:text-paper/60">
+                {favoritePoems.length}
+              </span>
+            </button>
+          </div>
         </div>
 
         {subTab === 'authors' && (

@@ -446,8 +446,8 @@ export function PoemsPage({
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       {/* Header & Tab Navigation */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex flex-1 items-center gap-1.5 rounded-xl bg-paper-soft/60 p-1.5 dark:bg-bgdark-soft/60">
+      <div className="flex items-center justify-between gap-3">
+        <div className="grid grid-cols-3 sm:flex items-center gap-1.5 rounded-xl bg-paper-soft/60 p-1.5 dark:bg-bgdark-soft/60 w-full sm:w-fit">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
@@ -456,7 +456,7 @@ export function PoemsPage({
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={classNames(
-                  'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200',
+                  'flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg px-2 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium transition-all duration-200',
                   isActive
                     ? 'bg-surface text-ink shadow-sm dark:bg-surface-dark dark:text-paper font-semibold'
                     : 'text-ink-muted hover:text-ink dark:text-paper/50 dark:hover:text-paper/90'
@@ -467,7 +467,7 @@ export function PoemsPage({
                 {typeof tab.count === 'number' && (
                   <span
                     className={classNames(
-                      'rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums',
+                      'rounded-full px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-semibold tabular-nums',
                       isActive
                         ? 'bg-brass-50 text-brass-700 dark:bg-brass-500/20 dark:text-brass-300'
                         : 'bg-ink/5 text-ink-faint dark:bg-paper/10 dark:text-paper/50'
@@ -532,13 +532,13 @@ export function PoemsPage({
               </div>
 
               {/* Search By Filter Dropdown / Selector */}
-              <div className="flex items-center gap-1 bg-paper-soft/60 dark:bg-bgdark-soft/60 rounded-lg p-1 shrink-0">
+              <div className="grid grid-cols-3 sm:flex items-center gap-1 bg-paper-soft/60 dark:bg-bgdark-soft/60 rounded-lg p-1 shrink-0">
                 {(['all', 'title', 'author'] as const).map((type) => (
                   <button
                     key={type}
                     onClick={() => setSearchBy(type)}
                     className={classNames(
-                      'px-3 py-1.5 text-xs font-medium rounded-md capitalize transition-colors',
+                      'px-3 py-1.5 text-xs font-medium rounded-md capitalize transition-colors text-center',
                       searchBy === type
                         ? 'bg-surface text-ink shadow-xs dark:bg-surface-dark dark:text-paper font-semibold'
                         : 'text-ink-muted hover:text-ink dark:text-paper/60 dark:hover:text-paper'
