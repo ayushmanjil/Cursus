@@ -50,6 +50,14 @@ import { getLocalDateString } from './utils/helpers';
 import { useWordLibrary } from './hooks/useWordLibrary';
 import { usePoems } from './hooks/usePoems';
 import { seedDemoDataIfEmpty } from './utils/demoData';
+import { StatsPage } from './components/StatsPage';
+import {
+  getNavigationStateFromUrl,
+  buildUrl,
+  VIEW_TO_PATH,
+  PATH_TO_VIEW,
+  type NavigationState,
+} from './utils/navigation';
 
 const viewMeta: Record<ViewKey, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'Your library at a glance' },
@@ -354,15 +362,125 @@ function App() {
     await setDoc(docRef, { ids: badgeIds }, { merge: true });
   }, [currentUser]);
 
-  const [view, setView] = useState<ViewKey>('dashboard');
+  const initialNavState = useMemo(() => getNavigationStateFromUrl(), []);
+  const [view, setViewState] = useState<ViewKey>(initialNavState.view);
+  const [addOpen, setAddOpenState] = useState<boolean>(initialNavState.addOpen);
+  const [selectedBookId, setSelectedBookIdState] = useState<string | null>(initialNavState.selectedBookId);
+  const [ratingPromptBookId, setRatingPromptBookId] = useState<string | null>(null);
+
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortState>({ field: 'title', order: 'asc' });
   const [filter, setFilter] = useState<FilterState>(emptyFilter);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const [addOpen, setAddOpen] = useState(false);
-  const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
-  const [ratingPromptBookId, setRatingPromptBookId] = useState<string | null>(null);
+  // Sync document title with active view
+  useEffect(() => {
+    const meta = viewMeta[view];
+    if (meta) {
+      document.title = `${meta.title} | Cursus`;
+    } else {
+      document.title = 'Cursus - Digital Reading Library';
+    }
+  }, [view]);
+
+  // Navigate to new view using History API pushState
+  const setView = useCallback(
+    (nextView: ViewKey) => {
+      setViewState((prevView) => {
+        if (prevView === nextView && !selectedBookId && !addOpen) return prevView;
+        const nextUrl = buildUrl(nextView, null, false);
+        const nextState = { view: nextView, selectedBookId: null, addOpen: false };
+        window.history.pushState(nextState, '', nextUrl);
+        setSelectedBookIdState(null);
+        setAddOpenState(false);
+        return nextView;
+      });
+    },
+    [selectedBookId, addOpen]
+  );
+
+  // Open / Close Book Modal with History state
+  const setSelectedBookId = useCallback(
+    (id: string | null) => {
+      if (id) {
+        const nextUrl = buildUrl(view, id, false);
+        const nextState = { view, selectedBookId: id, addOpen: false };
+        window.history.pushState(nextState, '', nextUrl);
+        setSelectedBookIdState(id);
+        setAddOpenState(false);
+      } else {
+        if (window.history.state?.selectedBookId) {
+          window.history.back();
+        } else {
+          const nextUrl = buildUrl(view, null, false);
+          window.history.replaceState({ view, selectedBookId: null, addOpen: false }, '', nextUrl);
+          setSelectedBookIdState(null);
+        }
+      }
+    },
+    [view]
+  );
+
+  // Open / Close Add Book Modal with History state
+  const setAddOpen = useCallback(
+    (open: boolean) => {
+      if (open) {
+        const nextUrl = buildUrl(view, null, true);
+        const nextState = { view, selectedBookId: null, addOpen: true };
+        window.history.pushState(nextState, '', nextUrl);
+        setAddOpenState(true);
+        setSelectedBookIdState(null);
+      } else {
+        if (window.history.state?.addOpen) {
+          window.history.back();
+        } else {
+          const nextUrl = buildUrl(view, null, false);
+          window.history.replaceState({ view, selectedBookId: null, addOpen: false }, '', nextUrl);
+          setAddOpenState(false);
+        }
+      }
+    },
+    [view]
+  );
+
+  // Sync initial state and handle popstate for browser Back / Forward buttons
+  useEffect(() => {
+    const currentNav = getNavigationStateFromUrl();
+    const currentUrl = buildUrl(currentNav.view, currentNav.selectedBookId, currentNav.addOpen);
+    window.history.replaceState(
+      {
+        view: currentNav.view,
+        selectedBookId: currentNav.selectedBookId,
+        addOpen: currentNav.addOpen,
+      },
+      '',
+      currentUrl
+    );
+
+    const handlePopState = (event: PopStateEvent) => {
+      let navState: NavigationState;
+      if (event.state && event.state.view && PATH_TO_VIEW[VIEW_TO_PATH[event.state.view as ViewKey]]) {
+        navState = {
+          view: event.state.view as ViewKey,
+          selectedBookId: event.state.selectedBookId || null,
+          addOpen: !!event.state.addOpen,
+        };
+      } else {
+        navState = getNavigationStateFromUrl();
+      }
+
+      setViewState(navState.view);
+      setSelectedBookIdState(navState.selectedBookId);
+      setAddOpenState(navState.addOpen);
+      setMobileMenuOpen(false);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -618,6 +736,7 @@ function App() {
                 onToggleReadPoem={poems.toggleRead}
                 onToggleSavedPoem={poems.toggleSaved}
                 onRemoveWord={removeWord}
+                onUpdateBook={updateBook}
               />
             );
           })()}
@@ -653,6 +772,8 @@ function App() {
           {view === 'timer' && (
             <FocusTimerPage timerHook={focusTimer} onNavigateToStreaks={() => setView('streaks')} />
           )}
+
+          {view === 'stats' && <StatsPage books={books} onOpenBook={(b) => setSelectedBookId(b.id)} />}
 
           {view === 'recommendations' && (
             <RecommendationsPage

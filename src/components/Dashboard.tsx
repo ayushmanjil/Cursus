@@ -24,11 +24,13 @@ import { formatDate, calculateStreaks, getHighestPagesRecord, getLocalDateString
 import { StatusBadge } from './ui/Badge';
 import { PoemDetailModal } from './PoemsPage';
 import { WordDetailModal } from './WordDetailModal';
+import { UpdateProgressModal } from './UpdateProgressModal';
 
 interface DashboardProps {
   books: Book[];
   onOpen: (book: Book) => void;
   onSelectView?: (view: ViewKey) => void;
+  onUpdateBook?: (id: string, updates: Partial<Book>) => void;
   streakLog?: Record<string, { read: boolean; pages?: number; hours?: number }>;
   dailyGoal: number | null;
   setDailyGoal: (g: number) => Promise<void>;
@@ -82,6 +84,7 @@ export function Dashboard({
   onToggleReadPoem = () => {},
   onToggleSavedPoem = () => {},
   onRemoveWord = () => {},
+  onUpdateBook,
 }: DashboardProps) {
   const total = books.length;
   const onShelf = books.filter((b) => b.status === 'on-shelf').length;
@@ -98,6 +101,7 @@ export function Dashboard({
   // Modals State
   const [selectedPoemForModal, setSelectedPoemForModal] = useState<Poem | null>(null);
   const [selectedWordForModal, setSelectedWordForModal] = useState<SavedWord | null>(null);
+  const [updateProgressBook, setUpdateProgressBook] = useState<Book | null>(null);
 
   // Compute streaks
   const { currentStreak, highestStreak } = calculateStreaks(streakLog);
@@ -252,7 +256,7 @@ export function Dashboard({
                     </p>
                     <div className="mt-3">
                       <button
-                        onClick={() => onOpen(activeBook)}
+                        onClick={() => setUpdateProgressBook(activeBook)}
                         className="inline-flex items-center gap-1.5 text-xs font-semibold text-brass-600 hover:text-brass-500 dark:text-brass-400 dark:hover:text-brass-300 transition-colors"
                       >
                         Update progress <ArrowRight size={13} />
@@ -289,7 +293,7 @@ export function Dashboard({
                     <div className="text-xs text-ink-muted dark:text-paper/50">
                       No page count set.{' '}
                       <button
-                        onClick={() => onOpen(activeBook)}
+                        onClick={() => setUpdateProgressBook(activeBook)}
                         className="text-brass-600 hover:underline dark:text-brass-400 font-medium"
                       >
                         Set total pages
@@ -819,6 +823,16 @@ export function Dashboard({
           onRemove={(id) => onRemoveWord(id)}
         />
       )}
+
+      {/* ─── Update Progress Modal ────────────────────────────────────── */}
+      <UpdateProgressModal
+        open={!!updateProgressBook}
+        book={updateProgressBook}
+        onClose={() => setUpdateProgressBook(null)}
+        onUpdate={(id, updates) => {
+          onUpdateBook?.(id, updates);
+        }}
+      />
     </div>
   );
 }

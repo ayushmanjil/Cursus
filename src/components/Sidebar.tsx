@@ -15,6 +15,7 @@ import {
   Timer,
   Sparkles,
   ScrollText,
+  BarChart3,
 } from 'lucide-react';
 import type { ViewKey } from '../types/book';
 import { classNames } from '../utils/helpers';
