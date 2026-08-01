@@ -1,5 +1,14 @@
 export type BookStatus = 'on-shelf' | 'wishlist' | 'reading' | 'read';
 
+export interface BookQuote {
+  id: string;
+  quote: string;
+  page?: number;
+  chapter?: string;
+  note?: string;
+  dateAdded: string; // ISO date string
+}
+
 export interface Book {
   id: string;
   title: string;
@@ -18,6 +27,7 @@ export interface Book {
   favorite: boolean;
   totalPages?: number; // total pages in the book
   currentPage?: number; // page the reader is currently on
+  quotes?: BookQuote[]; // Literary Marginalia / quotes
 }
 
 export type SortField =

@@ -43,6 +43,7 @@ import { Profile, getEarnedBadges } from './components/Profile';
 import { DailyGoalsPage } from './components/DailyGoalsPage';
 import { YearlyGoalsPage } from './components/YearlyGoalsPage';
 import { WordLibraryPage } from './components/WordLibraryPage';
+import { ReadingWrappedModal } from './components/ReadingWrappedModal';
 import { FocusTimerPage } from './components/FocusTimerPage';
 import { DynamicIslandTimerPill } from './components/DynamicIslandTimerPill';
 import { useFocusTimer } from './hooks/useFocusTimer';
@@ -358,6 +359,7 @@ function App() {
 
   const handleAcknowledgeBadges = useCallback(async (badgeIds: string[]) => {
     if (!currentUser) return;
+    setAcknowledgedBadgeIds(badgeIds);
     const docRef = doc(db, 'users', currentUser.id, 'settings', 'acknowledgedBadges');
     await setDoc(docRef, { ids: badgeIds }, { merge: true });
   }, [currentUser]);
@@ -372,16 +374,38 @@ function App() {
   const [sort, setSort] = useState<SortState>({ field: 'title', order: 'asc' });
   const [filter, setFilter] = useState<FilterState>(emptyFilter);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showWrappedModal, setShowWrappedModal] = useState(false);
 
-  // Sync document title with active view
-  useEffect(() => {
-    const meta = viewMeta[view];
-    if (meta) {
-      document.title = `${meta.title} | Cursus`;
-    } else {
-      document.title = 'Cursus - Digital Reading Library';
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const isDec31 = (now.getMonth() === 11 && now.getDate() === 31) || currentUser?.username === 'demo';
+
+  const [seenWrappedYears, setSeenWrappedYears] = useState<number[]>(() => {
+    try {
+      const stored = localStorage.getItem('cursus_seen_wrapped_years');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
     }
-  }, [view]);
+  });
+
+  const showWrappedPill = isDec31 && !seenWrappedYears.includes(currentYear);
+
+  const markWrappedAsSeen = useCallback(() => {
+    setSeenWrappedYears((prev) => {
+      if (prev.includes(currentYear)) return prev;
+      const updated = [...prev, currentYear];
+      try {
+        localStorage.setItem('cursus_seen_wrapped_years', JSON.stringify(updated));
+      } catch (_) {}
+      return updated;
+    });
+  }, [currentYear]);
+
+  // Sync document title to always display Cursus
+  useEffect(() => {
+    document.title = 'Cursus';
+  }, []);
 
   // Navigate to new view using History API pushState
   const setView = useCallback(
@@ -398,6 +422,12 @@ function App() {
     },
     [selectedBookId, addOpen]
   );
+
+  const handleOpenWrappedFromPill = useCallback(() => {
+    setView('yearly-goals');
+    setShowWrappedModal(true);
+    markWrappedAsSeen();
+  }, [setView, markWrappedAsSeen]);
 
   // Open / Close Book Modal with History state
   const setSelectedBookId = useCallback(
@@ -662,6 +692,20 @@ function App() {
             visible={focusTimer.isRunning && view !== 'timer'}
           />
 
+          {/* Reading Wrapped Floating Pill */}
+          {showWrappedPill && (
+            <button
+              onClick={handleOpenWrappedFromPill}
+              className="group relative flex items-center gap-2 rounded-full border-2 border-brass-500/40 bg-brass-500/20 px-4 py-1.5 text-sm font-bold text-brass-900 shadow-md backdrop-blur-md dark:border-brass-500/40 dark:bg-brass-500/25 dark:text-brass-300 transition-all duration-200 hover:scale-105"
+            >
+              <Sparkles size={16} className="text-brass-500 animate-pulse" />
+              <span>View Reading Wrapped {currentYear}</span>
+              <div className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 hidden w-64 rounded-lg border border-ink/10 bg-surface p-2.5 text-xs font-normal text-center text-ink-muted shadow-xl dark:border-paper/10 dark:bg-surface-dark dark:text-paper/70 group-hover:block transition-all z-50">
+                Your annual reading summary is ready! Tap to view your {currentYear} Reading Wrapped card.
+              </div>
+            </button>
+          )}
+
           {/* Demo Mode Pill */}
           {currentUser?.username === 'demo' && (
             <div className="group relative flex items-center gap-2 rounded-full border-2 border-amber-500/40 bg-amber-500/20 px-4 py-1.5 text-sm font-bold text-amber-900 shadow-md backdrop-blur-md dark:border-amber-500/40 dark:bg-amber-500/25 dark:text-amber-300 transition-all duration-200 hover:scale-105">
@@ -759,6 +803,10 @@ function App() {
               onUpdateYearlyGoal={handleUpdateYearlyGoal}
               onBack={() => setView('dashboard')}
               onOpenBook={(b) => setSelectedBookId(b.id)}
+              onOpenWrapped={() => {
+                setShowWrappedModal(true);
+                markWrappedAsSeen();
+              }}
             />
           )}
 
@@ -894,6 +942,15 @@ function App() {
           setRatingPromptBookId(null);
         }}
         onSkip={() => setRatingPromptBookId(null)}
+      />
+
+      <ReadingWrappedModal
+        open={showWrappedModal}
+        onClose={() => setShowWrappedModal(false)}
+        books={books}
+        streakLog={streakLog}
+        userName={currentUser?.name}
+        earnedBadgesCount={earnedBadges.length}
       />
     </div>
   );

@@ -65,4 +65,19 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  @keyframes soft-gold-pulse {
+    0%, 100% {
+      background-color: rgba(200, 154, 84, 0.12);
+      box-shadow: 0 0 0 1px rgba(200, 154, 84, 0.35), 0 0 10px rgba(200, 154, 84, 0.2);
+    }
+    50% {
+      background-color: rgba(200, 154, 84, 0.28);
+      box-shadow: 0 0 0 1.5px rgba(200, 154, 84, 0.65), 0 0 18px rgba(200, 154, 84, 0.4);
+    }
+  }
+
+  .animate-soft-gold-pulse {
+    animation: soft-gold-pulse 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
 }

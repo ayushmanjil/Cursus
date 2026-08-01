@@ -10,6 +10,7 @@ interface ModalProps {
   children: React.ReactNode;
   maxWidth?: string;
   hideHeader?: boolean;
+  hideCloseButton?: boolean;
 }
 
 export function Modal({
@@ -19,6 +20,7 @@ export function Modal({
   children,
   maxWidth = 'max-w-lg',
   hideHeader = false,
+  hideCloseButton = false,
 }: ModalProps) {
   useEffect(() => {
     if (!open) return;
@@ -62,22 +64,26 @@ export function Modal({
                 <h2 className="font-display text-lg font-medium text-ink dark:text-paper">
                   {title}
                 </h2>
+                {!hideCloseButton && (
+                  <button
+                    onClick={onClose}
+                    aria-label="Close"
+                    className="rounded-full p-1.5 text-ink-muted hover:bg-ink/5 hover:text-ink dark:text-paper/60 dark:hover:bg-paper/10 dark:hover:text-paper transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                )}
+              </div>
+            ) : (
+              !hideCloseButton && (
                 <button
                   onClick={onClose}
                   aria-label="Close"
-                  className="rounded-full p-1.5 text-ink-muted hover:bg-ink/5 hover:text-ink dark:text-paper/60 dark:hover:bg-paper/10 dark:hover:text-paper transition-colors"
+                  className="absolute right-4 top-4 z-20 rounded-full p-1.5 text-ink-muted hover:bg-ink/10 hover:text-ink dark:text-paper/60 dark:hover:bg-paper/10 dark:hover:text-paper transition-colors"
                 >
                   <X size={18} />
                 </button>
-              </div>
-            ) : (
-              <button
-                onClick={onClose}
-                aria-label="Close"
-                className="absolute right-4 top-4 z-20 rounded-full p-1.5 text-ink-muted hover:bg-ink/10 hover:text-ink dark:text-paper/60 dark:hover:bg-paper/10 dark:hover:text-paper transition-colors"
-              >
-                <X size={18} />
-              </button>
+              )
             )}
             <div className={hideHeader ? 'p-6' : 'px-6 py-5'}>{children}</div>
           </motion.div>

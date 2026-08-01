@@ -10,6 +10,7 @@ import {
   Award,
   Calendar,
   Star,
+  Sparkles,
 } from 'lucide-react';
 import type { Book } from '../types/book';
 
@@ -20,6 +21,7 @@ interface YearlyGoalsPageProps {
   onUpdateYearlyGoal: (newGoal: number, yearVal?: number) => Promise<void> | void;
   onBack: () => void;
   onOpenBook?: (book: Book) => void;
+  onOpenWrapped?: () => void;
 }
 
 export function YearlyGoalsPage({
@@ -29,6 +31,7 @@ export function YearlyGoalsPage({
   onUpdateYearlyGoal,
   onBack,
   onOpenBook,
+  onOpenWrapped,
 }: YearlyGoalsPageProps) {
   const currentYear = new Date().getFullYear();
 
@@ -132,13 +135,22 @@ export function YearlyGoalsPage({
   return (
     <div className="space-y-6">
       {/* Header Panel */}
-      <div className="border-b border-ink/5 pb-4 dark:border-paper/5">
+      <div className="flex items-center justify-between border-b border-ink/5 pb-4 dark:border-paper/5">
         <button
           onClick={onBack}
           className="inline-flex items-center gap-1 rounded-full border border-purple-500/20 bg-purple-500/10 px-3.5 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-500/20 hover:border-purple-500/30 active:bg-purple-600 active:text-white dark:border-purple-500/20 dark:bg-purple-500/10 dark:text-purple-300 dark:hover:bg-purple-500/20 dark:active:bg-purple-500 dark:active:text-bgdark transition-all duration-75"
         >
           <ChevronLeft size={14} /> Back to Dashboard
         </button>
+
+        {onOpenWrapped && (
+          <button
+            onClick={onOpenWrapped}
+            className="inline-flex items-center gap-1.5 rounded-full bg-brass-500 text-bgdark px-4 py-1.5 text-xs font-bold uppercase tracking-wider shadow-sm hover:bg-brass-400 active:scale-[0.98] transition-all"
+          >
+            <Sparkles size={14} /> View Reading Wrapped
+          </button>
+        )}
       </div>
 
       {/* Stats Dashboard */}

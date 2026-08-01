@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Heart, BookOpen, CheckCircle2, BookMarked, Trash2, ShoppingBag, Pencil, X } from 'lucide-react';
+import { Heart, BookOpen, CheckCircle2, BookMarked, Trash2, ShoppingBag, Pencil, X, Plus, Quote } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { StarRating } from './ui/StarRating';
 import { CoverUpload } from './ui/CoverUpload';
 import { ConfirmDialog } from './ui/ConfirmDialog';
-import type { Book, BookStatus } from '../types/book';
+import type { Book, BookStatus, BookQuote } from '../types/book';
 import { STATUS_LABELS } from '../types/book';
 import { formatDate, classNames, todayIso } from '../utils/helpers';
 
@@ -36,6 +36,12 @@ export function BookDetailsModal({
   const [error, setError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
 
+  // Literary Marginalia states
+  const [newQuoteText, setNewQuoteText] = useState('');
+  const [newQuotePage, setNewQuotePage] = useState('');
+  const [newQuoteNote, setNewQuoteNote] = useState('');
+  const [showAddQuote, setShowAddQuote] = useState(false);
+
   useEffect(() => {
     setLocal(book);
     setError('');
@@ -43,6 +49,31 @@ export function BookDetailsModal({
   }, [book]);
 
   if (!book || !local) return null;
+
+  const handleAddQuote = () => {
+    if (!newQuoteText.trim()) return;
+    const pageNum = parseInt(newQuotePage, 10);
+    const newQuote: BookQuote = {
+      id: `q_${Date.now()}`,
+      quote: newQuoteText.trim(),
+      page: !isNaN(pageNum) && pageNum > 0 ? pageNum : undefined,
+      note: newQuoteNote.trim() || undefined,
+      dateAdded: new Date().toISOString(),
+    };
+    const updatedQuotes = [...(local.quotes || []), newQuote];
+    commitLocal({ quotes: updatedQuotes });
+    onUpdate(book.id, { quotes: updatedQuotes });
+    setNewQuoteText('');
+    setNewQuotePage('');
+    setNewQuoteNote('');
+    setShowAddQuote(false);
+  };
+
+  const handleDeleteQuote = (quoteId: string) => {
+    const updatedQuotes = (local.quotes || []).filter((q) => q.id !== quoteId);
+    commitLocal({ quotes: updatedQuotes });
+    onUpdate(book.id, { quotes: updatedQuotes });
+  };
 
   const commitLocal = (patch: Partial<Book>) => {
     setLocal((prev) => (prev ? { ...prev, ...patch } : prev));
@@ -267,6 +298,95 @@ export function BookDetailsModal({
                 <p className="mt-1.5 text-[11px] text-ink-faint dark:text-paper/40">
                   Finished {formatDate(local.dateFinished)}
                 </p>
+              )}
+            </div>
+
+            {/* Literary Marginalia (Quotes & Passages) */}
+            <div className="pt-3 border-t border-ink/10 dark:border-paper/10 space-y-3">
+              <div className="flex items-center justify-between">
+                <FieldLabel className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-brass-600 dark:text-brass-400">
+                  <Quote size={14} className="text-brass-500" />
+                  Marginalia & Key Quotes ({local.quotes?.length || 0})
+                </FieldLabel>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAddQuote(!showAddQuote)}
+                  className="text-xs text-brass-600 dark:text-brass-400 hover:bg-brass-500/10"
+                >
+                  <Plus size={13} /> {showAddQuote ? 'Cancel' : 'Add Quote'}
+                </Button>
+              </div>
+
+              {/* Add Quote Form */}
+              {showAddQuote && (
+                <div className="rounded-lg border border-brass-500/20 bg-brass-50/40 p-3 dark:border-brass-500/10 dark:bg-bgdark-soft/50 space-y-2.5">
+                  <textarea
+                    value={newQuoteText}
+                    onChange={(e) => setNewQuoteText(e.target.value)}
+                    placeholder="Enter memorable quote or passage..."
+                    rows={2}
+                    className={inputClass}
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="number"
+                      value={newQuotePage}
+                      onChange={(e) => setNewQuotePage(e.target.value)}
+                      placeholder="Page # (optional)"
+                      className={inputClass}
+                    />
+                    <input
+                      type="text"
+                      value={newQuoteNote}
+                      onChange={(e) => setNewQuoteNote(e.target.value)}
+                      placeholder="Note / thought (optional)"
+                      className={inputClass}
+                    />
+                  </div>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleAddQuote}
+                    disabled={!newQuoteText.trim()}
+                    className="w-full bg-brass-500 text-bgdark hover:bg-brass-400"
+                  >
+                    Save Quote
+                  </Button>
+                </div>
+              )}
+
+              {/* Quotes Cards Grid */}
+              {local.quotes && local.quotes.length > 0 ? (
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-thin">
+                  {local.quotes.map((q) => (
+                    <div
+                      key={q.id}
+                      className="group relative rounded-lg border border-ink/5 bg-paper-soft/60 p-3 text-xs dark:border-paper/5 dark:bg-bgdark-soft/40 space-y-1"
+                    >
+                      <button
+                        onClick={() => handleDeleteQuote(q.id)}
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 text-burgundy-500 hover:bg-burgundy-500/10 rounded transition-opacity"
+                        title="Delete quote"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                      <p className="font-serif italic text-ink dark:text-paper leading-relaxed pr-6">
+                        &ldquo;{q.quote}&rdquo;
+                      </p>
+                      <div className="flex items-center justify-between text-[10px] text-ink-faint dark:text-paper/40 font-mono pt-1">
+                        {q.page ? <span>Page {q.page}</span> : <span />}
+                        {q.note && <span className="font-sans italic text-brass-600 dark:text-brass-400">{q.note}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                !showAddQuote && (
+                  <p className="text-xs text-ink-faint dark:text-paper/30 italic">
+                    No quotes logged yet. Save your favorite lines here!
+                  </p>
+                )
               )}
             </div>
           </div>

@@ -359,6 +359,8 @@ export function Profile({
 
   // Active badge validation state being celebrated
   const [activeCelebrationBadge, setActiveCelebrationBadge] = useState<Badge | null>(null);
+  // Track locally dismissed badge IDs to prevent re-triggering during network latency
+  const [dismissedBadgeIds, setDismissedBadgeIds] = useState<string[]>([]);
   // Badge tapped for detail view in achievement list
   const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
 
@@ -396,11 +398,13 @@ export function Profile({
 
   // Detect and select the first pending unacknowledged badge to celebrate
   useEffect(() => {
-    const pending = earnedBadges.filter(b => !acknowledgedBadgeIds.includes(b.id));
+    const pending = earnedBadges.filter(
+      b => !acknowledgedBadgeIds.includes(b.id) && !dismissedBadgeIds.includes(b.id)
+    );
     if (pending.length > 0 && !activeCelebrationBadge) {
       setActiveCelebrationBadge(pending[0]);
     }
-  }, [earnedBadges, acknowledgedBadgeIds, activeCelebrationBadge]);
+  }, [earnedBadges, acknowledgedBadgeIds, dismissedBadgeIds, activeCelebrationBadge]);
 
   // Extract account metadata from Firebase currentUser
   const userCreationTime = auth.currentUser?.metadata.creationTime;
@@ -559,7 +563,9 @@ export function Profile({
   // Close celebration modal and acknowledge the badge achievement
   const handleClaimBadge = () => {
     if (activeCelebrationBadge) {
-      const nextAck = [...acknowledgedBadgeIds, activeCelebrationBadge.id];
+      const badgeId = activeCelebrationBadge.id;
+      setDismissedBadgeIds((prev) => [...prev, badgeId]);
+      const nextAck = Array.from(new Set([...acknowledgedBadgeIds, badgeId]));
       onAcknowledgeBadges(nextAck);
       setActiveCelebrationBadge(null);
     }

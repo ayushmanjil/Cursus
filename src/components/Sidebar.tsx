@@ -161,12 +161,21 @@ export function Sidebar({
                   onCloseMobile();
                 }}
                 className={classNames(
-                  'flex flex-1 items-center gap-2.5 min-w-0 text-left rounded-lg p-1 transition-colors hover:bg-ink/5 dark:hover:bg-paper/10 mr-1.5 focus:outline-none focus:ring-1 focus:ring-brass-400 relative',
-                  active === 'profile' && 'bg-ink/5 dark:bg-paper/10'
+                  'flex flex-1 items-center gap-2.5 min-w-0 text-left rounded-lg p-1.5 transition-all duration-300 mr-1.5 focus:outline-none focus:ring-1 focus:ring-brass-400 relative',
+                  hasPendingBadge
+                    ? 'animate-soft-gold-pulse text-brass-700 dark:text-brass-300 font-medium'
+                    : active === 'profile'
+                    ? 'bg-ink/5 dark:bg-paper/10'
+                    : 'hover:bg-ink/5 dark:hover:bg-paper/10'
                 )}
-                title="View Profile"
+                title={hasPendingBadge ? "New Badge Earned! View Profile" : "View Profile"}
               >
-                <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink/10 text-xs font-semibold text-ink dark:bg-brass-500/20 dark:text-brass-400 overflow-hidden">
+                <div className={classNames(
+                  "relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold overflow-hidden transition-colors",
+                  hasPendingBadge
+                    ? "bg-brass-500/20 text-brass-700 dark:bg-brass-400/30 dark:text-brass-300 ring-1 ring-brass-400/50"
+                    : "bg-ink/10 text-ink dark:bg-brass-500/20 dark:text-brass-400"
+                )}>
                   {(() => {
                     const avatar = AVATARS.find((a) => a.id === userAvatarId);
                     return avatar ? (
@@ -175,16 +184,13 @@ export function Sidebar({
                       userName ? userName.charAt(0).toUpperCase() : 'U'
                     );
                   })()}
-                  {hasPendingBadge && (
-                    <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
-                    </span>
-                  )}
                 </div>
-                <span className="truncate text-sm font-medium text-ink dark:text-paper" title={userName}>
+                <span className="truncate text-sm font-medium text-ink dark:text-paper flex-1" title={userName}>
                   {userName || 'User'}
                 </span>
+                {hasPendingBadge && (
+                  <Sparkles size={14} className="shrink-0 text-brass-500 animate-pulse ml-0.5" />
+                )}
               </button>
               <button
                 onClick={onLogout}

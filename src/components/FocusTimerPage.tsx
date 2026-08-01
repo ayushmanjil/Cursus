@@ -15,6 +15,8 @@ import {
   Sliders,
   Maximize2,
   Minimize2,
+  Coffee,
+  Trees,
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
@@ -37,9 +39,12 @@ const PRESETS = [
 const SOUND_OPTIONS: { type: AmbientSoundType; label: string; desc: string; icon: React.ElementType }[] = [
   { type: 'off', label: 'Mute / Off', desc: 'No background sound', icon: VolumeX },
   { type: 'ticking', label: 'Clock Ticking', desc: 'Steady rhythm for focus', icon: Clock },
-  { type: 'white-noise', label: 'White Noise', desc: 'Blocks out distractions', icon: Radio },
   { type: 'rain', label: 'Soft Rain', desc: 'Soothing rain drops', icon: CloudRain },
   { type: 'waves', label: 'Gentle Waves', desc: 'Ocean tide ambiance', icon: Waves },
+  { type: 'fireplace', label: 'Cozy Fireplace', desc: 'Warm crackling fire', icon: Flame },
+  { type: 'cafe', label: 'Coffee Shop', desc: 'Calm café murmur', icon: Coffee },
+  { type: 'forest', label: 'Forest Wind', desc: 'Gentle breeze & birds', icon: Trees },
+  { type: 'white-noise', label: 'White Noise', desc: 'Blocks out distractions', icon: Radio },
 ];
 
 export function FocusTimerPage({ timerHook, onNavigateToStreaks }: FocusTimerPageProps) {
