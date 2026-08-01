@@ -498,9 +498,9 @@ export function BookDetailsModal({
   );
 }
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
+function FieldLabel({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-faint dark:text-paper/40">
+    <span className={classNames("mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-faint dark:text-paper/40", className)}>
       {children}
     </span>
   );

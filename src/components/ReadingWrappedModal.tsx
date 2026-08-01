@@ -3,13 +3,10 @@ import { Button } from './ui/Button';
 import {
   BookOpen,
   Award,
-  Sparkles,
   Flame,
   Star,
   CheckCircle2,
-  Calendar,
   Bookmark,
-  Share2,
   X,
 } from 'lucide-react';
 import type { Book } from '../types/book';
