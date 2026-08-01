@@ -294,8 +294,8 @@ export function FocusTimerPage({ timerHook, onNavigateToStreaks }: FocusTimerPag
               </button>
             </div>
 
-            {/* Sound Options List */}
-            <div className="space-y-2 flex-1 flex flex-col justify-center">
+            {/* Sound Options List (Scrollable panel) */}
+            <div className="space-y-2 max-h-[290px] overflow-y-auto pr-1 scrollbar-thin">
               {SOUND_OPTIONS.map((opt) => {
                 const Icon = opt.icon;
                 const isActive = ambientSound === opt.type;
