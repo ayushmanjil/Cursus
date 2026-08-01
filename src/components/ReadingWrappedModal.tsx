@@ -34,28 +34,41 @@ export function ReadingWrappedModal({
 
   const currentYear = new Date().getFullYear();
 
-  // Statistics calculation
-  const readBooks = books.filter((b) => b.status === 'read');
-  const totalBooksRead = readBooks.length;
+  // Statistics calculation for the current year
+  const readBooksThisYear = books.filter((b) => {
+    if (b.status !== 'read') return false;
+    if (!b.dateFinished) return true;
+    const finishedYear = new Date(b.dateFinished).getFullYear();
+    return finishedYear === currentYear;
+  });
+  const totalBooksRead = readBooksThisYear.length;
 
   const totalPagesRead = books.reduce((sum, b) => {
-    if (b.status === 'read') return sum + (b.totalPages || 0);
-    if (b.status === 'reading') return sum + (b.currentPage || 0);
+    if (b.status === 'read') {
+      const finishedYear = b.dateFinished ? new Date(b.dateFinished).getFullYear() : currentYear;
+      if (finishedYear === currentYear) return sum + (b.totalPages || 0);
+    } else if (b.status === 'reading') {
+      return sum + (b.currentPage || 0);
+    }
     return sum;
   }, 0);
 
   const { highestStreak } = calculateStreaks(streakLog);
 
-  // Genre breakdown
+  // Genre breakdown for this year
   const genreCounts: Record<string, number> = {};
-  readBooks.forEach((b) => {
+  readBooksThisYear.forEach((b) => {
     genreCounts[b.genre] = (genreCounts[b.genre] || 0) + 1;
   });
   const topGenreEntry = Object.entries(genreCounts).sort((a, b) => b[1] - a[1])[0];
-  const topGenre = topGenreEntry ? topGenreEntry[0] : 'Literature';
+  const topGenre = topGenreEntry ? topGenreEntry[0] : (readBooksThisYear[0]?.genre || 'Literature');
 
-  // Top rated book
-  const topRatedBook = readBooks.filter((b) => b.rating && b.rating >= 4.5)[0] || readBooks[0];
+  // Top rated book for this year
+  const topRatedBook =
+    readBooksThisYear.filter((b) => b.rating && b.rating >= 4.5)[0] ||
+    readBooksThisYear[0] ||
+    books.filter((b) => b.status === 'read')[0] ||
+    books[0];
 
   return (
     <Modal open={open} onClose={onClose} title="" maxWidth="max-w-lg" hideHeader hideCloseButton>
