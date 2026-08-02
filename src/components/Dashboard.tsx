@@ -49,6 +49,8 @@ interface DashboardProps {
   onToggleReadPoem?: (poem: Poem) => void;
   onToggleSavedPoem?: (poem: Poem) => void;
   onRemoveWord?: (wordId: string) => void;
+  onAddWordExample?: (wordId: string, sentence: string) => void;
+  onRemoveWordExample?: (wordId: string, index: number) => void;
 }
 
 function getWordDetails(w: any) {
@@ -84,6 +86,8 @@ export function Dashboard({
   onToggleReadPoem = () => {},
   onToggleSavedPoem = () => {},
   onRemoveWord = () => {},
+  onAddWordExample,
+  onRemoveWordExample,
   onUpdateBook,
 }: DashboardProps) {
   const total = books.length;
@@ -818,9 +822,11 @@ export function Dashboard({
       {/* ─── Word Detail Modal ────────────────────────────────────────── */}
       {selectedWordForModal && (
         <WordDetailModal
-          word={selectedWordForModal}
+          word={savedWords.find((w) => w.id === selectedWordForModal.id) || selectedWordForModal}
           onClose={() => setSelectedWordForModal(null)}
           onRemove={(id) => onRemoveWord(id)}
+          onAddExample={onAddWordExample}
+          onRemoveExample={onRemoveWordExample}
         />
       )}
 

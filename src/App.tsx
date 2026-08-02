@@ -163,7 +163,8 @@ function App() {
   const { books, addBook, updateBook, deleteBook, setStatus, toggleFavorite, importBooks, genres } =
     useBooks(currentUser?.id);
   const { theme, toggleTheme } = useTheme();
-  const { savedWords, addWord, removeWord, isWordSaved } = useWordLibrary(currentUser?.id);
+  const { savedWords, addWord, removeWord, isWordSaved, addUserExample, removeUserExample } =
+    useWordLibrary(currentUser?.id);
   const poems = usePoems(currentUser?.id);
 
   const [streakLog, setStreakLogState] = useState<StreakLog>({});
@@ -780,6 +781,8 @@ function App() {
                 onToggleReadPoem={poems.toggleRead}
                 onToggleSavedPoem={poems.toggleSaved}
                 onRemoveWord={removeWord}
+                onAddWordExample={addUserExample}
+                onRemoveWordExample={removeUserExample}
                 onUpdateBook={updateBook}
               />
             );
@@ -837,6 +840,8 @@ function App() {
               addWord={addWord}
               removeWord={removeWord}
               isWordSaved={isWordSaved}
+              addUserExample={addUserExample}
+              removeUserExample={removeUserExample}
             />
           )}
 

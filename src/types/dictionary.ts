@@ -38,4 +38,6 @@ export interface SavedWord {
   entries: DictionaryEntry[];
   /** ISO timestamp of when the word was saved. */
   savedAt: string;
+  /** Custom example sentences added by the user (up to 5). */
+  userExamples?: string[];
 }

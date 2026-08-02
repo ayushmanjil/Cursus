@@ -16,12 +16,16 @@ import { EmptyState } from './ui/EmptyState';
 import { WordDetailModal } from './WordDetailModal';
 import type { DictionaryEntry, SavedWord } from '../types/dictionary';
 import { classNames } from '../utils/helpers';
+import { playPronunciation, getAudioUrlFromEntry } from '../utils/speech';
+import { fetchWordDefinition } from '../services/dictionaryService';
 
 interface WordLibraryPageProps {
   savedWords: SavedWord[];
   addWord: (entries: DictionaryEntry[]) => Promise<void>;
   removeWord: (wordId: string) => Promise<void>;
   isWordSaved: (word: string) => boolean;
+  addUserExample?: (wordId: string, sentence: string) => Promise<void>;
+  removeUserExample?: (wordId: string, index: number) => Promise<void>;
 }
 
 type Tab = 'search' | 'library';
@@ -39,25 +43,20 @@ function SearchResultCard({
   const entry = entries[0];
   if (!entry) return null;
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playingAudio, setPlayingAudio] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
 
-  const audioUrl = entry.phonetics?.find((p) => p.audio)?.audio;
   const phoneticText = entry.phonetic || entry.phonetics?.find((p) => p.text)?.text;
 
-  const handlePlayAudio = useCallback(
-    (url: string) => {
-      if (audioRef.current) audioRef.current.pause();
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      setPlayingAudio(true);
-      audio.play();
-      audio.onended = () => setPlayingAudio(false);
-      audio.onerror = () => setPlayingAudio(false);
-    },
-    []
-  );
+  const handlePlayAudio = useCallback(() => {
+    const audioUrl = getAudioUrlFromEntry(entry);
+    playPronunciation(
+      entry.word,
+      audioUrl,
+      () => setPlayingAudio(true),
+      () => setPlayingAudio(false)
+    );
+  }, [entry]);
 
   const handleSave = () => {
     onSave();
@@ -83,21 +82,20 @@ function SearchResultCard({
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {audioUrl && (
-            <button
-              onClick={() => handlePlayAudio(audioUrl)}
-              className={classNames(
-                'flex h-8 w-8 items-center justify-center rounded-full transition-colors',
-                playingAudio
-                  ? 'bg-brass-500 text-white'
-                  : 'bg-brass-50 text-brass-600 hover:bg-brass-100 dark:bg-brass-500/15 dark:text-brass-400 dark:hover:bg-brass-500/25'
-              )}
-              title="Play pronunciation"
-              aria-label="Play pronunciation"
-            >
-              <Volume2 size={15} />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handlePlayAudio}
+            className={classNames(
+              'flex h-8 w-8 items-center justify-center rounded-full transition-colors cursor-pointer',
+              playingAudio
+                ? 'bg-brass-500 text-white animate-pulse'
+                : 'bg-brass-50 text-brass-600 hover:bg-brass-100 dark:bg-brass-500/15 dark:text-brass-400 dark:hover:bg-brass-500/25'
+            )}
+            title="Play pronunciation"
+            aria-label="Play pronunciation"
+          >
+            <Volume2 size={15} />
+          </button>
           {isSaved || justSaved ? (
             <Button variant="secondary" size="sm" disabled>
               <Check size={14} /> Saved
@@ -226,6 +224,7 @@ function SavedWordCard({
   word: SavedWord;
   onClick: () => void;
 }) {
+  const [playingAudio, setPlayingAudio] = useState(false);
   const entry = word.entries[0];
   if (!entry) return null;
 
@@ -233,20 +232,47 @@ function SavedWordCard({
   const firstDef = entry.meanings[0]?.definitions[0]?.definition;
   const partOfSpeech = entry.meanings[0]?.partOfSpeech;
 
+  const handlePlayAudio = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const audioUrl = getAudioUrlFromEntry(entry);
+    playPronunciation(
+      entry.word,
+      audioUrl,
+      () => setPlayingAudio(true),
+      () => setPlayingAudio(false)
+    );
+  };
+
   return (
-    <motion.button
+    <motion.div
       layout
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.2 }}
       onClick={onClick}
-      className="group flex flex-col items-start rounded-xl2 border border-ink/10 bg-surface p-4 text-left shadow-card transition-shadow hover:shadow-cardHover dark:border-paper/10 dark:bg-surface-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-brass-400"
+      className="group flex flex-col items-start rounded-xl2 border border-ink/10 bg-surface p-4 text-left shadow-card transition-shadow hover:shadow-cardHover dark:border-paper/10 dark:bg-surface-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-brass-400 cursor-pointer w-full"
     >
       <div className="flex w-full items-start justify-between gap-2">
-        <h4 className="font-display text-base font-semibold text-ink dark:text-paper group-hover:text-brass-600 dark:group-hover:text-brass-400 transition-colors">
-          {entry.word}
-        </h4>
+        <div className="flex items-center gap-2 min-w-0">
+          <h4 className="font-display text-base font-semibold text-ink dark:text-paper group-hover:text-brass-600 dark:group-hover:text-brass-400 transition-colors truncate">
+            {entry.word}
+          </h4>
+          <button
+            type="button"
+            onClick={handlePlayAudio}
+            className={classNames(
+              'flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer',
+              playingAudio
+                ? 'bg-brass-500 text-white animate-pulse'
+                : 'bg-brass-50 text-brass-600 hover:bg-brass-100 dark:bg-brass-500/15 dark:text-brass-400 dark:hover:bg-brass-500/25'
+            )}
+            title="Play pronunciation"
+            aria-label="Play pronunciation"
+          >
+            <Volume2 size={13} />
+          </button>
+        </div>
         {partOfSpeech && (
           <span className="shrink-0 inline-flex items-center rounded-full bg-brass-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brass-700 dark:bg-brass-500/15 dark:text-brass-300">
             {partOfSpeech}
@@ -259,7 +285,21 @@ function SavedWordCard({
       {firstDef && (
         <p className="mt-2 text-sm text-ink-muted dark:text-paper/60 line-clamp-2">{firstDef}</p>
       )}
-    </motion.button>
+      {word.userExamples && word.userExamples.length > 0 && (
+        <div className="mt-2.5 space-y-0.5 border-t border-ink/5 pt-2 w-full dark:border-paper/5">
+          {word.userExamples.slice(0, 2).map((ex, i) => (
+            <p key={i} className="text-xs italic text-ink-muted dark:text-paper/50 line-clamp-1">
+              "{ex}"
+            </p>
+          ))}
+          {word.userExamples.length > 2 && (
+            <p className="text-[10px] font-semibold text-brass-600 dark:text-brass-400 pt-0.5">
+              +{word.userExamples.length - 2} more example{word.userExamples.length - 2 > 1 ? 's' : ''}
+            </p>
+          )}
+        </div>
+      )}
+    </motion.div>
   );
 }
 
@@ -269,6 +309,8 @@ export function WordLibraryPage({
   addWord,
   removeWord,
   isWordSaved,
+  addUserExample,
+  removeUserExample,
 }: WordLibraryPageProps) {
   const [activeTab, setActiveTab] = useState<Tab>('search');
 
@@ -352,24 +394,14 @@ export function WordLibraryPage({
     setSearchResult(null);
 
     try {
-      const res = await fetch(
-        `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(trimmed)}`
-      );
-
-      if (res.status === 404) {
-        setError(`No definitions found for "${trimmed}". Check your spelling and try again.`);
-        return;
-      }
-
-      if (!res.ok) {
-        setError('Something went wrong while fetching the definition. Please try again.');
-        return;
-      }
-
-      const data: DictionaryEntry[] = await res.json();
+      const data = await fetchWordDefinition(trimmed);
       setSearchResult(data);
-    } catch (_err) {
-      setError('Network error. Please check your connection and try again.');
+    } catch (err: any) {
+      if (err.message === 'NOT_FOUND') {
+        setError(`No definitions found for "${trimmed}". Check your spelling and try again.`);
+      } else {
+        setError('Something went wrong while fetching the definition. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -666,11 +698,15 @@ export function WordLibraryPage({
       )}
 
       {/* Detail Modal */}
-      <WordDetailModal
-        word={detailWord}
-        onClose={() => setDetailWord(null)}
-        onRemove={removeWord}
-      />
+      {detailWord && (
+        <WordDetailModal
+          word={savedWords.find((w) => w.id === detailWord.id) || detailWord}
+          onClose={() => setDetailWord(null)}
+          onRemove={removeWord}
+          onAddExample={addUserExample}
+          onRemoveExample={removeUserExample}
+        />
+      )}
     </div>
   );
 }

@@ -1,40 +1,55 @@
-import { useRef, useCallback, useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import type { SavedWord } from '../types/dictionary';
-import { Volume2, Trash2 } from 'lucide-react';
+import { Volume2, Trash2, Plus, X } from 'lucide-react';
 import { classNames } from '../utils/helpers';
+import { playPronunciation, getAudioUrlFromEntry } from '../utils/speech';
 
 interface WordDetailModalProps {
   word: SavedWord | null;
   onClose: () => void;
   onRemove: (wordId: string) => void;
+  onAddExample?: (wordId: string, sentence: string) => void;
+  onRemoveExample?: (wordId: string, index: number) => void;
 }
 
-export function WordDetailModal({ word, onClose, onRemove }: WordDetailModalProps) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+export function WordDetailModal({
+  word,
+  onClose,
+  onRemove,
+  onAddExample,
+  onRemoveExample,
+}: WordDetailModalProps) {
   const [playingAudio, setPlayingAudio] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [isAddingExample, setIsAddingExample] = useState(false);
+  const [newExample, setNewExample] = useState('');
 
-  const handlePlayAudio = useCallback((url: string) => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-    const audio = new Audio(url);
-    audioRef.current = audio;
-    setPlayingAudio(true);
-    audio.play();
-    audio.onended = () => setPlayingAudio(false);
-    audio.onerror = () => setPlayingAudio(false);
-  }, []);
+  const entry = word?.entries[0];
+  const userExamples = word?.userExamples || [];
 
-  if (!word) return null;
+  const handlePlayAudio = useCallback(() => {
+    if (!entry) return;
+    const audioUrl = getAudioUrlFromEntry(entry);
+    playPronunciation(
+      entry.word,
+      audioUrl,
+      () => setPlayingAudio(true),
+      () => setPlayingAudio(false)
+    );
+  }, [entry]);
 
-  const entry = word.entries[0];
-  if (!entry) return null;
+  const handleAddExample = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!word || !newExample.trim()) return;
+    onAddExample?.(word.id, newExample.trim());
+    setNewExample('');
+    setIsAddingExample(false);
+  };
 
-  // Find the best audio URL
-  const audioUrl = entry.phonetics?.find((p) => p.audio)?.audio;
+  if (!word || !entry) return null;
+
   // Find the best phonetic text
   const phoneticText = entry.phonetic || entry.phonetics?.find((p) => p.text)?.text;
 
@@ -51,21 +66,20 @@ export function WordDetailModal({ word, onClose, onRemove }: WordDetailModalProp
               <p className="mt-0.5 text-sm text-ink-muted dark:text-paper/50">{phoneticText}</p>
             )}
           </div>
-          {audioUrl && (
-            <button
-              onClick={() => handlePlayAudio(audioUrl)}
-              className={classNames(
-                'flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors',
-                playingAudio
-                  ? 'bg-brass-500 text-white'
-                  : 'bg-brass-50 text-brass-600 hover:bg-brass-100 dark:bg-brass-500/15 dark:text-brass-400 dark:hover:bg-brass-500/25'
-              )}
-              title="Play pronunciation"
-              aria-label="Play pronunciation"
-            >
-              <Volume2 size={16} />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handlePlayAudio}
+            className={classNames(
+              'flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer',
+              playingAudio
+                ? 'bg-brass-500 text-white animate-pulse'
+                : 'bg-brass-50 text-brass-600 hover:bg-brass-100 dark:bg-brass-500/15 dark:text-brass-400 dark:hover:bg-brass-500/25'
+            )}
+            title="Play pronunciation"
+            aria-label="Play pronunciation"
+          >
+            <Volume2 size={16} />
+          </button>
         </div>
 
         {/* Source URLs */}
@@ -173,6 +187,70 @@ export function WordDetailModal({ word, onClose, onRemove }: WordDetailModalProp
             )}
           </div>
         ))}
+
+        {/* Custom User Example Sentences Section */}
+        <div className="space-y-2 border-t border-ink/5 pt-4 dark:border-paper/5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-brass-700 dark:text-brass-300 inline-flex items-center gap-1.5 rounded-full bg-brass-50 px-2.5 py-0.5 dark:bg-brass-500/15">
+              My Example Sentences ({userExamples.length}/5)
+            </span>
+            {onAddExample && userExamples.length < 5 && (
+              <button
+                type="button"
+                onClick={() => setIsAddingExample((prev) => !prev)}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-brass-600 hover:text-brass-700 dark:text-brass-400 dark:hover:text-brass-300 transition-colors cursor-pointer"
+                title="Add example sentence"
+              >
+                <Plus size={14} /> Add example
+              </button>
+            )}
+          </div>
+
+          {/* Form to add new example */}
+          {isAddingExample && (
+            <form onSubmit={handleAddExample} className="flex items-center gap-2 pt-1">
+              <input
+                type="text"
+                value={newExample}
+                onChange={(e) => setNewExample(e.target.value)}
+                placeholder="Type an example sentence..."
+                maxLength={200}
+                autoFocus
+                className="flex-1 rounded-lg border border-ink/15 bg-paper-soft/50 px-3 py-1.5 text-xs text-ink dark:border-paper/15 dark:bg-bgdark-soft dark:text-paper focus:outline-none focus:ring-1 focus:ring-brass-400"
+              />
+              <Button type="submit" variant="primary" size="sm" disabled={!newExample.trim()}>
+                Save
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setIsAddingExample(false)}>
+                Cancel
+              </Button>
+            </form>
+          )}
+
+          {/* List of user examples */}
+          {userExamples.length > 0 && (
+            <div className="space-y-1.5 pt-1">
+              {userExamples.map((ex, idx) => (
+                <div
+                  key={idx}
+                  className="group/ex flex items-start justify-between gap-2 text-xs italic text-ink-muted dark:text-paper/50"
+                >
+                  <p className="flex-1">"{ex}"</p>
+                  {onRemoveExample && (
+                    <button
+                      type="button"
+                      onClick={() => onRemoveExample(word.id, idx)}
+                      className="opacity-0 group-hover/ex:opacity-100 transition-opacity text-burgundy-500 hover:text-burgundy-600 dark:text-burgundy-400 p-0.5 cursor-pointer shrink-0"
+                      title="Delete example"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Saved date + Remove */}
         <div className="flex items-center justify-between border-t border-ink/5 pt-4 dark:border-paper/5">

@@ -166,7 +166,12 @@ export async function seedDemoDataIfEmpty(userId: string) {
           {
             word: 'Serendipity',
             phonetic: '/ˌser.ənˈdɪp.ə.ti/',
-            phonetics: [],
+            phonetics: [
+              {
+                text: '/ˌser.ənˈdɪp.ə.ti/',
+                audio: 'https://api.dictionaryapi.dev/media/pronunciations/en/serendipity-us.mp3',
+              },
+            ],
             meanings: [
               {
                 partOfSpeech: 'noun',
@@ -191,7 +196,12 @@ export async function seedDemoDataIfEmpty(userId: string) {
           {
             word: 'Ephemeral',
             phonetic: '/ɪˈfem.ər.əl/',
-            phonetics: [],
+            phonetics: [
+              {
+                text: '/ɪˈfem.ər.əl/',
+                audio: 'https://api.dictionaryapi.dev/media/pronunciations/en/ephemeral-us.mp3',
+              },
+            ],
             meanings: [
               {
                 partOfSpeech: 'adjective',
@@ -216,7 +226,12 @@ export async function seedDemoDataIfEmpty(userId: string) {
           {
             word: 'Mellifluous',
             phonetic: '/məˈlɪf.lu.əs/',
-            phonetics: [],
+            phonetics: [
+              {
+                text: '/məˈlɪf.lu.əs/',
+                audio: 'https://api.dictionaryapi.dev/media/pronunciations/en/mellifluous-us.mp3',
+              },
+            ],
             meanings: [
               {
                 partOfSpeech: 'adjective',

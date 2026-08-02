@@ -63,5 +63,42 @@ export function useWordLibrary(userId: string | undefined) {
     [savedWords]
   );
 
-  return { savedWords, addWord, removeWord, isWordSaved };
+  const addUserExample = useCallback(
+    async (wordId: string, sentence: string) => {
+      const trimmed = sentence.trim();
+      if (!trimmed) return;
+      const next = savedWords.map((w) => {
+        if (w.id === wordId) {
+          const current = w.userExamples || [];
+          if (current.length >= 5) return w;
+          return {
+            ...w,
+            userExamples: [...current, trimmed],
+          };
+        }
+        return w;
+      });
+      await persist(next);
+    },
+    [savedWords, persist]
+  );
+
+  const removeUserExample = useCallback(
+    async (wordId: string, exampleIndex: number) => {
+      const next = savedWords.map((w) => {
+        if (w.id === wordId) {
+          const current = w.userExamples || [];
+          return {
+            ...w,
+            userExamples: current.filter((_, idx) => idx !== exampleIndex),
+          };
+        }
+        return w;
+      });
+      await persist(next);
+    },
+    [savedWords, persist]
+  );
+
+  return { savedWords, addWord, removeWord, isWordSaved, addUserExample, removeUserExample };
 }
