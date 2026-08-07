@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Heart, BookOpen, CheckCircle2, BookMarked, Trash2, ShoppingBag, Pencil, X, Plus, Quote } from 'lucide-react';
+import { Heart, BookOpen, CheckCircle2, BookMarked, Trash2, ShoppingBag, Pencil, X, Plus, Quote, Calendar } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { StarRating } from './ui/StarRating';
@@ -93,10 +93,14 @@ export function BookDetailsModal({
     } else if (status === 'reading') {
       patch.dateFinished = undefined;
       patch.currentPage = local.currentPage && local.currentPage > 0 ? local.currentPage : 0;
+      if (!local.dateStarted) {
+        patch.dateStarted = todayIso();
+      }
     } else if (status === 'on-shelf' || status === 'wishlist') {
       patch.dateFinished = undefined;
       patch.rating = undefined;
       patch.currentPage = undefined;
+      patch.dateStarted = undefined;
     }
     commitLocal(patch);
     // commit status change immediately (no edit mode required)
@@ -183,6 +187,15 @@ export function BookDetailsModal({
                 onChange={(v) => commitLocal({ genre: v })}
                 readOnly={!isEditing}
               />
+              {(local.status === 'reading' || local.status === 'read') && (
+                <LabeledInput
+                  label="Date started"
+                  type="date"
+                  value={local.dateStarted ?? ''}
+                  onChange={(v) => commitLocal({ dateStarted: v })}
+                  readOnly={!isEditing}
+                />
+              )}
               <LabeledInput
                 label="Date finished"
                 type="date"
@@ -295,8 +308,27 @@ export function BookDetailsModal({
             <div>
               {error && <p className="text-sm text-burgundy-500 mt-2">{error}</p>}
               {local.status === 'read' && local.dateFinished && (
+                <div className="mt-1.5 space-y-0.5">
+                  <p className="text-[11px] text-ink-faint dark:text-paper/40">
+                    Finished {formatDate(local.dateFinished)}
+                  </p>
+                  {local.dateStarted && (() => {
+                    const start = new Date(local.dateStarted);
+                    const end = new Date(local.dateFinished!);
+                    const diffMs = end.getTime() - start.getTime();
+                    const days = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+                    return (
+                      <p className="flex items-center gap-1 text-[11px] font-medium text-forest-600 dark:text-forest-400">
+                        <Calendar size={11} />
+                        Took {days} {days === 1 ? 'day' : 'days'} to finish
+                      </p>
+                    );
+                  })()}
+                </div>
+              )}
+              {local.status === 'reading' && local.dateStarted && (
                 <p className="mt-1.5 text-[11px] text-ink-faint dark:text-paper/40">
-                  Finished {formatDate(local.dateFinished)}
+                  Started {formatDate(local.dateStarted)}
                 </p>
               )}
             </div>

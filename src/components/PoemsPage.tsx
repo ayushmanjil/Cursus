@@ -14,6 +14,8 @@ import {
   Trash2,
   ExternalLink,
   Plus,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import type { Poem, ReadPoem, SavedPoem } from '../types/poem';
 import { searchPoems, getPoemDetails, getRandomPoems } from '../services/poetryService';
@@ -22,6 +24,7 @@ import { EmptyState } from './ui/EmptyState';
 import { Modal } from './ui/Modal';
 import { AddPoemModal } from './AddPoemModal';
 import { classNames } from '../utils/helpers';
+import { createPortal } from 'react-dom';
 
 export interface PoemsPageProps {
   readPoems: ReadPoem[];
@@ -84,89 +87,207 @@ export function PoemDetailModal({
   onToggleSaved: () => void;
   onToggleFavorite: () => void;
 }) {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Reset fullscreen when poem changes or closes
+  useEffect(() => {
+    if (!poem) setIsFullscreen(false);
+  }, [poem]);
+
+  // Escape key handler for fullscreen
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [isFullscreen]);
+
   if (!poem) return null;
 
   const stanzas = poem.lines ? getStanzas(poem.lines) : [];
+  const totalLines = poem.lines?.length ?? 0;
+  const useColumns = totalLines > 22;
 
+  // Shared header content
+  const headerContent = (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display text-2xl font-bold tracking-tight text-ink dark:text-paper leading-snug">
+            {poem.title}
+          </h2>
+          <p className="mt-0.5 font-display text-sm font-medium italic text-brass-600 dark:text-brass-400 truncate">
+            by {poem.author}
+          </p>
+        </div>
+        {poem.linecount && (
+          <span className="shrink-0 rounded-full bg-brass-50 px-2.5 py-0.5 text-xs font-semibold text-brass-700 dark:bg-brass-500/15 dark:text-brass-300">
+            {poem.linecount} lines
+          </span>
+        )}
+      </div>
+
+      {/* Action buttons */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button
+          variant={isFavorite ? 'primary' : 'secondary'}
+          size="sm"
+          onClick={onToggleFavorite}
+          className={isFavorite ? 'bg-burgundy-600 text-white dark:bg-burgundy-500 hover:bg-burgundy-700' : ''}
+        >
+          <Heart size={14} className={isFavorite ? 'fill-current' : ''} />
+          {isFavorite ? 'Favorited' : 'Favorite'}
+        </Button>
+
+        <Button
+          variant={isRead ? 'primary' : 'secondary'}
+          size="sm"
+          onClick={onToggleRead}
+          className={isRead ? 'bg-forest-600 text-white dark:bg-forest-500 hover:bg-forest-700' : ''}
+        >
+          <CheckCircle2 size={14} />
+          {isRead ? 'Marked as Read' : 'Mark as Read'}
+        </Button>
+
+        <Button
+          variant={isSaved ? 'primary' : 'secondary'}
+          size="sm"
+          onClick={onToggleSaved}
+          className={isSaved ? 'bg-brass-600 text-white dark:bg-brass-500 hover:bg-brass-700' : ''}
+        >
+          <Bookmark size={14} className={isSaved ? 'fill-current' : ''} />
+          {isSaved ? 'Saved for Later' : 'Save for Later'}
+        </Button>
+      </div>
+    </>
+  );
+
+  // Shared poem body content
+  const poemBody = loadingDetails ? (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <Loader2 size={26} className="animate-spin text-brass-500" />
+      <p className="mt-3 text-sm text-ink-muted dark:text-paper/60">Loading full poem lines…</p>
+    </div>
+  ) : poem.lines && poem.lines.length > 0 ? (
+    <div
+      className={classNames(
+        'font-serif text-base leading-relaxed text-ink dark:text-paper/95',
+        isFullscreen && useColumns
+          ? 'columns-2 gap-12 space-y-6'
+          : 'space-y-6'
+      )}
+    >
+      {stanzas.map((stanza, sIdx) => (
+        <div key={sIdx} className="space-y-1.5 pl-3 border-l-2 border-brass-500/20 dark:border-brass-500/30 break-inside-avoid">
+          {stanza.map((line, lIdx) => (
+            <p key={lIdx} className="select-text whitespace-pre-wrap">
+              {line}
+            </p>
+          ))}
+        </div>
+      ))}
+    </div>
+  ) : (
+    <div className="flex flex-col items-center justify-center py-10 text-center">
+      <p className="text-sm text-ink-muted dark:text-paper/60">Poem lines preview not available.</p>
+    </div>
+  );
+
+  // ── Fullscreen View ──
+  if (isFullscreen) {
+    return createPortal(
+      <AnimatePresence>
+        <motion.div
+          className="fixed inset-0 z-50 flex"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          {/* Backdrop */}
+          <motion.div
+            className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
+            onClick={() => setIsFullscreen(false)}
+          />
+
+          {/* Content panel — offset by sidebar on large screens */}
+          <motion.div
+            className="relative flex flex-col w-full lg:ml-64 bg-surface dark:bg-surface-dark overflow-hidden"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+          >
+            {/* Fullscreen Header */}
+            <div className="shrink-0 border-b border-ink/10 dark:border-paper/10 px-8 py-5">
+              <div className="mx-auto max-w-4xl">
+                {headerContent}
+              </div>
+            </div>
+
+            {/* Top-right controls */}
+            <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
+              <button
+                onClick={() => setIsFullscreen(false)}
+                className="flex items-center gap-1.5 rounded-lg bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-ink/10 hover:text-ink dark:bg-paper/5 dark:text-paper/60 dark:hover:bg-paper/10 dark:hover:text-paper transition-colors"
+                title="Exit fullscreen (Esc)"
+              >
+                <Minimize2 size={14} />
+                Exit
+              </button>
+              <button
+                onClick={() => { setIsFullscreen(false); onClose(); }}
+                aria-label="Close"
+                className="rounded-full p-1.5 text-ink-muted hover:bg-ink/10 hover:text-ink dark:text-paper/60 dark:hover:bg-paper/10 dark:hover:text-paper transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Scrollable poem body */}
+            <div className="flex-1 overflow-y-auto px-8 py-6 scrollbar-thin">
+              <div className="mx-auto max-w-4xl">
+                {poemBody}
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      </AnimatePresence>,
+      document.body
+    );
+  }
+
+  // ── Normal Modal View ──
   return (
     <Modal open={!!poem} onClose={onClose} title="" hideHeader maxWidth="max-w-2xl">
       <div className="flex flex-col max-h-[80vh]">
         {/* Compact Header (Title, Author, Actions) */}
         <div className="shrink-0 border-b border-ink/10 pb-3.5 pr-8 dark:border-paper/10">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <h2 className="font-display text-2xl font-bold tracking-tight text-ink dark:text-paper leading-snug">
-                {poem.title}
-              </h2>
-              <p className="mt-0.5 font-display text-sm font-medium italic text-brass-600 dark:text-brass-400 truncate">
-                by {poem.author}
-              </p>
-            </div>
-            {poem.linecount && (
-              <span className="shrink-0 rounded-full bg-brass-50 px-2.5 py-0.5 text-xs font-semibold text-brass-700 dark:bg-brass-500/15 dark:text-brass-300">
-                {poem.linecount} lines
-              </span>
-            )}
-          </div>
-
-          {/* Action buttons */}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Button
-              variant={isFavorite ? 'primary' : 'secondary'}
-              size="sm"
-              onClick={onToggleFavorite}
-              className={isFavorite ? 'bg-burgundy-600 text-white dark:bg-burgundy-500 hover:bg-burgundy-700' : ''}
+          {headerContent}
+          {/* Fullscreen toggle */}
+          <div className="mt-2 flex items-center">
+            <button
+              onClick={() => setIsFullscreen(true)}
+              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-ink-muted hover:bg-ink/5 hover:text-ink dark:text-paper/60 dark:hover:bg-paper/10 dark:hover:text-paper transition-colors"
+              title="View fullscreen"
             >
-              <Heart size={14} className={isFavorite ? 'fill-current' : ''} />
-              {isFavorite ? 'Favorited' : 'Favorite'}
-            </Button>
-
-            <Button
-              variant={isRead ? 'primary' : 'secondary'}
-              size="sm"
-              onClick={onToggleRead}
-              className={isRead ? 'bg-forest-600 text-white dark:bg-forest-500 hover:bg-forest-700' : ''}
-            >
-              <CheckCircle2 size={14} />
-              {isRead ? 'Marked as Read' : 'Mark as Read'}
-            </Button>
-
-            <Button
-              variant={isSaved ? 'primary' : 'secondary'}
-              size="sm"
-              onClick={onToggleSaved}
-              className={isSaved ? 'bg-brass-600 text-white dark:bg-brass-500 hover:bg-brass-700' : ''}
-            >
-              <Bookmark size={14} className={isSaved ? 'fill-current' : ''} />
-              {isSaved ? 'Saved for Later' : 'Save for Later'}
-            </Button>
+              <Maximize2 size={13} />
+              Fullscreen
+            </button>
           </div>
         </div>
 
         {/* Scrollable Poem Lines Section ONLY */}
         <div className="flex-1 overflow-y-auto pt-4 pr-2 scrollbar-thin max-h-[62vh]">
-          {loadingDetails ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Loader2 size={26} className="animate-spin text-brass-500" />
-              <p className="mt-3 text-sm text-ink-muted dark:text-paper/60">Loading full poem lines…</p>
-            </div>
-          ) : poem.lines && poem.lines.length > 0 ? (
-            <div className="space-y-6 font-serif text-base leading-relaxed text-ink dark:text-paper/95">
-              {stanzas.map((stanza, sIdx) => (
-                <div key={sIdx} className="space-y-1.5 pl-3 border-l-2 border-brass-500/20 dark:border-brass-500/30">
-                  {stanza.map((line, lIdx) => (
-                    <p key={lIdx} className="select-text whitespace-pre-wrap">
-                      {line}
-                    </p>
-                  ))}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-10 text-center">
-              <p className="text-sm text-ink-muted dark:text-paper/60">Poem lines preview not available.</p>
-            </div>
-          )}
+          {poemBody}
         </div>
       </div>
     </Modal>

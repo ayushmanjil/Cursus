@@ -63,6 +63,7 @@ export function useBooks(userId: string | undefined) {
       }
       if (input.status === 'reading') {
         newBook.currentPage = 0;
+        newBook.dateStarted = todayIso();
       }
 
       await setDoc(doc(db, 'users', userId, 'books', id), newBook);
@@ -102,10 +103,15 @@ export function useBooks(userId: string | undefined) {
         patch.dateFinished = deleteField();
         patch.rating = deleteField();
         patch.currentPage = b.currentPage && b.currentPage > 0 ? b.currentPage : 0;
+        // Only set dateStarted if not already set (preserve on re-reads)
+        if (!b.dateStarted) {
+          patch.dateStarted = todayIso();
+        }
       } else if (status === 'on-shelf' || status === 'wishlist') {
         patch.dateFinished = deleteField();
         patch.rating = deleteField();
         patch.currentPage = deleteField();
+        patch.dateStarted = deleteField();
       }
       await updateDoc(doc(db, 'users', userId, 'books', id), patch);
     },

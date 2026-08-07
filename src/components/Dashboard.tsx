@@ -198,10 +198,9 @@ export function Dashboard({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, delay: i * 0.04 }}
-            onClick={() => onSelectView && onSelectView(s.viewKey)}
-            className="group cursor-pointer rounded-xl2 border border-ink/10 bg-surface p-4 shadow-card transition-all hover:border-brass-500/40 hover:shadow-cardHover dark:border-paper/10 dark:bg-surface-dark"
+            className="rounded-xl2 border border-ink/10 bg-surface p-4 shadow-card dark:border-paper/10 dark:bg-surface-dark"
           >
-            <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${toneClasses[s.tone]} transition-transform group-hover:scale-105`}>
+            <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${toneClasses[s.tone]}`}>
               <s.icon size={18} />
             </div>
             <p className="font-display text-2xl font-bold text-ink dark:text-paper">{s.value}</p>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import type { Book } from '../types/book';
 import type { RecommendedBook } from '../types/recommendations';
 import { UMBRELLA_GENRES } from '../types/recommendations';
@@ -49,6 +49,7 @@ export function RecommendationsPage({
     searchQuery,
     setSearchQuery,
     searchResults,
+    searchLoading,
     activityBooks,
     unexploredSections,
     genreBooks,
@@ -88,7 +89,7 @@ export function RecommendationsPage({
   };
 
   /**
-   * Universal book card renderer shared across Activity, Explore Unexplored, Genre, and Search tabs
+   * Universal book card renderer
    */
   const renderBookCard = (book: RecommendedBook) => {
     const isAdded = addedBookIds.includes(book.id);
@@ -133,7 +134,7 @@ export function RecommendationsPage({
           </button>
         </div>
 
-        {/* Cover Image (Matches standard shelf BookCard h-44 aspect ratio 100%) */}
+        {/* Cover Image */}
         <div className="relative h-44 w-full overflow-hidden bg-paper-soft dark:bg-bgdark-soft">
           {book.coverUrl ? (
             <img
@@ -169,7 +170,7 @@ export function RecommendationsPage({
   };
 
   const renderSkeletons = (count: number = 8) => (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
@@ -185,14 +186,7 @@ export function RecommendationsPage({
     </div>
   );
 
-  const quickSearchPills = [
-    'Romance and Murder',
-    'Stephen King',
-    'Agatha Christie',
-    'Psychological Thriller',
-    'Cyberpunk Space',
-    'Habits & Growth',
-  ];
+  const isSearching = searchQuery.trim().length > 0;
 
   return (
     <div className="space-y-6 pb-12">
@@ -204,7 +198,7 @@ export function RecommendationsPage({
         </div>
       )}
 
-      {/* Book Details Modal displaying numeric average rating & synopsis across ALL recommendation tabs */}
+      {/* Book Details Modal */}
       {selectedBookForDetails && (
         <Modal
           open={!!selectedBookForDetails}
@@ -237,7 +231,6 @@ export function RecommendationsPage({
                   {selectedBookForDetails.author}
                 </p>
 
-                {/* Clear Numeric Average Reader Rating */}
                 {typeof selectedBookForDetails.averageRating === 'number' && (
                   <div className="flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400 pt-1">
                     <Star size={13} className="fill-amber-400 text-amber-400" />
@@ -253,14 +246,12 @@ export function RecommendationsPage({
               </div>
             </div>
 
-            {/* Recommendation Context Reason */}
             {selectedBookForDetails.reason && (
               <p className="rounded-lg border border-brass-500/20 bg-brass-50/50 p-2.5 text-xs text-brass-800 dark:border-brass-500/20 dark:bg-brass-500/10 dark:text-brass-300 font-medium">
                 {selectedBookForDetails.reason}
               </p>
             )}
 
-            {/* Synopsis Section */}
             <div className="space-y-1 pt-2 border-t border-ink/5 dark:border-paper/5">
               <p className="text-xs font-semibold text-ink-muted dark:text-paper/60 uppercase tracking-wider">
                 Synopsis
@@ -276,7 +267,6 @@ export function RecommendationsPage({
               )}
             </div>
 
-            {/* Bottom Actions */}
             <div className="flex items-center justify-end gap-2 pt-4 border-t border-ink/5 dark:border-paper/5">
               <Button
                 variant="ghost"
@@ -308,14 +298,14 @@ export function RecommendationsPage({
         </Modal>
       )}
 
-      {/* Clean Mode Switcher Navigation Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-ink/10 pb-4 dark:border-paper/10">
+      {/* Mode Switcher + Inline Search Header Bar */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-ink/10 pb-4 dark:border-paper/10">
         <div className="flex flex-wrap items-center gap-1 rounded-lg bg-ink/5 p-1 dark:bg-paper/5">
           <button
             onClick={() => setMode('activity')}
             className={classNames(
               'flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-              mode === 'activity'
+              mode === 'activity' && !isSearching
                 ? 'bg-surface text-ink shadow-sm dark:bg-surface-dark dark:text-paper font-semibold'
                 : 'text-ink-muted hover:text-ink dark:text-paper/60 dark:hover:text-paper'
             )}
@@ -328,7 +318,7 @@ export function RecommendationsPage({
             onClick={() => setMode('explore')}
             className={classNames(
               'flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-              mode === 'explore'
+              mode === 'explore' && !isSearching
                 ? 'bg-surface text-ink shadow-sm dark:bg-surface-dark dark:text-paper font-semibold'
                 : 'text-ink-muted hover:text-ink dark:text-paper/60 dark:hover:text-paper'
             )}
@@ -341,7 +331,7 @@ export function RecommendationsPage({
             onClick={() => setMode('genre')}
             className={classNames(
               'flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-              mode === 'genre'
+              mode === 'genre' && !isSearching
                 ? 'bg-surface text-ink shadow-sm dark:bg-surface-dark dark:text-paper font-semibold'
                 : 'text-ink-muted hover:text-ink dark:text-paper/60 dark:hover:text-paper'
             )}
@@ -349,31 +339,43 @@ export function RecommendationsPage({
             <Tag size={14} />
             <span>Browse by Genre</span>
           </button>
-
-          <button
-            onClick={() => setMode('search')}
-            className={classNames(
-              'flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-              mode === 'search'
-                ? 'bg-surface text-ink shadow-sm dark:bg-surface-dark dark:text-paper font-semibold'
-                : 'text-ink-muted hover:text-ink dark:text-paper/60 dark:hover:text-paper'
-            )}
-          >
-            <Search size={14} />
-            <span>Search Recommendations</span>
-          </button>
         </div>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={refresh}
-          disabled={loading}
-          className="gap-1.5 text-xs text-ink-muted dark:text-paper/60"
-        >
-          <RefreshCw size={14} className={classNames(loading && 'animate-spin')} />
-          <span>Refresh</span>
-        </Button>
+        {/* Right side: Search bar & Refresh */}
+        <div className="flex items-center gap-2 sm:ml-auto">
+          <div className="relative flex-1 sm:w-64 sm:flex-initial">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted dark:text-paper/40 pointer-events-none"
+            />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search recommendations..."
+              className="w-full rounded-lg border border-ink/10 bg-surface pl-8 pr-8 py-1.5 text-xs text-ink placeholder-ink-muted/60 focus:border-brass-500 focus:outline-none focus:ring-1 focus:ring-brass-500 dark:border-paper/10 dark:bg-surface-dark dark:text-paper dark:placeholder-paper/40"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink dark:text-paper/40 dark:hover:text-paper"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={refresh}
+            disabled={loading || searchLoading}
+            className="gap-1.5 text-xs text-ink-muted dark:text-paper/60 shrink-0"
+          >
+            <RefreshCw size={14} className={classNames((loading || searchLoading) && 'animate-spin')} />
+            <span className="hidden sm:inline">Refresh</span>
+          </Button>
+        </div>
       </div>
 
       {/* Error Banner */}
@@ -387,230 +389,174 @@ export function RecommendationsPage({
         </div>
       )}
 
-      {/* MODE 1: BASED ON MY ACTIVITY */}
-      {mode === 'activity' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-display text-base font-medium text-ink dark:text-paper">
-              Tailored for Your Taste
-            </h3>
-            <span className="text-xs text-ink-faint dark:text-paper/40">
-              {activityBooks.length} recommendations
-            </span>
-          </div>
-
-          {loading ? (
-            renderSkeletons(8)
-          ) : activityBooks.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {activityBooks.map(renderBookCard)}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-ink/10 py-12 text-center dark:border-paper/10">
-              <BookMarked size={32} className="mb-2 text-ink-faint dark:text-paper/20" />
-              <h4 className="text-sm font-medium text-ink dark:text-paper">
-                No recommendations yet
-              </h4>
-              <p className="mt-1 max-w-xs text-xs text-ink-muted dark:text-paper/60">
-                Rate more books or mark favorites in your library to unlock personalized suggestions.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* MODE 2: EXPLORE UNEXPLORED GENRES */}
-      {mode === 'explore' && (
-        <div className="space-y-8">
-          {loading ? (
-            renderSkeletons(4)
-          ) : unexploredSections.length > 0 ? (
-            unexploredSections.map((section) => (
-              <div
-                key={section.genre.id}
-                className="rounded-2xl border border-ink/10 bg-surface/50 p-5 dark:border-paper/10 dark:bg-surface-dark/50 shadow-sm space-y-4"
-              >
-                {/* Genre Section Header with Badge and Description */}
-                <div className="flex flex-col gap-1 border-b border-ink/10 pb-3 dark:border-paper/10">
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-md bg-brass-500/10 px-2 py-0.5 text-[11px] font-semibold text-brass-700 dark:bg-brass-500/20 dark:text-brass-400 uppercase tracking-wider">
-                      Unexplored
-                    </span>
-                    <h4 className="font-display text-base font-medium text-ink dark:text-paper">
-                      {section.genre.label}
-                    </h4>
-                  </div>
-                  <p className="text-xs text-ink-muted dark:text-paper/60">
-                    {section.genre.description}
-                  </p>
-                </div>
-
-                {/* Genre Book Grid */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pt-1">
-                  {section.books.map(renderBookCard)}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-ink/10 py-12 text-center dark:border-paper/10">
-              <Compass size={32} className="mb-2 text-ink-faint dark:text-paper/20" />
-              <h4 className="text-sm font-medium text-ink dark:text-paper">
-                All genres explored!
-              </h4>
-              <p className="mt-1 max-w-xs text-xs text-ink-muted dark:text-paper/60">
-                You already have books across all major categories in your library.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* MODE 3: BROWSE BY GENRE */}
-      {mode === 'genre' && (
-        <div className="space-y-6">
-          {/* Category Selector Pills matching Cursus filter style */}
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-paper/40">
-              Category
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {UMBRELLA_GENRES.map((g) => {
-                const isSelected = selectedGenre.id === g.id;
-                return (
-                  <button
-                    key={g.id}
-                    onClick={() => setSelectedGenre(g)}
-                    className={classNames(
-                      'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
-                      isSelected
-                        ? 'bg-ink text-paper dark:bg-brass-500 dark:text-bgdark'
-                        : 'bg-ink/5 text-ink-muted hover:bg-ink/10 hover:text-ink dark:bg-paper/5 dark:text-paper/60 dark:hover:bg-paper/10 dark:hover:text-paper'
-                    )}
-                  >
-                    {g.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Results Grid */}
-          <div className="space-y-4 pt-2">
-            <div className="flex items-center justify-between border-t border-ink/5 pt-4 dark:border-paper/5">
+      {/* Main Full-Width Content Area */}
+      <div>
+        {/* SEARCH RESULTS MODE */}
+        {isSearching ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
               <h3 className="font-display text-base font-medium text-ink dark:text-paper">
-                Top Books in {selectedGenre.label}
+                Search Results for "{searchQuery}"
               </h3>
               <span className="text-xs text-ink-faint dark:text-paper/40">
-                {genreBooks.length} results
+                {searchLoading ? 'Searching…' : `${searchResults.length} books found`}
               </span>
             </div>
 
-            {loading ? (
+            {searchLoading ? (
               renderSkeletons(8)
-            ) : genreBooks.length > 0 ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {genreBooks.map(renderBookCard)}
+            ) : searchResults.length > 0 ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {searchResults.map(renderBookCard)}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-ink/10 py-12 text-center dark:border-paper/10">
-                <Tag size={32} className="mb-2 text-ink-faint dark:text-paper/20" />
+                <Search size={32} className="mb-2 text-ink-faint dark:text-paper/20" />
                 <h4 className="text-sm font-medium text-ink dark:text-paper">
-                  No books found in this category
+                  No matching books found
                 </h4>
+                <p className="mt-1 max-w-xs text-xs text-ink-muted dark:text-paper/60">
+                  Try searching for another author, genre, title, or topic.
+                </p>
               </div>
             )}
           </div>
-        </div>
-      )}
-
-      {/* MODE 4: FREEFORM SEARCH RECOMMENDATION ENGINE */}
-      {mode === 'search' && (
-        <div className="space-y-6">
-          <div className="space-y-3">
-            <div className="relative">
-              <Search
-                size={18}
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted dark:text-paper/40"
-              />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by author, genre, or keywords (e.g., 'Romance and Murder', 'Stephen King', 'Cyberpunk')..."
-                className="w-full rounded-xl border border-ink/10 bg-surface pl-10 pr-10 py-2.5 text-sm text-ink placeholder-ink-muted/60 focus:border-brass-500 focus:outline-none focus:ring-1 focus:ring-brass-500 dark:border-paper/10 dark:bg-surface-dark dark:text-paper dark:placeholder-paper/40"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink dark:text-paper/40 dark:hover:text-paper"
-                >
-                  <X size={16} />
-                </button>
-              )}
-            </div>
-
-            {/* Quick Suggestion Pills */}
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="text-xs text-ink-faint dark:text-paper/40 font-medium">
-                Try searching:
-              </span>
-              {quickSearchPills.map((pill) => (
-                <button
-                  key={pill}
-                  onClick={() => setSearchQuery(pill)}
-                  className="rounded-full bg-ink/5 px-2.5 py-1 text-[11px] font-medium text-ink-muted transition-colors hover:bg-ink/10 hover:text-ink dark:bg-paper/5 dark:text-paper/60 dark:hover:bg-paper/10 dark:hover:text-paper"
-                >
-                  {pill}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Results Grid */}
-          <div className="space-y-4 pt-2">
-            {searchQuery.trim() ? (
-              <>
-                <div className="flex items-center justify-between border-t border-ink/5 pt-4 dark:border-paper/5">
+        ) : (
+          <>
+            {/* MODE 1: BASED ON MY ACTIVITY */}
+            {mode === 'activity' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
                   <h3 className="font-display text-base font-medium text-ink dark:text-paper">
-                    Recommendations for "{searchQuery}"
+                    Tailored for Your Taste
                   </h3>
                   <span className="text-xs text-ink-faint dark:text-paper/40">
-                    {searchResults.length} results
+                    {activityBooks.length} recommendations
                   </span>
                 </div>
 
                 {loading ? (
                   renderSkeletons(8)
-                ) : searchResults.length > 0 ? (
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {searchResults.map(renderBookCard)}
+                ) : activityBooks.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                    {activityBooks.map(renderBookCard)}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-ink/10 py-12 text-center dark:border-paper/10">
-                    <Search size={32} className="mb-2 text-ink-faint dark:text-paper/20" />
+                    <BookMarked size={32} className="mb-2 text-ink-faint dark:text-paper/20" />
                     <h4 className="text-sm font-medium text-ink dark:text-paper">
-                      No books found for "{searchQuery}"
+                      No recommendations yet
                     </h4>
                     <p className="mt-1 max-w-xs text-xs text-ink-muted dark:text-paper/60">
-                      Try searching with different keywords like an author name, genre, or topic.
+                      Rate more books or mark favorites in your library to unlock personalized suggestions.
                     </p>
                   </div>
                 )}
-              </>
-            ) : (
-              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-ink/10 py-12 text-center dark:border-paper/10">
-                <Search size={32} className="mb-2 text-ink-faint dark:text-paper/20" />
-                <h4 className="text-sm font-medium text-ink dark:text-paper">
-                  Type to Search Recommendations
-                </h4>
-                <p className="mt-1 max-w-sm text-xs text-ink-muted dark:text-paper/60">
-                  Enter an author name, a specific sub-genre, or keywords like "Romance and Murder" to generate instant recommendations.
-                </p>
               </div>
             )}
-          </div>
-        </div>
-      )}
+
+            {/* MODE 2: EXPLORE UNEXPLORED GENRES */}
+            {mode === 'explore' && (
+              <div className="space-y-8">
+                {loading ? (
+                  renderSkeletons(4)
+                ) : unexploredSections.length > 0 ? (
+                  unexploredSections.map((section) => (
+                    <div
+                      key={section.genre.id}
+                      className="rounded-2xl border border-ink/10 bg-surface/50 p-5 dark:border-paper/10 dark:bg-surface-dark/50 shadow-sm space-y-4"
+                    >
+                      <div className="flex flex-col gap-1 border-b border-ink/10 pb-3 dark:border-paper/10">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-md bg-brass-500/10 px-2 py-0.5 text-[11px] font-semibold text-brass-700 dark:bg-brass-500/20 dark:text-brass-400 uppercase tracking-wider">
+                            Unexplored
+                          </span>
+                          <h4 className="font-display text-base font-medium text-ink dark:text-paper">
+                            {section.genre.label}
+                          </h4>
+                        </div>
+                        <p className="text-xs text-ink-muted dark:text-paper/60">
+                          {section.genre.description}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 pt-1">
+                        {section.books.map(renderBookCard)}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-ink/10 py-12 text-center dark:border-paper/10">
+                    <Compass size={32} className="mb-2 text-ink-faint dark:text-paper/20" />
+                    <h4 className="text-sm font-medium text-ink dark:text-paper">
+                      All genres explored!
+                    </h4>
+                    <p className="mt-1 max-w-xs text-xs text-ink-muted dark:text-paper/60">
+                      You already have books across all major categories in your library.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* MODE 3: BROWSE BY GENRE */}
+            {mode === 'genre' && (
+              <div className="space-y-6">
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-paper/40">
+                    Category
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {UMBRELLA_GENRES.map((g) => {
+                      const isSelected = selectedGenre.id === g.id;
+                      return (
+                        <button
+                          key={g.id}
+                          onClick={() => setSelectedGenre(g)}
+                          className={classNames(
+                            'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                            isSelected
+                              ? 'bg-ink text-paper dark:bg-brass-500 dark:text-bgdark'
+                              : 'bg-ink/5 text-ink-muted hover:bg-ink/10 hover:text-ink dark:bg-paper/5 dark:text-paper/60 dark:hover:bg-paper/10 dark:hover:text-paper'
+                          )}
+                        >
+                          {g.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-2">
+                  <div className="flex items-center justify-between border-t border-ink/5 pt-4 dark:border-paper/5">
+                    <h3 className="font-display text-base font-medium text-ink dark:text-paper">
+                      Top Books in {selectedGenre.label}
+                    </h3>
+                    <span className="text-xs text-ink-faint dark:text-paper/40">
+                      {genreBooks.length} results
+                    </span>
+                  </div>
+
+                  {loading ? (
+                    renderSkeletons(8)
+                  ) : genreBooks.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                      {genreBooks.map(renderBookCard)}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-ink/10 py-12 text-center dark:border-paper/10">
+                      <Tag size={32} className="mb-2 text-ink-faint dark:text-paper/20" />
+                      <h4 className="text-sm font-medium text-ink dark:text-paper">
+                        No books found in this category
+                      </h4>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

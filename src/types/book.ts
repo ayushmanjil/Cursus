@@ -22,6 +22,7 @@ export interface Book {
   status: BookStatus;
   rating?: number; // 1-5, only meaningful when status === 'read'
   dateAdded: string; // ISO date
+  dateStarted?: string; // ISO date — set when status becomes 'reading'
   dateFinished?: string; // ISO date
   notes: string;
   favorite: boolean;

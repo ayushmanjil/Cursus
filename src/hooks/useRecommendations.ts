@@ -17,6 +17,7 @@ export function useRecommendations(userBooks: Book[], userId: string = 'guest') 
 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<RecommendedBook[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   const [activityBooks, setActivityBooks] = useState<RecommendedBook[]>([]);
   const [unexploredSections, setUnexploredSections] = useState<{ genre: UmbrellaGenre; books: RecommendedBook[] }[]>([]);
@@ -27,6 +28,7 @@ export function useRecommendations(userBooks: Book[], userId: string = 'guest') 
   const [dismissedIds, setDismissedIds] = useState<string[]>(() => getDismissedBookIds());
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
   const userBooksHash = userBooks.map((b) => `${b.id}_${b.rating}`).join('|');
   const prevHashRef = useRef(userBooksHash);
 
@@ -43,6 +45,7 @@ export function useRecommendations(userBooks: Book[], userId: string = 'guest') 
     }
   }, [userBooksHash]);
 
+  // Main mode fetch (activity / explore / genre)
   const fetchRecommendations = useCallback(async () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -69,11 +72,6 @@ export function useRecommendations(userBooks: Book[], userId: string = 'guest') 
         if (!controller.signal.aborted) {
           setGenreBooks(books);
         }
-      } else if (mode === 'search' && searchQuery.trim()) {
-        const books = await getRecommendationsBySearch(searchQuery, userBooks, controller.signal);
-        if (!controller.signal.aborted) {
-          setSearchResults(books);
-        }
       }
     } catch (err: any) {
       if (err.name !== 'AbortError') {
@@ -85,7 +83,7 @@ export function useRecommendations(userBooks: Book[], userId: string = 'guest') 
         setLoading(false);
       }
     }
-  }, [mode, selectedGenre, searchQuery, userBooks, userId]);
+  }, [mode, selectedGenre, userBooks, userId]);
 
   useEffect(() => {
     fetchRecommendations();
@@ -95,6 +93,55 @@ export function useRecommendations(userBooks: Book[], userId: string = 'guest') 
       }
     };
   }, [fetchRecommendations]);
+
+  // Separate search fetch — triggers on searchQuery changes (debounced in component)
+  const fetchSearchResults = useCallback(async (query: string) => {
+    if (searchAbortRef.current) {
+      searchAbortRef.current.abort();
+    }
+    if (!query.trim()) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+
+    setSearchLoading(true);
+    try {
+      const books = await getRecommendationsBySearch(query, userBooks, controller.signal);
+      if (!controller.signal.aborted) {
+        setSearchResults(books);
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error('Error searching recommendations:', err);
+      }
+    } finally {
+      if (!controller.signal.aborted) {
+        setSearchLoading(false);
+      }
+    }
+  }, [userBooks]);
+
+  // Debounced search trigger
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    const q = searchQuery.trim();
+    if (!q) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchLoading(true);
+    searchDebounceRef.current = setTimeout(() => {
+      fetchSearchResults(q);
+    }, 400);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchQuery, fetchSearchResults]);
 
   const handleDismiss = useCallback((bookId: string) => {
     dismissBook(bookId);
@@ -120,6 +167,7 @@ export function useRecommendations(userBooks: Book[], userId: string = 'guest') 
     searchQuery,
     setSearchQuery,
     searchResults: searchResults.filter((b) => !dismissedIds.includes(b.id)),
+    searchLoading,
     activityBooks: activityBooks.filter((b) => !dismissedIds.includes(b.id)),
     unexploredSections: unexploredSections.map((sec) => ({
       ...sec,
