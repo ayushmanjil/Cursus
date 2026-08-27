@@ -328,37 +328,52 @@ export function WordLibraryPage({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suggestionsRef = useRef<HTMLUListElement>(null);
+  const lastSearchedWordRef = useRef<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Fetch suggestions from Datamuse as user types
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (abortControllerRef.current) abortControllerRef.current.abort();
 
     const trimmed = query.trim();
-    if (trimmed.length < 2) {
+    if (
+      trimmed.length < 2 ||
+      trimmed.toLowerCase() === lastSearchedWordRef.current?.toLowerCase()
+    ) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
     }
 
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     debounceRef.current = setTimeout(async () => {
       try {
         const res = await fetch(
-          `https://api.datamuse.com/sug?s=${encodeURIComponent(trimmed)}&max=8`
+          `https://api.datamuse.com/sug?s=${encodeURIComponent(trimmed)}&max=8`,
+          { signal: abortController.signal }
         );
         if (res.ok) {
           const data: { word: string; score: number }[] = await res.json();
           const words = data.map((d) => d.word);
-          setSuggestions(words);
-          setShowSuggestions(words.length > 0);
-          setHighlightIndex(-1);
+          if (trimmed.toLowerCase() !== lastSearchedWordRef.current?.toLowerCase()) {
+            setSuggestions(words);
+            setShowSuggestions(words.length > 0);
+            setHighlightIndex(-1);
+          }
         }
-      } catch {
-        // Silently fail — suggestions are non-critical
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          // Silently fail — suggestions are non-critical
+        }
       }
     }, 250);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      abortController.abort();
     };
   }, [query]);
 
@@ -388,6 +403,10 @@ export function WordLibraryPage({
     const trimmed = (wordOverride ?? query).trim();
     if (!trimmed) return;
 
+    lastSearchedWordRef.current = trimmed;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+
     setShowSuggestions(false);
     setSuggestions([]);
     setLoading(true);
@@ -410,6 +429,9 @@ export function WordLibraryPage({
 
   const handleSelectSuggestion = useCallback(
     (word: string) => {
+      lastSearchedWordRef.current = word;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (abortControllerRef.current) abortControllerRef.current.abort();
       setQuery(word);
       setShowSuggestions(false);
       setSuggestions([]);
@@ -507,14 +529,22 @@ export function WordLibraryPage({
                 ref={inputRef}
                 value={query}
                 onChange={(e) => {
-                  setQuery(e.target.value);
-                  if (!e.target.value.trim()) {
+                  const val = e.target.value;
+                  if (val.trim().toLowerCase() !== lastSearchedWordRef.current?.toLowerCase()) {
+                    lastSearchedWordRef.current = null;
+                  }
+                  setQuery(val);
+                  if (!val.trim()) {
                     setShowSuggestions(false);
                     setSuggestions([]);
                   }
                 }}
                 onFocus={() => {
-                  if (suggestions.length > 0 && query.trim().length >= 2) {
+                  if (
+                    suggestions.length > 0 &&
+                    query.trim().length >= 2 &&
+                    query.trim().toLowerCase() !== lastSearchedWordRef.current?.toLowerCase()
+                  ) {
                     setShowSuggestions(true);
                   }
                 }}
@@ -532,6 +562,9 @@ export function WordLibraryPage({
               {query && (
                 <button
                   onClick={() => {
+                    lastSearchedWordRef.current = null;
+                    if (debounceRef.current) clearTimeout(debounceRef.current);
+                    if (abortControllerRef.current) abortControllerRef.current.abort();
                     setQuery('');
                     setSearchResult(null);
                     setError(null);
