@@ -14,6 +14,7 @@ import {
 import { Button } from './ui/Button';
 import { EmptyState } from './ui/EmptyState';
 import { WordDetailModal } from './WordDetailModal';
+import BookLoader from './ui/BookLoader';
 import type { DictionaryEntry, SavedWord } from '../types/dictionary';
 import { classNames } from '../utils/helpers';
 import { playPronunciation, getAudioUrlFromEntry } from '../utils/speech';
@@ -595,7 +596,7 @@ export function WordLibraryPage({
           {/* Loading */}
           {loading && (
             <div className="flex flex-col items-center justify-center py-16">
-              <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-brass-500 border-t-transparent" />
+              <BookLoader size="md" color="brown" />
               <p className="mt-3 text-sm text-ink-muted dark:text-paper/50">Looking up "{query}"…</p>
             </div>
           )}

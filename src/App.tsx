@@ -11,6 +11,7 @@ import { AddBookModal } from './components/AddBookModal';
 import { BookDetailsModal } from './components/BookDetailsModal';
 import { RatingPromptModal } from './components/RatingPromptModal';
 import { Button } from './components/ui/Button';
+import BookLoader from './components/ui/BookLoader';
 import {
   Plus,
   LayoutGrid,
@@ -635,8 +636,8 @@ function App() {
   if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bgdark-soft dark:bg-bgdark">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-brass-500 border-t-transparent" />
+        <div className="flex flex-col items-center gap-4">
+          <BookLoader size="lg" color="brass" />
           <p className="text-sm font-medium text-ink-muted dark:text-paper/60">Syncing library...</p>
         </div>
       </div>

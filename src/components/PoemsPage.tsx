@@ -25,6 +25,7 @@ import { Modal } from './ui/Modal';
 import { AddPoemModal } from './AddPoemModal';
 import { classNames } from '../utils/helpers';
 import { createPortal } from 'react-dom';
+import BookLoader from './ui/BookLoader';
 
 export interface PoemsPageProps {
   readPoems: ReadPoem[];
@@ -76,6 +77,8 @@ export function PoemDetailModal({
   onToggleRead,
   onToggleSaved,
   onToggleFavorite,
+  relatedPoems = [],
+  onSelectPoem,
 }: {
   poem: Poem | null;
   loadingDetails?: boolean;
@@ -86,6 +89,10 @@ export function PoemDetailModal({
   onToggleRead: () => void;
   onToggleSaved: () => void;
   onToggleFavorite: () => void;
+  /** Poems shown in the fullscreen left sidebar (same author + discovery) */
+  relatedPoems?: Poem[];
+  /** Called when the user clicks a related poem in the sidebar */
+  onSelectPoem?: (poem: Poem) => void;
 }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -119,24 +126,33 @@ export function PoemDetailModal({
   // Shared header content
   const headerContent = (
     <>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <h2 className="font-display text-2xl font-bold tracking-tight text-ink dark:text-paper leading-snug">
+      {/* Title + linecount */}
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-start justify-between gap-2">
+          <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-ink dark:text-paper leading-snug">
             {poem.title}
           </h2>
-          <p className="mt-0.5 font-display text-sm font-medium italic text-brass-600 dark:text-brass-400 truncate">
+          {/* On mobile, hide badge here — it reappears below the author line */}
+          {poem.linecount && (
+            <span className="hidden sm:inline-flex shrink-0 rounded-full bg-brass-50 px-2.5 py-0.5 text-xs font-semibold text-brass-700 dark:bg-brass-500/15 dark:text-brass-300">
+              {poem.linecount} lines
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <p className="font-display text-sm font-medium italic text-brass-600 dark:text-brass-400 truncate">
             by {poem.author}
           </p>
+          {poem.linecount && (
+            <span className="sm:hidden inline-flex shrink-0 rounded-full bg-brass-50 px-2 py-0.5 text-xs font-semibold text-brass-700 dark:bg-brass-500/15 dark:text-brass-300">
+              {poem.linecount} lines
+            </span>
+          )}
         </div>
-        {poem.linecount && (
-          <span className="shrink-0 rounded-full bg-brass-50 px-2.5 py-0.5 text-xs font-semibold text-brass-700 dark:bg-brass-500/15 dark:text-brass-300">
-            {poem.linecount} lines
-          </span>
-        )}
       </div>
 
       {/* Action buttons */}
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-1.5 sm:gap-2">
         <Button
           variant={isFavorite ? 'primary' : 'secondary'}
           size="sm"
@@ -173,7 +189,7 @@ export function PoemDetailModal({
   // Shared poem body content
   const poemBody = loadingDetails ? (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <Loader2 size={26} className="animate-spin text-brass-500" />
+      <BookLoader size="md" color="brown" />
       <p className="mt-3 text-sm text-ink-muted dark:text-paper/60">Loading full poem lines…</p>
     </div>
   ) : poem.lines && poem.lines.length > 0 ? (
@@ -203,62 +219,154 @@ export function PoemDetailModal({
 
   // ── Fullscreen View ──
   if (isFullscreen) {
+    // Split related poems: same-author first, then others
+    const sameAuthor = relatedPoems.filter(
+      (p) => p.author === poem.author && p.title !== poem.title
+    );
+    const otherPoems = relatedPoems.filter(
+      (p) => p.author !== poem.author
+    ).slice(0, 6 - sameAuthor.length);
+
     return createPortal(
       <AnimatePresence>
         <motion.div
-          className="fixed inset-0 z-50 flex"
+          className="fixed inset-0 z-50 flex flex-col bg-surface dark:bg-surface-dark overflow-hidden"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
         >
-          {/* Backdrop */}
+          {/* Backdrop on mobile */}
           <motion.div
-            className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
-            onClick={() => setIsFullscreen(false)}
+            className="absolute inset-0 bg-ink/40 backdrop-blur-sm lg:hidden pointer-events-none"
           />
 
-          {/* Content panel — offset by sidebar on large screens */}
-          <motion.div
-            className="relative flex flex-col w-full lg:ml-64 bg-surface dark:bg-surface-dark overflow-hidden"
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-          >
-            {/* Fullscreen Header */}
-            <div className="shrink-0 border-b border-ink/10 dark:border-paper/10 px-8 py-5">
-              <div className="mx-auto max-w-4xl">
+          {/* ── Unified Fullscreen Header (Continuous horizontal line across entire screen) ── */}
+          <div className="shrink-0 flex items-stretch border-b border-ink/10 dark:border-paper/10 bg-surface dark:bg-surface-dark z-10">
+            {/* Left Header section (matches sidebar width w-64) */}
+            <div className="hidden lg:flex flex-col justify-center w-64 shrink-0 px-5 py-4 bg-paper-soft dark:bg-surface-dark border-r border-ink/10 dark:border-paper/10">
+              <div className="flex items-center gap-1.5">
+                <BookOpen size={13} className="text-brass-600 dark:text-brass-400" />
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-ink-faint dark:text-paper/40">Reading Room</span>
+              </div>
+              <p className="text-xs text-ink-muted dark:text-paper/60 leading-relaxed mt-0.5">
+                Discover & related poems
+              </p>
+            </div>
+
+            {/* Main Header section */}
+            <div className="flex-1 flex items-center justify-between px-4 py-4 sm:px-8 bg-surface dark:bg-surface-dark min-w-0">
+              <div className="min-w-0 flex-1 pr-4">
                 {headerContent}
               </div>
-            </div>
 
-            {/* Top-right controls */}
-            <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
-              <button
-                onClick={() => setIsFullscreen(false)}
-                className="flex items-center gap-1.5 rounded-lg bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-ink/10 hover:text-ink dark:bg-paper/5 dark:text-paper/60 dark:hover:bg-paper/10 dark:hover:text-paper transition-colors"
-                title="Exit fullscreen (Esc)"
-              >
-                <Minimize2 size={14} />
-                Exit
-              </button>
-              <button
-                onClick={() => { setIsFullscreen(false); onClose(); }}
-                aria-label="Close"
-                className="rounded-full p-1.5 text-ink-muted hover:bg-ink/10 hover:text-ink dark:text-paper/60 dark:hover:bg-paper/10 dark:hover:text-paper transition-colors"
-              >
-                <X size={18} />
-              </button>
+              {/* Controls */}
+              <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+                <button
+                  onClick={() => setIsFullscreen(false)}
+                  className="flex items-center gap-1.5 rounded-lg bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-ink/10 hover:text-ink dark:bg-paper/5 dark:text-paper/60 dark:hover:bg-paper/10 dark:hover:text-paper transition-colors"
+                  title="Exit fullscreen (Esc)"
+                >
+                  <Minimize2 size={14} />
+                  <span>Exit</span>
+                </button>
+                <button
+                  onClick={() => { setIsFullscreen(false); onClose(); }}
+                  aria-label="Close"
+                  className="rounded-full p-1.5 text-ink-muted hover:bg-ink/10 hover:text-ink dark:text-paper/60 dark:hover:bg-paper/10 dark:hover:text-paper transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
+          </div>
 
-            {/* Scrollable poem body */}
-            <div className="flex-1 overflow-y-auto px-8 py-6 scrollbar-thin">
+          {/* ── Main Body Row ── */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* Left Sidebar (lg+) */}
+            <motion.div
+              className="relative hidden lg:flex flex-col w-64 shrink-0 bg-paper-soft dark:bg-surface-dark border-r border-ink/10 dark:border-paper/10 overflow-hidden"
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -20, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+            >
+              {/* Scrollable list */}
+              <div className="flex-1 overflow-y-auto scrollbar-thin py-3">
+                {/* Same-author poems */}
+                {sameAuthor.length > 0 && (
+                  <div className="mb-4">
+                    <p className="px-5 mb-2 text-[10px] font-semibold uppercase tracking-widest text-brass-600 dark:text-brass-500">
+                      More by {poem.author}
+                    </p>
+                    {sameAuthor.map((p) => (
+                      <button
+                        key={p.title}
+                        onClick={() => { onSelectPoem?.(p); }}
+                        className="w-full text-left px-5 py-2.5 hover:bg-ink/5 dark:hover:bg-paper/5 transition-colors group"
+                      >
+                        <p className="text-sm font-medium text-ink/80 dark:text-paper/80 group-hover:text-ink dark:group-hover:text-paper leading-snug line-clamp-2 transition-colors">
+                          {p.title}
+                        </p>
+                        {p.linecount && (
+                          <p className="text-[10px] text-ink-faint dark:text-paper/30 mt-0.5">{p.linecount} lines</p>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Divider + Discover section */}
+                {otherPoems.length > 0 && (
+                  <div>
+                    {sameAuthor.length > 0 && (
+                      <div className="mx-5 mb-3 h-px bg-ink/10 dark:bg-paper/8" />
+                    )}
+                    <p className="px-5 mb-2 text-[10px] font-semibold uppercase tracking-widest text-ink-faint dark:text-paper/30">
+                      Discover
+                    </p>
+                    {otherPoems.map((p) => (
+                      <button
+                        key={p.title}
+                        onClick={() => { onSelectPoem?.(p); }}
+                        className="w-full text-left px-5 py-2.5 hover:bg-ink/5 dark:hover:bg-paper/5 transition-colors group"
+                      >
+                        <p className="text-sm font-medium text-ink-muted dark:text-paper/60 group-hover:text-ink dark:group-hover:text-paper/90 leading-snug line-clamp-2 transition-colors">
+                          {p.title}
+                        </p>
+                        <p className="text-[10px] text-ink-faint dark:text-paper/25 mt-0.5 italic">{p.author}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Empty state */}
+                {sameAuthor.length === 0 && otherPoems.length === 0 && (
+                  <div className="px-5 py-8 text-center">
+                    <p className="text-xs text-ink-faint dark:text-paper/30">No suggestions available</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Close shortcut at bottom */}
+              <div className="shrink-0 p-4 border-t border-ink/10 dark:border-paper/10">
+                <button
+                  onClick={() => setIsFullscreen(false)}
+                  className="w-full flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-medium text-ink-faint dark:text-paper/40 hover:text-ink-muted dark:hover:text-paper/70 hover:bg-ink/5 dark:hover:bg-paper/5 transition-colors"
+                >
+                  <Minimize2 size={12} />
+                  Exit fullscreen
+                </button>
+              </div>
+            </motion.div>
+
+            {/* Right Scrollable poem body */}
+            <div className="flex-1 bg-surface dark:bg-surface-dark overflow-y-auto px-4 py-6 sm:px-8 scrollbar-thin">
               <div className="mx-auto max-w-4xl">
                 {poemBody}
               </div>
             </div>
-          </motion.div>
+          </div>
         </motion.div>
       </AnimatePresence>,
       document.body
@@ -686,7 +794,7 @@ export function PoemsPage({
           {/* Loading Indicator */}
           {loading && (
             <div className="flex flex-col items-center justify-center py-16">
-              <div className="h-9 w-9 animate-spin rounded-full border-4 border-brass-500 border-t-transparent" />
+              <BookLoader size="md" color="brown" />
               <p className="mt-3 text-sm text-ink-muted dark:text-paper/60">Searching our library for "{query}"…</p>
             </div>
           )}
@@ -825,7 +933,7 @@ export function PoemsPage({
 
               {loadingRandom ? (
                 <div className="flex items-center justify-center py-12">
-                  <Loader2 size={24} className="animate-spin text-brass-500" />
+                  <BookLoader size="md" color="brown" />
                 </div>
               ) : randomFeed.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -1072,6 +1180,8 @@ export function PoemsPage({
         onToggleRead={() => selectedPoem && onToggleRead(selectedPoem)}
         onToggleSaved={() => selectedPoem && onToggleSaved(selectedPoem)}
         onToggleFavorite={() => selectedPoem && onToggleFavorite(selectedPoem)}
+        relatedPoems={randomFeed}
+        onSelectPoem={handleOpenPoem}
       />
 
       {/* Add Custom Poem Modal */}

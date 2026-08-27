@@ -81,3 +81,20 @@
     animation: soft-gold-pulse 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 }
+
+/* ── BookLoader — page-flip animation ──────────────────────────────────────── */
+/* Defined globally so the keyframes are parsed once at build time, not
+   re-injected into the DOM on every BookLoader mount.                        */
+@keyframes ob-flip {
+  0%   { transform: rotateY(0deg);    }
+  100% { transform: rotateY(-180deg); }
+}
+@keyframes ob-float {
+  0%, 100% { transform: rotateX(32deg) translateY(0px);  }
+  50%       { transform: rotateX(32deg) translateY(-4px); }
+}
+.ob-book { animation: ob-float 3s ease-in-out infinite; transform-style: preserve-3d; }
+.ob-page { animation: ob-flip 0.5s cubic-bezier(0.37, 0, 0.63, 1) infinite; }
+.ob-pd1  { animation-delay: 0s;    }
+.ob-pd2  { animation-delay: 0.16s; }
+.ob-pd3  { animation-delay: 0.32s; }
