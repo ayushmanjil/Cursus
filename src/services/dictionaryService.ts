@@ -67,19 +67,24 @@ async function fetchFromDatamuse(word: string): Promise<DictionaryEntry[] | null
   return null;
 }
 
-/**
- * Fetches dictionary entry for a given word.
- * Uses primary dictionaryapi.dev service and automatically falls back to Datamuse API
- * if primary service fails, timeouts, or is rate-limited.
- */
-export async function fetchWordDefinition(word: string): Promise<DictionaryEntry[]> {
-  const trimmed = word.trim();
-  if (!trimmed) throw new Error('EMPTY_QUERY');
+// In-memory runtime cache for in-flight and completed definition requests
+const definitionCache = new Map<string, Promise<DictionaryEntry[]>>();
 
+/**
+ * Speculatively pre-fetches and caches word definition in memory
+ * so when user selects or searches the word, the result is instantaneous.
+ */
+export function prefetchWordDefinition(word: string): void {
+  const key = word.trim().toLowerCase();
+  if (!key || definitionCache.has(key)) return;
+  definitionCache.set(key, executeFetchWordDefinition(key));
+}
+
+async function executeFetchWordDefinition(trimmed: string): Promise<DictionaryEntry[]> {
   // Primary API: dictionaryapi.dev
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout
 
     const res = await fetch(
       `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(trimmed)}`,
@@ -112,4 +117,27 @@ export async function fetchWordDefinition(word: string): Promise<DictionaryEntry
   if (fallbackData) return fallbackData;
 
   throw new Error('FETCH_FAILED');
+}
+
+/**
+ * Fetches dictionary entry for a given word.
+ * Uses in-memory promise caching, primary dictionaryapi.dev service,
+ * and automatic Datamuse fallback.
+ */
+export async function fetchWordDefinition(word: string): Promise<DictionaryEntry[]> {
+  const trimmed = word.trim();
+  if (!trimmed) throw new Error('EMPTY_QUERY');
+
+  const key = trimmed.toLowerCase();
+
+  if (!definitionCache.has(key)) {
+    definitionCache.set(key, executeFetchWordDefinition(key));
+  }
+
+  try {
+    return await definitionCache.get(key)!;
+  } catch (err) {
+    definitionCache.delete(key);
+    throw err;
+  }
 }

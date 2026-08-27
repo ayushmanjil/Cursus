@@ -18,7 +18,7 @@ import BookLoader from './ui/BookLoader';
 import type { DictionaryEntry, SavedWord } from '../types/dictionary';
 import { classNames } from '../utils/helpers';
 import { playPronunciation, getAudioUrlFromEntry } from '../utils/speech';
-import { fetchWordDefinition } from '../services/dictionaryService';
+import { fetchWordDefinition, prefetchWordDefinition } from '../services/dictionaryService';
 
 interface WordLibraryPageProps {
   savedWords: SavedWord[];
@@ -362,6 +362,9 @@ export function WordLibraryPage({
             setSuggestions(words);
             setShowSuggestions(words.length > 0);
             setHighlightIndex(-1);
+            if (words.length > 0) {
+              prefetchWordDefinition(words[0]);
+            }
           }
         }
       } catch (err: any) {
@@ -369,7 +372,7 @@ export function WordLibraryPage({
           // Silently fail — suggestions are non-critical
         }
       }
-    }, 250);
+    }, 160);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -409,8 +412,17 @@ export function WordLibraryPage({
 
     setShowSuggestions(false);
     setSuggestions([]);
-    setLoading(true);
     setError(null);
+
+    // Instant local hit if word is already saved in user's library
+    const existing = savedWords.find((w) => w.id.toLowerCase() === trimmed.toLowerCase());
+    if (existing && existing.entries.length > 0) {
+      setSearchResult(existing.entries);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     setSearchResult(null);
 
     try {
@@ -425,7 +437,7 @@ export function WordLibraryPage({
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [query, savedWords]);
 
   const handleSelectSuggestion = useCallback(
     (word: string) => {
@@ -444,10 +456,18 @@ export function WordLibraryPage({
     if (showSuggestions && suggestions.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setHighlightIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0));
+        setHighlightIndex((prev) => {
+          const next = prev < suggestions.length - 1 ? prev + 1 : 0;
+          if (suggestions[next]) prefetchWordDefinition(suggestions[next]);
+          return next;
+        });
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setHighlightIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
+        setHighlightIndex((prev) => {
+          const next = prev > 0 ? prev - 1 : suggestions.length - 1;
+          if (suggestions[next]) prefetchWordDefinition(suggestions[next]);
+          return next;
+        });
       } else if (e.key === 'Enter') {
         e.preventDefault();
         if (highlightIndex >= 0 && highlightIndex < suggestions.length) {
@@ -598,7 +618,10 @@ export function WordLibraryPage({
                         id={`suggestion-${i}`}
                         role="option"
                         aria-selected={i === highlightIndex}
-                        onMouseEnter={() => setHighlightIndex(i)}
+                        onMouseEnter={() => {
+                          setHighlightIndex(i);
+                          prefetchWordDefinition(word);
+                        }}
                         onClick={() => handleSelectSuggestion(word)}
                         className={classNames(
                           'flex cursor-pointer items-center gap-2.5 px-3 py-2 text-sm transition-colors',
