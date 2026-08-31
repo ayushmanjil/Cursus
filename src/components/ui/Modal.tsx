@@ -11,6 +11,7 @@ interface ModalProps {
   maxWidth?: string;
   hideHeader?: boolean;
   hideCloseButton?: boolean;
+  bare?: boolean;
 }
 
 export function Modal({
@@ -21,6 +22,7 @@ export function Modal({
   maxWidth = 'max-w-lg',
   hideHeader = false,
   hideCloseButton = false,
+  bare = false,
 }: ModalProps) {
   useEffect(() => {
     if (!open) return;
@@ -53,13 +55,17 @@ export function Modal({
             role="dialog"
             aria-modal="true"
             aria-label={title || 'Dialog'}
-            className={`relative w-full ${maxWidth} max-h-[85vh] overflow-y-auto scrollbar-thin rounded-xl2 bg-surface dark:bg-surface-dark shadow-modal`}
+            className={
+              bare
+                ? `relative w-full ${maxWidth} flex flex-col items-center justify-center`
+                : `relative w-full ${maxWidth} max-h-[85vh] overflow-y-auto scrollbar-thin rounded-xl2 bg-surface dark:bg-surface-dark shadow-modal`
+            }
             initial={{ opacity: 0, y: 16, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.98 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
           >
-            {!hideHeader && title ? (
+            {!bare && !hideHeader && title ? (
               <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-surface/95 dark:bg-surface-dark/95 backdrop-blur px-6 py-4">
                 <h2 className="font-display text-lg font-medium text-ink dark:text-paper">
                   {title}
@@ -74,18 +80,16 @@ export function Modal({
                   </button>
                 )}
               </div>
-            ) : (
-              !hideCloseButton && (
-                <button
-                  onClick={onClose}
-                  aria-label="Close"
-                  className="absolute right-4 top-4 z-20 rounded-full p-1.5 text-ink-muted hover:bg-ink/10 hover:text-ink dark:text-paper/60 dark:hover:bg-paper/10 dark:hover:text-paper transition-colors"
-                >
-                  <X size={18} />
-                </button>
-              )
-            )}
-            <div className={hideHeader ? 'p-6' : 'px-6 py-5'}>{children}</div>
+            ) : !bare && !hideCloseButton ? (
+              <button
+                onClick={onClose}
+                aria-label="Close"
+                className="absolute right-4 top-4 z-20 rounded-full p-1.5 text-ink-muted hover:bg-ink/10 hover:text-ink dark:text-paper/60 dark:hover:bg-paper/10 dark:hover:text-paper transition-colors"
+              >
+                <X size={18} />
+              </button>
+            ) : null}
+            {bare ? children : <div className={hideHeader ? 'p-6' : 'px-6 py-5'}>{children}</div>}
           </motion.div>
         </motion.div>
       )}

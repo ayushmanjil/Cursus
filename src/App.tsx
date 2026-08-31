@@ -698,12 +698,12 @@ function App() {
           {showWrappedPill && (
             <button
               onClick={handleOpenWrappedFromPill}
-              className="group relative flex items-center gap-2 rounded-full border-2 border-brass-500/40 bg-brass-500/20 px-4 py-1.5 text-sm font-bold text-brass-900 shadow-md backdrop-blur-md dark:border-brass-500/40 dark:bg-brass-500/25 dark:text-brass-300 transition-all duration-200 hover:scale-105"
+              className="group relative inline-flex items-center gap-1.5 rounded-full border border-brass-500/30 bg-surface/90 px-3.5 py-1.5 text-xs font-medium text-ink shadow-sm backdrop-blur hover:border-brass-500/50 hover:bg-paper-soft dark:border-brass-500/30 dark:bg-surface-dark/90 dark:text-paper dark:hover:border-brass-500/50 dark:hover:bg-bgdark-soft transition-all"
             >
-              <Sparkles size={16} className="text-brass-500 animate-pulse" />
-              <span>View Reading Wrapped {currentYear}</span>
-              <div className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 hidden w-64 rounded-lg border border-ink/10 bg-surface p-2.5 text-xs font-normal text-center text-ink-muted shadow-xl dark:border-paper/10 dark:bg-surface-dark dark:text-paper/70 group-hover:block transition-all z-50">
-                Your annual reading summary is ready! Tap to view your {currentYear} Reading Wrapped card.
+              <Sparkles size={13} className="text-brass-500" />
+              <span>{currentYear} Wrapped</span>
+              <div className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 hidden w-52 rounded-lg border border-ink/10 bg-surface p-2 text-[11px] font-normal text-center text-ink-muted shadow-lg dark:border-paper/10 dark:bg-surface-dark dark:text-paper/70 group-hover:block transition-all z-50">
+                Your annual reading summary is ready
               </div>
             </button>
           )}
