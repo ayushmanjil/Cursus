@@ -9,13 +9,21 @@ import {
   Flame,
   ShoppingBag,
   ArrowRight,
-  BookText,
   ChevronLeft,
   ChevronRight,
   Target,
   ScrollText,
   BookA,
   Bookmark,
+  CalendarDays,
+  BarChart3,
+  History,
+  TrendingUp,
+  BookCheck,
+  BookOpenCheck,
+  Sparkles,
+  Feather,
+  Trophy,
 } from 'lucide-react';
 import type { Book, ViewKey } from '../types/book';
 import type { SavedWord } from '../types/dictionary';
@@ -197,10 +205,15 @@ export function Dashboard({
             key={s.label}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
+            whileHover={{ y: -3, transition: { duration: 0.15 } }}
+            whileTap={onSelectView ? { scale: 0.98 } : undefined}
+            onClick={() => onSelectView?.(s.viewKey)}
             transition={{ duration: 0.2, delay: i * 0.04 }}
-            className="rounded-xl2 border border-ink/10 bg-surface p-4 shadow-card dark:border-paper/10 dark:bg-surface-dark"
+            className={`group rounded-xl2 border border-ink/10 bg-surface p-4 shadow-card transition-colors dark:border-paper/10 dark:bg-surface-dark ${
+              onSelectView ? 'cursor-pointer hover:border-brass-500/30' : ''
+            }`}
           >
-            <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${toneClasses[s.tone]}`}>
+            <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-110 ${toneClasses[s.tone]}`}>
               <s.icon size={18} />
             </div>
             <p className="font-display text-2xl font-bold text-ink dark:text-paper">{s.value}</p>
@@ -258,12 +271,15 @@ export function Dashboard({
                       {activeBook.author}
                     </p>
                     <div className="mt-3">
-                      <button
+                      <motion.button
+                        whileHover={{ x: 2 }}
+                        whileTap={{ scale: 0.96 }}
                         onClick={() => setUpdateProgressBook(activeBook)}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-brass-600 hover:text-brass-500 dark:text-brass-400 dark:hover:text-brass-300 transition-colors"
+                        className="group inline-flex items-center gap-1.5 text-xs font-semibold text-brass-600 hover:text-brass-500 dark:text-brass-400 dark:hover:text-brass-300 transition-colors"
                       >
-                        Update progress <ArrowRight size={13} />
-                      </button>
+                        <span>Update progress</span>
+                        <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+                      </motion.button>
                     </div>
                   </div>
                 </div>
@@ -311,7 +327,9 @@ export function Dashboard({
                       Book {activeIndex + 1} of {readingBooks.length}
                     </span>
                     <div className="flex gap-1.5">
-                      <button
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
                         type="button"
                         onClick={() =>
                           setActiveReadingIndex((prev) =>
@@ -321,8 +339,10 @@ export function Dashboard({
                         className="rounded-lg border border-ink/10 p-1 hover:bg-ink/5 dark:border-paper/10 dark:hover:bg-paper/5 transition-colors text-ink dark:text-paper"
                       >
                         <ChevronLeft size={14} />
-                      </button>
-                      <button
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
                         type="button"
                         onClick={() =>
                           setActiveReadingIndex((prev) =>
@@ -332,7 +352,7 @@ export function Dashboard({
                         className="rounded-lg border border-ink/10 p-1 hover:bg-ink/5 dark:border-paper/10 dark:hover:bg-paper/5 transition-colors text-ink dark:text-paper"
                       >
                         <ChevronRight size={14} />
-                      </button>
+                      </motion.button>
                     </div>
                   </div>
                 )}
@@ -347,12 +367,14 @@ export function Dashboard({
                   Pick a book from your shelf to start tracking your progress.
                 </p>
                 {onSelectView && (
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
                     onClick={() => onSelectView('on-shelf')}
                     className="mt-4 rounded-lg bg-ink px-4 py-2 text-xs font-semibold text-paper hover:bg-ink/90 dark:bg-brass-500 dark:text-bgdark dark:hover:bg-brass-400 transition-colors shadow-sm"
                   >
                     Browse Books
-                  </button>
+                  </motion.button>
                 )}
               </div>
             )}
@@ -362,11 +384,27 @@ export function Dashboard({
         {/* Card 2: Reading Streak */}
         <div className="rounded-xl2 border border-ink/10 bg-surface p-5 shadow-card dark:border-paper/10 dark:bg-surface-dark flex flex-col justify-between min-h-[250px]">
           <div>
-            <h3 className="mb-4 font-display text-base font-medium text-ink dark:text-paper">
-              Reading Streak
-            </h3>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-display text-base font-medium text-ink dark:text-paper flex items-center gap-2">
+                <Flame size={16} className="text-brass-500" /> Reading Streak
+              </h3>
+              {onSelectView && (
+                <motion.button
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.92 }}
+                  type="button"
+                  onClick={() => onSelectView('streaks')}
+                  title="Open Reading Calendar"
+                  aria-label="Open Reading Calendar"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-ink/10 text-ink-muted transition-colors hover:border-brass-500 hover:bg-brass-50 hover:text-brass-600 dark:border-paper/10 dark:text-paper/60 dark:hover:border-brass-400 dark:hover:bg-brass-500/10 dark:hover:text-brass-400 shadow-xs"
+                >
+                  <CalendarDays size={14} />
+                </motion.button>
+              )}
+            </div>
             <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-brass-500 text-white shadow-sm">
+              <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-brass-500 text-white shadow-sm overflow-hidden group">
+                <div className="absolute inset-0 bg-white/15 opacity-0 group-hover:opacity-100 transition-opacity" />
                 <Flame size={32} className="animate-pulse" />
               </div>
               <div>
@@ -396,15 +434,20 @@ export function Dashboard({
 
           <div className="mt-5 flex items-center justify-between gap-2.5 rounded-lg bg-paper-soft px-3.5 py-2.5 dark:bg-paper/5">
             <span className="text-xs text-ink-muted dark:text-paper/60">
-              Check/manage calendar
+              Reading calendar
             </span>
             {onSelectView && (
-              <button
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                type="button"
                 onClick={() => onSelectView('streaks')}
-                className="text-xs font-semibold text-brass-600 hover:underline dark:text-brass-400"
+                title="Open Reading Calendar"
+                className="group flex items-center gap-1.5 rounded-lg bg-surface px-2.5 py-1 text-xs font-semibold text-brass-600 shadow-sm hover:bg-brass-500/10 dark:bg-surface-dark dark:text-brass-400 dark:hover:bg-brass-500/15 border border-ink/5 dark:border-paper/5 transition-all"
               >
-                Open Calendar →
-              </button>
+                <CalendarDays size={13} className="transition-transform duration-200 group-hover:scale-110 group-hover:-rotate-6" />
+                <span>Calendar</span>
+              </motion.button>
             )}
           </div>
         </div>
@@ -412,12 +455,27 @@ export function Dashboard({
         {/* Card 3: Pages Read till Date */}
         <div className="rounded-xl2 border border-ink/10 bg-surface p-5 shadow-card dark:border-paper/10 dark:bg-surface-dark flex flex-col justify-between min-h-[250px]">
           <div>
-            <h3 className="mb-4 font-display text-base font-medium text-ink dark:text-paper">
-              Pages Read
-            </h3>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-display text-base font-medium text-ink dark:text-paper flex items-center gap-2">
+                <BookOpenCheck size={16} className="text-forest-500" /> Pages Read
+              </h3>
+              {onSelectView && (
+                <motion.button
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.92 }}
+                  type="button"
+                  onClick={() => onSelectView('stats')}
+                  title="View Reading Statistics"
+                  aria-label="View Reading Statistics"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-ink/10 text-ink-muted transition-colors hover:border-forest-500 hover:bg-forest-50 hover:text-forest-600 dark:border-paper/10 dark:text-paper/60 dark:hover:border-forest-400 dark:hover:bg-forest-500/10 dark:hover:text-forest-400 shadow-xs"
+                >
+                  <BarChart3 size={14} />
+                </motion.button>
+              )}
+            </div>
             <div className="flex items-center gap-4">
               <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-forest-500 text-white shadow-sm">
-                <BookText size={32} />
+                <BookOpenCheck size={30} />
               </div>
               <div>
                 <p className="font-display text-3xl font-bold text-ink dark:text-paper">
@@ -432,15 +490,20 @@ export function Dashboard({
 
           <div className="mt-5 flex items-center justify-between gap-2.5 rounded-lg bg-paper-soft px-3.5 py-2.5 dark:bg-paper/5">
             <span className="text-xs text-ink-muted dark:text-paper/60">
-              View full reading statistics
+              Reading statistics
             </span>
             {onSelectView && (
-              <button
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                type="button"
                 onClick={() => onSelectView('stats')}
-                className="text-xs font-semibold text-brass-600 hover:underline dark:text-brass-400"
+                title="View Statistics"
+                className="group flex items-center gap-1.5 rounded-lg bg-surface px-2.5 py-1 text-xs font-semibold text-forest-600 shadow-sm hover:bg-forest-500/10 dark:bg-surface-dark dark:text-forest-400 dark:hover:bg-forest-500/15 border border-ink/5 dark:border-paper/5 transition-all"
               >
-                View Stats →
-              </button>
+                <TrendingUp size={13} className="transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                <span>Statistics</span>
+              </motion.button>
             )}
           </div>
         </div>
@@ -455,7 +518,7 @@ export function Dashboard({
         <div className="rounded-xl2 border border-ink/10 bg-surface p-5 shadow-card dark:border-paper/10 dark:bg-surface-dark flex flex-col justify-between h-full min-h-[300px]">
           <div>
             <h3 className="mb-3 flex items-center gap-1.5 font-display text-base font-medium text-ink dark:text-paper">
-              <CheckCircle2 size={16} className="text-forest-500" /> Recently Finished Books
+              <BookCheck size={16} className="text-forest-500" /> Recently Finished Books
             </h3>
             <ActivityList books={recentlyFinished} onOpen={onOpen} />
           </div>
@@ -463,12 +526,17 @@ export function Dashboard({
           {onSelectView && (
             <div className="mt-4 pt-3 border-t border-ink/5 dark:border-paper/5 flex items-center justify-between">
               <span className="text-xs text-ink-muted dark:text-paper/60">View all completed</span>
-              <button
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                type="button"
                 onClick={() => onSelectView('read')}
-                className="text-xs font-semibold text-forest-600 hover:underline dark:text-forest-400"
+                title="View All Finished Books"
+                className="group flex items-center gap-1.5 font-semibold text-xs text-forest-600 hover:text-forest-700 dark:text-forest-400 dark:hover:text-forest-300 transition-colors"
               >
-                All Finished →
-              </button>
+                <CheckCircle2 size={13} className="transition-transform duration-200 group-hover:scale-110" />
+                <span>All Finished</span>
+              </motion.button>
             </div>
           )}
         </div>
@@ -480,7 +548,7 @@ export function Dashboard({
             <div>
               <div className="flex items-center justify-between mb-2">
                 <h3 className="flex items-center gap-1.5 font-display text-sm font-semibold text-ink dark:text-paper">
-                  <BookA size={15} className="text-brass-500" /> Word Library
+                  <Sparkles size={14} className="text-brass-500" /> Word Library
                 </h3>
                 <span className="rounded-full bg-brass-50 px-2 py-0.5 text-[10px] font-bold text-brass-700 dark:bg-brass-500/15 dark:text-brass-300">
                   {savedWordsCount} saved
@@ -527,12 +595,17 @@ export function Dashboard({
             <div className="mt-3 pt-2 border-t border-ink/5 dark:border-paper/5 flex items-center justify-between text-xs">
               <span className="text-ink-muted dark:text-paper/60 font-medium">Vocabulary Collection</span>
               {onSelectView && (
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  type="button"
                   onClick={() => onSelectView('word-library')}
-                  className="font-semibold text-brass-600 hover:underline dark:text-brass-400 flex items-center gap-1"
+                  title="Open Word Library"
+                  className="group flex items-center gap-1.5 font-semibold text-brass-600 hover:text-brass-700 dark:text-brass-400 dark:hover:text-brass-300 transition-colors"
                 >
-                  Open <ArrowRight size={11} />
-                </button>
+                  <BookA size={13} className="transition-transform duration-200 group-hover:scale-110 group-hover:rotate-6" />
+                  <span>Open Library</span>
+                </motion.button>
               )}
             </div>
           </div>
@@ -544,17 +617,32 @@ export function Dashboard({
                 <h3 className="flex items-center gap-1.5 font-display text-sm font-semibold text-ink dark:text-paper">
                   <Target size={15} className="text-forest-500" /> Daily Target
                 </h3>
-                {dailyGoal === null && (
-                  <button
-                    onClick={() => {
-                      setEditingDailyGoal((v) => !v);
-                      setDailyGoalInput('');
-                    }}
-                    className="text-xs font-medium text-forest-600 hover:underline dark:text-forest-300"
-                  >
-                    {editingDailyGoal ? 'Close' : 'Set Goal'}
-                  </button>
-                )}
+                <div className="flex items-center gap-1.5">
+                  {onSelectView && (
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      type="button"
+                      onClick={() => onSelectView('daily-goals')}
+                      title="View Daily Goals History"
+                      aria-label="View Daily Goals History"
+                      className="rounded-md p-1 text-ink-muted hover:text-forest-600 hover:bg-forest-50 dark:text-paper/60 dark:hover:text-forest-400 dark:hover:bg-forest-500/10 transition-colors"
+                    >
+                      <History size={13} />
+                    </motion.button>
+                  )}
+                  {dailyGoal === null && (
+                    <button
+                      onClick={() => {
+                        setEditingDailyGoal((v) => !v);
+                        setDailyGoalInput('');
+                      }}
+                      className="text-xs font-medium text-forest-600 hover:underline dark:text-forest-300"
+                    >
+                      {editingDailyGoal ? 'Close' : 'Set Goal'}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {editingDailyGoal ? (
@@ -634,12 +722,17 @@ export function Dashboard({
             <div className="mt-3 pt-2 border-t border-ink/5 dark:border-paper/5 flex items-center justify-between text-xs">
               <span className="text-ink-muted dark:text-paper/60 font-medium">{dailyGoalPct}% done</span>
               {onSelectView && (
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  type="button"
                   onClick={() => onSelectView('daily-goals')}
-                  className="font-semibold text-forest-600 hover:underline dark:text-forest-400"
+                  title="View Daily Goals History"
+                  className="group flex items-center gap-1.5 font-semibold text-forest-600 hover:text-forest-700 dark:text-forest-400 dark:hover:text-forest-300 transition-colors"
                 >
-                  History →
-                </button>
+                  <History size={13} className="transition-transform duration-300 group-hover:-rotate-45" />
+                  <span>History</span>
+                </motion.button>
               )}
             </div>
           </div>
@@ -652,7 +745,7 @@ export function Dashboard({
             <div>
               <div className="flex items-center justify-between mb-2">
                 <h3 className="flex items-center gap-1.5 font-display text-sm font-semibold text-ink dark:text-paper">
-                  <ScrollText size={15} className="text-brass-500" /> Poetry Corner
+                  <Feather size={15} className="text-brass-500" /> Poetry Corner
                 </h3>
                 {/* Pure Icon + Number Badges (No Text Labels) */}
                 <div className="flex items-center gap-1.5">
@@ -717,12 +810,17 @@ export function Dashboard({
             <div className="mt-3 pt-2 border-t border-ink/5 dark:border-paper/5 flex items-center justify-between text-xs">
               <span className="text-ink-muted dark:text-paper/60 font-medium">Poetry Collection</span>
               {onSelectView && (
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  type="button"
                   onClick={() => onSelectView('poems')}
-                  className="font-semibold text-brass-600 hover:underline dark:text-brass-400 flex items-center gap-1"
+                  title="Explore Poetry Collection"
+                  className="group flex items-center gap-1.5 font-semibold text-brass-600 hover:text-brass-700 dark:text-brass-400 dark:hover:text-brass-300 transition-colors"
                 >
-                  Explore <ArrowRight size={11} />
-                </button>
+                  <ScrollText size={13} className="transition-transform duration-200 group-hover:scale-110 group-hover:rotate-6" />
+                  <span>Explore</span>
+                </motion.button>
               )}
             </div>
           </div>
@@ -732,17 +830,32 @@ export function Dashboard({
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="flex items-center gap-1.5 font-display text-sm font-semibold text-ink dark:text-paper">
-                  <Target size={15} className="text-brass-500" /> {currentYear} Goal
+                  <Trophy size={15} className="text-brass-500" /> {currentYear} Goal
                 </h3>
-                <button
-                  onClick={() => {
-                    setEditingGoal((v) => !v);
-                    setGoalInput(goal ? String(goal) : '');
-                  }}
-                  className="text-xs font-medium text-brass-600 hover:underline dark:text-brass-300"
-                >
-                  {editingGoal ? 'Close' : 'Edit'}
-                </button>
+                <div className="flex items-center gap-1.5">
+                  {onSelectView && (
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      type="button"
+                      onClick={() => onSelectView('yearly-goals')}
+                      title="View Yearly Goals History"
+                      aria-label="View Yearly Goals History"
+                      className="rounded-md p-1 text-ink-muted hover:text-brass-600 hover:bg-brass-50 dark:text-paper/60 dark:hover:text-brass-400 dark:hover:bg-brass-500/10 transition-colors"
+                    >
+                      <History size={13} />
+                    </motion.button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setEditingGoal((v) => !v);
+                      setGoalInput(goal ? String(goal) : '');
+                    }}
+                    className="text-xs font-medium text-brass-600 hover:underline dark:text-brass-300"
+                  >
+                    {editingGoal ? 'Close' : 'Edit'}
+                  </button>
+                </div>
               </div>
 
               {editingGoal ? (
@@ -792,12 +905,17 @@ export function Dashboard({
             <div className="mt-3 pt-2 border-t border-ink/5 dark:border-paper/5 flex items-center justify-between text-xs">
               <span className="text-ink-muted dark:text-paper/60 font-medium">{goalPct}% done</span>
               {onSelectView && (
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  type="button"
                   onClick={() => onSelectView('yearly-goals')}
-                  className="font-semibold text-brass-600 hover:underline dark:text-brass-400"
+                  title="View Yearly Goals History"
+                  className="group flex items-center gap-1.5 font-semibold text-brass-600 hover:text-brass-700 dark:text-brass-400 dark:hover:text-brass-300 transition-colors"
                 >
-                  History →
-                </button>
+                  <History size={13} className="transition-transform duration-300 group-hover:-rotate-45" />
+                  <span>History</span>
+                </motion.button>
               )}
             </div>
           </div>
@@ -865,7 +983,9 @@ function ActivityList({
     <ul className="space-y-2.5">
       {books.map((b) => (
         <li key={b.id}>
-          <button
+          <motion.button
+            whileHover={{ x: 2 }}
+            whileTap={{ scale: 0.99 }}
             onClick={() => onOpen(b)}
             className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-ink/5 dark:hover:bg-paper/5"
           >
@@ -881,7 +1001,7 @@ function ActivityList({
                 <StatusBadge status={b.status} />
               </div>
             </div>
-          </button>
+          </motion.button>
         </li>
       ))}
     </ul>
