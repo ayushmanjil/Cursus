@@ -371,6 +371,13 @@ function App() {
   const [addOpen, setAddOpenState] = useState<boolean>(initialNavState.addOpen);
   const [selectedBookId, setSelectedBookIdState] = useState<string | null>(initialNavState.selectedBookId);
   const [ratingPromptBookId, setRatingPromptBookId] = useState<string | null>(null);
+  const [wordLibraryTab, setWordLibraryTab] = useState<'search' | 'wotd' | 'library'>(() => {
+    const nav = getNavigationStateFromUrl();
+    if (nav.tab === 'wotd' || nav.tab === 'library' || nav.tab === 'search') {
+      return nav.tab;
+    }
+    return 'search';
+  });
 
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortState>({ field: 'title', order: 'asc' });
@@ -411,11 +418,14 @@ function App() {
 
   // Navigate to new view using History API pushState
   const setView = useCallback(
-    (nextView: ViewKey) => {
+    (nextView: ViewKey, tab?: string | null) => {
+      if (nextView === 'word-library' && (tab === 'wotd' || tab === 'library' || tab === 'search')) {
+        setWordLibraryTab(tab);
+      }
       setViewState((prevView) => {
-        if (prevView === nextView && !selectedBookId && !addOpen) return prevView;
-        const nextUrl = buildUrl(nextView, null, false);
-        const nextState = { view: nextView, selectedBookId: null, addOpen: false };
+        if (prevView === nextView && !selectedBookId && !addOpen && !tab) return prevView;
+        const nextUrl = buildUrl(nextView, null, false, tab || null);
+        const nextState = { view: nextView, selectedBookId: null, addOpen: false, tab: tab || null };
         window.history.pushState(nextState, '', nextUrl);
         setSelectedBookIdState(null);
         setAddOpenState(false);
@@ -496,6 +506,7 @@ function App() {
           view: event.state.view as ViewKey,
           selectedBookId: event.state.selectedBookId || null,
           addOpen: !!event.state.addOpen,
+          tab: event.state.tab || null,
         };
       } else {
         navState = getNavigationStateFromUrl();
@@ -504,6 +515,9 @@ function App() {
       setViewState(navState.view);
       setSelectedBookIdState(navState.selectedBookId);
       setAddOpenState(navState.addOpen);
+      if (navState.tab === 'wotd' || navState.tab === 'library' || navState.tab === 'search') {
+        setWordLibraryTab(navState.tab);
+      }
       setMobileMenuOpen(false);
     };
 
@@ -843,6 +857,8 @@ function App() {
               isWordSaved={isWordSaved}
               addUserExample={addUserExample}
               removeUserExample={removeUserExample}
+              initialTab={wordLibraryTab}
+              onTabChange={setWordLibraryTab}
             />
           )}
 

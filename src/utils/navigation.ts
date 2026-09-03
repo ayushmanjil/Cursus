@@ -41,6 +41,7 @@ export interface NavigationState {
   view: ViewKey;
   selectedBookId: string | null;
   addOpen: boolean;
+  tab?: string | null;
 }
 
 export function getNavigationStateFromUrl(): NavigationState {
@@ -50,14 +51,16 @@ export function getNavigationStateFromUrl(): NavigationState {
   const searchParams = new URLSearchParams(window.location.search);
   const selectedBookId = searchParams.get('book') || null;
   const addOpen = searchParams.get('action') === 'add-book';
+  const tab = searchParams.get('tab') || null;
 
-  return { view, selectedBookId, addOpen };
+  return { view, selectedBookId, addOpen, tab };
 }
 
 export function buildUrl(
   view: ViewKey,
   selectedBookId: string | null = null,
-  addOpen: boolean = false
+  addOpen: boolean = false,
+  tab: string | null = null
 ): string {
   const basePath = VIEW_TO_PATH[view] || '/';
   const params = new URLSearchParams();
@@ -65,6 +68,9 @@ export function buildUrl(
     params.set('book', selectedBookId);
   } else if (addOpen) {
     params.set('action', 'add-book');
+  }
+  if (tab) {
+    params.set('tab', tab);
   }
   const queryString = params.toString();
   return queryString ? `${basePath}?${queryString}` : basePath;

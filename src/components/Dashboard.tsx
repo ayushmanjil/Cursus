@@ -33,11 +33,12 @@ import { StatusBadge } from './ui/Badge';
 import { PoemDetailModal } from './PoemsPage';
 import { WordDetailModal } from './WordDetailModal';
 import { UpdateProgressModal } from './UpdateProgressModal';
+import { getWordOfTheDaySync } from '../services/wordOfTheDayService';
 
 interface DashboardProps {
   books: Book[];
   onOpen: (book: Book) => void;
-  onSelectView?: (view: ViewKey) => void;
+  onSelectView?: (view: ViewKey, tab?: string) => void;
   onUpdateBook?: (id: string, updates: Partial<Book>) => void;
   streakLog?: Record<string, { read: boolean; pages?: number; hours?: number }>;
   dailyGoal: number | null;
@@ -178,6 +179,9 @@ export function Dashboard({
   const recentSavedWords = useMemo(() => {
     return [...savedWords].slice(-2).reverse();
   }, [savedWords]);
+
+  // Today's Word of the Day (Curated & Offline)
+  const todayWotd = useMemo(() => getWordOfTheDaySync(), []);
 
   const stats = [
     { label: 'Total Books', value: total, icon: Library, tone: 'ink' as const, viewKey: 'on-shelf' as ViewKey },
@@ -555,23 +559,57 @@ export function Dashboard({
                 </span>
               </div>
 
+              {/* Featured Today's Word of the Day Card */}
+              <div
+                onClick={() => {
+                  if (onSelectView) onSelectView('word-library', 'wotd');
+                }}
+                className="group relative cursor-pointer rounded-lg border border-brass-500/20 bg-brass-50/50 p-2.5 transition-all hover:border-brass-500/40 hover:bg-brass-50/80 dark:border-brass-500/15 dark:bg-brass-500/5 dark:hover:bg-brass-500/10 mb-2"
+                title="View Word of the Day in Word Library"
+              >
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <div className="flex items-center gap-1 text-[10px] font-bold tracking-wider uppercase text-brass-700 dark:text-brass-300">
+                    <Sparkles size={10} className="text-brass-600 dark:text-brass-400" />
+                    <span>Word of the Day</span>
+                  </div>
+                  {todayWotd.category && (
+                    <span className="text-[9px] font-medium text-ink-muted dark:text-paper/50 italic truncate max-w-[110px]">
+                      {todayWotd.category}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-display text-xs font-bold text-ink dark:text-paper group-hover:text-brass-600 dark:group-hover:text-brass-400 transition-colors">
+                    {todayWotd.word}
+                  </span>
+                  {todayWotd.phonetic && (
+                    <span className="font-mono text-[9px] text-brass-600 dark:text-brass-400 shrink-0">
+                      {todayWotd.phonetic}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-ink-muted dark:text-paper/70 line-clamp-1 mt-0.5 leading-snug">
+                  {todayWotd.definition}
+                </p>
+              </div>
+
               {recentSavedWords.length > 0 ? (
-                <div className="space-y-1.5 mt-1">
-                  {recentSavedWords.map((item, idx) => {
+                <div className="space-y-1">
+                  {recentSavedWords.slice(0, 1).map((item, idx) => {
                     const details = getWordDetails(item);
                     return (
                       <button
                         type="button"
                         key={item.id || idx}
                         onClick={() => setSelectedWordForModal(item)}
-                        className="w-full text-left rounded-lg bg-paper-soft/70 p-2 dark:bg-bgdark-soft/70 border border-ink/5 dark:border-paper/5 flex items-center justify-between gap-2 hover:border-brass-500/30 hover:bg-paper-soft transition-all cursor-pointer group"
+                        className="w-full text-left rounded-lg bg-paper-soft/70 px-2 py-1.5 dark:bg-bgdark-soft/70 border border-ink/5 dark:border-paper/5 flex items-center justify-between gap-2 hover:border-brass-500/30 hover:bg-paper-soft transition-all cursor-pointer group"
                       >
                         <div className="min-w-0 flex-1">
-                          <span className="font-display text-xs font-bold text-ink dark:text-paper group-hover:text-brass-600 dark:group-hover:text-brass-400 transition-colors truncate block">
+                          <span className="font-display text-xs font-semibold text-ink dark:text-paper group-hover:text-brass-600 dark:group-hover:text-brass-400 transition-colors truncate block">
                             {details.word}
                           </span>
                           {details.definition && (
-                            <span className="text-[10px] text-ink-muted dark:text-paper/60 line-clamp-1 block">
+                            <span className="text-[9px] text-ink-muted dark:text-paper/60 line-clamp-1 block">
                               {details.definition}
                             </span>
                           )}
@@ -586,7 +624,7 @@ export function Dashboard({
                   })}
                 </div>
               ) : (
-                <p className="text-xs text-ink-muted dark:text-paper/50 mt-1 leading-relaxed">
+                <p className="text-[11px] text-ink-muted dark:text-paper/50 mt-1 leading-relaxed">
                   Save new words and definitions while reading.
                 </p>
               )}
@@ -599,7 +637,7 @@ export function Dashboard({
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                   type="button"
-                  onClick={() => onSelectView('word-library')}
+                  onClick={() => onSelectView('word-library', 'library')}
                   title="Open Word Library"
                   className="group flex items-center gap-1.5 font-semibold text-brass-600 hover:text-brass-700 dark:text-brass-400 dark:hover:text-brass-300 transition-colors"
                 >

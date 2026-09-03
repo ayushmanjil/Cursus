@@ -10,10 +10,12 @@ import {
   Volume2,
   BookOpenText,
   Library,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { EmptyState } from './ui/EmptyState';
 import { WordDetailModal } from './WordDetailModal';
+import { WordOfTheDayView } from './WordOfTheDayView';
 import BookLoader from './ui/BookLoader';
 import type { DictionaryEntry, SavedWord } from '../types/dictionary';
 import { classNames } from '../utils/helpers';
@@ -27,9 +29,11 @@ interface WordLibraryPageProps {
   isWordSaved: (word: string) => boolean;
   addUserExample?: (wordId: string, sentence: string) => Promise<void>;
   removeUserExample?: (wordId: string, index: number) => Promise<void>;
+  initialTab?: Tab;
+  onTabChange?: (tab: Tab) => void;
 }
 
-type Tab = 'search' | 'library';
+type Tab = 'search' | 'wotd' | 'library';
 
 // ─── Search Result Card ──────────────────────────────────────────
 function SearchResultCard({
@@ -312,8 +316,31 @@ export function WordLibraryPage({
   isWordSaved,
   addUserExample,
   removeUserExample,
+  initialTab = 'search',
+  onTabChange,
 }: WordLibraryPageProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('search');
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabFromUrl = urlParams.get('tab') as Tab | null;
+    if (tabFromUrl && ['search', 'wotd', 'library'].includes(tabFromUrl)) {
+      return tabFromUrl;
+    }
+    return initialTab;
+  });
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  const handleTabChange = (key: Tab) => {
+    setActiveTab(key);
+    onTabChange?.(key);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', key);
+    window.history.replaceState(window.history.state, '', url.toString());
+  };
 
   // Search state
   const [query, setQuery] = useState('');
@@ -505,6 +532,7 @@ export function WordLibraryPage({
 
   const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
     { key: 'search', label: 'Search', icon: Search },
+    { key: 'wotd',    label: 'Word of the Day', icon: Sparkles },
     { key: 'library', label: `My Library (${savedWords.length})`, icon: Library },
   ];
 
@@ -520,7 +548,7 @@ export function WordLibraryPage({
               key={tab.key}
               role="tab"
               aria-selected={isActive}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => handleTabChange(tab.key)}
               className={classNames(
                 'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all duration-200',
                 isActive
@@ -534,6 +562,14 @@ export function WordLibraryPage({
           );
         })}
       </div>
+
+      {/* Word of the Day Tab */}
+      {activeTab === 'wotd' && (
+        <WordOfTheDayView
+          isWordSaved={isWordSaved}
+          addWord={addWord}
+        />
+      )}
 
       {/* Search Tab */}
       {activeTab === 'search' && (
