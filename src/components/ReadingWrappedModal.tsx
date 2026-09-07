@@ -74,8 +74,25 @@ export function ReadingWrappedModal({
       readBooks[0] ||
       null;
 
-    return { readBooks, totalBooks, totalPages, topGenre, topRated };
-  }, [books, selectedYear]);
+    // Compute top month by pages read in streak log for the selected year
+    const MONTH_NAMES = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    const monthPageTotals: Record<number, number> = {};
+    Object.entries(streakLog).forEach(([dateStr, dayData]) => {
+      if (!dateStr.startsWith(`${selectedYear}-`)) return;
+      const monthNum = parseInt(dateStr.slice(5, 7), 10) - 1; // 0-indexed
+      if (!isNaN(monthNum) && dayData.pages && dayData.pages > 0) {
+        monthPageTotals[monthNum] = (monthPageTotals[monthNum] || 0) + dayData.pages;
+      }
+    });
+    const topMonthEntry = Object.entries(monthPageTotals)
+      .sort((a, b) => b[1] - a[1])[0];
+    const topMonth = topMonthEntry ? MONTH_NAMES[Number(topMonthEntry[0])] : null;
+
+    return { readBooks, totalBooks, totalPages, topGenre, topRated, topMonth };
+  }, [books, selectedYear, streakLog]);
 
   const { highestStreak } = useMemo(() => calculateStreaks(streakLog), [streakLog]);
 
@@ -267,7 +284,7 @@ export function ReadingWrappedModal({
                         </p>
                       </div>
 
-                      {/* Top Genre (Gold Solid Highlight) */}
+                      {/* Top Month (highest pages from streak log) */}
                       <div
                         className="py-2.5 px-2 text-center flex flex-col items-center justify-center"
                         style={{
@@ -281,12 +298,12 @@ export function ReadingWrappedModal({
                         </div>
                         <p
                           className="font-display text-[13px] font-bold text-[#211C17] leading-tight truncate max-w-full px-0.5"
-                          title={yearData.topGenre}
+                          title={yearData.topMonth ?? 'Top Month'}
                         >
-                          {yearData.topGenre}
+                          {yearData.topMonth ?? '—'}
                         </p>
                         <p className="text-[8px] font-mono tracking-wider uppercase font-bold text-[#4A381C] mt-0.5">
-                          Top Genre
+                          Top Month
                         </p>
                       </div>
                     </div>

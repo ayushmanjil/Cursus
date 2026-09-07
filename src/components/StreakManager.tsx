@@ -282,6 +282,24 @@ export function StreakManager({ log, onUpdateLog }: StreakManagerProps) {
               );
             })}
           </div>
+
+          {/* Pages read this month — summary pill below the grid */}
+          {(() => {
+            const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+            const pagesThisMonth = Object.keys(log)
+              .filter((d) => d.startsWith(monthKey))
+              .reduce((sum, d) => sum + (log[d]?.pages || 0), 0);
+            return (
+              <div className="mt-3 flex items-center justify-between rounded-lg bg-forest-500/10 border border-forest-500/20 px-3.5 py-2">
+                <span className="text-xs font-semibold text-ink-muted dark:text-paper/60">
+                  Pages read in {MONTHS[month]}
+                </span>
+                <span className="text-sm font-bold text-forest-600 dark:text-forest-400 tabular-nums">
+                  {pagesThisMonth} {pagesThisMonth === 1 ? 'page' : 'pages'}
+                </span>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Right Side Column */}

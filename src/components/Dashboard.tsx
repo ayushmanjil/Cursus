@@ -60,6 +60,7 @@ interface DashboardProps {
   onRemoveWord?: (wordId: string) => void;
   onAddWordExample?: (wordId: string, sentence: string) => void;
   onRemoveWordExample?: (wordId: string, index: number) => void;
+  onUpdateStreakLog?: (newLog: Record<string, { read: boolean; pages?: number }>) => void;
 }
 
 function getWordDetails(w: any) {
@@ -98,6 +99,7 @@ export function Dashboard({
   onAddWordExample,
   onRemoveWordExample,
   onUpdateBook,
+  onUpdateStreakLog,
 }: DashboardProps) {
   const total = books.length;
   const onShelf = books.filter((b) => b.status === 'on-shelf').length;
@@ -993,6 +995,8 @@ export function Dashboard({
         onUpdate={(id, updates) => {
           onUpdateBook?.(id, updates);
         }}
+        streakLog={streakLog}
+        onUpdateStreakLog={onUpdateStreakLog}
       />
     </div>
   );

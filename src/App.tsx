@@ -799,6 +799,7 @@ function App() {
                 onAddWordExample={addUserExample}
                 onRemoveWordExample={removeUserExample}
                 onUpdateBook={updateBook}
+                onUpdateStreakLog={setStreakLog}
               />
             );
           })()}

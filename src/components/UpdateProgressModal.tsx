@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
-import { BookOpen, CheckCircle2, Plus } from 'lucide-react';
+import { BookOpen, CheckCircle2, Plus, Flame } from 'lucide-react';
 import type { Book } from '../types/book';
+import type { StreakLog } from './StreakManager';
+import { getLocalDateString } from '../utils/helpers';
 
 interface UpdateProgressModalProps {
   open: boolean;
   book: Book | null;
   onClose: () => void;
   onUpdate: (bookId: string, updates: Partial<Book>) => void;
+  streakLog?: StreakLog;
+  onUpdateStreakLog?: (newLog: StreakLog) => void;
 }
 
 export function UpdateProgressModal({
@@ -16,9 +20,12 @@ export function UpdateProgressModal({
   book,
   onClose,
   onUpdate,
+  streakLog,
+  onUpdateStreakLog,
 }: UpdateProgressModalProps) {
   const [currentPage, setCurrentPage] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
+  const [addToStreak, setAddToStreak] = useState(true);
 
   useEffect(() => {
     if (book) {
@@ -26,6 +33,10 @@ export function UpdateProgressModal({
       setTotalPages(book.totalPages ?? 0);
     }
   }, [book]);
+
+  // Compute page diff for streak logging
+  const previousPage = book?.currentPage ?? 0;
+  const pagesAdded = Math.max(0, currentPage - previousPage);
 
   if (!book) return null;
 
@@ -70,8 +81,25 @@ export function UpdateProgressModal({
     }
 
     onUpdate(book.id, updates);
+
+    // Add pages to today's reading streak log if opted in
+    if (addToStreak && pagesAdded > 0 && onUpdateStreakLog && streakLog !== undefined) {
+      const todayStr = getLocalDateString(new Date());
+      const existingEntry = streakLog[todayStr] || { read: false, pages: 0 };
+      const updatedLog: StreakLog = {
+        ...streakLog,
+        [todayStr]: {
+          read: true,
+          pages: (existingEntry.pages || 0) + pagesAdded,
+        },
+      };
+      onUpdateStreakLog(updatedLog);
+    }
+
     onClose();
   };
+
+  const canAddToStreak = !!onUpdateStreakLog && pagesAdded > 0;
 
   return (
     <Modal open={open} onClose={onClose} title="Update Progress">
@@ -179,6 +207,23 @@ export function UpdateProgressModal({
             )}
           </div>
         </div>
+
+        {/* Reading Streak Checkbox — minimal inline row */}
+        {canAddToStreak && (
+          <label className="flex cursor-pointer items-center gap-2.5 select-none">
+            <input
+              type="checkbox"
+              id="addToStreak"
+              checked={addToStreak}
+              onChange={(e) => setAddToStreak(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-ink/25 accent-brass-500 focus:ring-0 focus:ring-offset-0 shrink-0"
+            />
+            <span className="flex items-center gap-1.5 text-xs text-ink-muted dark:text-paper/55">
+              <Flame size={12} className="text-brass-500 shrink-0" />
+              Add <span className="font-semibold text-ink dark:text-paper">{pagesAdded} pages</span> to today's reading streak
+            </span>
+          </label>
+        )}
 
         {/* Footer Actions */}
         <div className="flex items-center justify-end gap-3 pt-2">
