@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, forwardRef, memo, createContext, useContext } from 'react';
+import { useEffect, useRef, useState, useCallback, forwardRef, createContext, useContext } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import HTMLFlipBook from 'react-pageflip';
 import {
@@ -117,6 +117,7 @@ export interface ReaderTheme {
   textMuted: string;
   textFaint: string;
   shadow: string;
+  deskVignette: string;
   isDark: boolean;
 }
 
@@ -141,6 +142,7 @@ const THEMES: Record<ReaderThemeMode, ReaderTheme> = {
     textMuted:   '#9C9384',
     textFaint:   '#4A4238',
     shadow:      '0 24px 48px rgba(0,0,0,0.75), 0 6px 16px rgba(0,0,0,0.45)',
+    deskVignette: 'radial-gradient(ellipse at 50% 50%, rgba(184,134,63,0.06) 0%, transparent 75%)',
     isDark:      true,
   },
   light: {
@@ -163,6 +165,7 @@ const THEMES: Record<ReaderThemeMode, ReaderTheme> = {
     textMuted:   '#6B6459',
     textFaint:   '#9C9384',
     shadow:      '0 20px 40px rgba(70,55,40,0.16), 0 4px 12px rgba(70,55,40,0.08)',
+    deskVignette: 'radial-gradient(ellipse at 50% 50%, rgba(184,134,63,0.08) 0%, transparent 75%)',
     isDark:      false,
   },
 };
@@ -355,7 +358,7 @@ async function renderToDataUrl(
   const canvas   = document.createElement('canvas');
   canvas.width   = viewport.width;
   canvas.height  = viewport.height;
-  await page.render({ canvasContext: canvas.getContext('2d')!, viewport }).promise;
+  await page.render({ canvasContext: canvas.getContext('2d')!, viewport, canvas }).promise;
   const dataUrl = canvas.toDataURL('image/jpeg', 0.84);
   pageDataUrlCache.set(cacheKey, dataUrl);
   return dataUrl;
@@ -1588,6 +1591,7 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
                 onInit={() => setFlipReady(true)}
                 className="" clickEventForward={true} useMouseEvents={true}
                 swipeDistance={30} showPageCorners={true}
+                disableFlipByClick={false}
               >
                 {pages.map((ps, i) => (
                   <PdfPage key={i} pageState={ps} pageNum={i + 1} />
@@ -1850,18 +1854,6 @@ function QuillInInkwellDoodle({ size = 52 }: { size?: number }) {
   );
 }
 
-function HardcoverBookDoodle({ size = 48 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 10h34a4 4 0 0 1 4 4v38a4 4 0 0 1-4 4H14a4 4 0 0 1-4-4V14a4 4 0 0 1 4-4z" />
-      <path d="M18 10v46" />
-      <path d="M10 18h8M10 26h8M10 40h8M10 48h8" />
-      <rect x="24" y="18" width="20" height="28" rx="2" strokeDasharray="3 2" />
-      <path d="M30 32h8M34 28v8" />
-    </svg>
-  );
-}
-
 function GlassesOnBookDoodle({ size = 52 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -1892,19 +1884,6 @@ function LibraryShelfRowDoodle({ size = 56 }: { size?: number }) {
   );
 }
 
-function DoubleQuillDoodle({ size = 46 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M50 10C40 16 26 30 14 50" />
-      <path d="M50 10c-3 8-12 18-24 22M46 16c-3 6-9 12-18 16" />
-      <path d="M14 10C24 16 38 30 50 50" />
-      <path d="M14 10c3 8 12 18 24 22M18 16c3 6 9 12 18 16" />
-      <circle cx="13" cy="52" r="1.2" fill="currentColor" />
-      <circle cx="51" cy="52" r="1.2" fill="currentColor" />
-    </svg>
-  );
-}
-
 function NotebookWithPencilDoodle({ size = 50 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -1914,78 +1893,6 @@ function NotebookWithPencilDoodle({ size = 50 }: { size?: number }) {
       <path d="M48 10l6 6-18 36-6-2 18-40z" />
       <path d="M30 50l-4 8 8-4-4-4z" />
       <path d="M27 57l3-3" strokeWidth="1.2" fill="currentColor" />
-    </svg>
-  );
-}
-
-function TrioStackBooksDoodle({ size = 50 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M8 44h48v11H8z" />
-      <path d="M14 44v11M48 49.5H24" />
-      <path d="M11 32h44v11H11z" />
-      <path d="M17 32v11M46 37.5H25" />
-      <path d="M9 20h45v11H9z" />
-      <path d="M15 20v11M45 25.5H23" />
-      <path d="M34 20v24l-3-2-3 2V20" />
-    </svg>
-  );
-}
-
-function CalligraphyNibDoodle({ size = 30 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 4l7 14c-1 3-2 8-3 12h-8c-1-4-2-9-3-12l7-14z" />
-      <path d="M18 4v16" strokeWidth="1.4" />
-      <circle cx="18" cy="17" r="1.5" fill="currentColor" />
-      <path d="M14 24h8" />
-    </svg>
-  );
-}
-
-function BookmarkRibbonDoodle({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M8 4h16v24l-8-5-8 5V4z" />
-      <path d="M12 10h8M12 15h8M16 4v4" />
-    </svg>
-  );
-}
-
-function SingleMiniBookDoodle({ size = 26 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="6" y="5" width="20" height="22" rx="2" />
-      <path d="M10 5v22M15 12h6M15 16h4" />
-    </svg>
-  );
-}
-
-function BookCornerBracketDoodle({ size = 24 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 26V6h20" />
-      <path d="M6 18c6-1 12 5 12 12M6 12c10-2 18 6 18 18" strokeWidth="1.4" />
-      <circle cx="10" cy="10" r="1.5" fill="currentColor" />
-    </svg>
-  );
-}
-
-function InkDropFlourishDoodle({ size = 24 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-      <path d="M16 6c3 4 5 7 5 10a5 5 0 1 1-10 0c0-3 2-6 5-10z" fill="currentColor" fillOpacity="0.2" />
-      <path d="M6 26c4-2 9-1 12 2s7 1 10-1" />
-    </svg>
-  );
-}
-
-function ParchmentScrollDoodle({ size = 44 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M15 18c0-3 3-5 6-5h24c3 0 6 2 6 5s-3 5-6 5H21c-3 0-6-2-6-5z" />
-      <path d="M15 18v27c0 3 3 5 6 5h23M45 23v22c0 3 3 5 6 5s6-2 6-5V20" />
-      <path d="M22 27h16M22 33h14M22 39h10" />
     </svg>
   );
 }
@@ -2063,7 +1970,7 @@ function ReaderDoodles() {
 
 // ── Utility screens ───────────────────────────────────────────────────────────
 function Shell({ children }: { children: React.ReactNode }) {
-  const { T, themeMode } = useReaderThemeContext();
+  const { T } = useReaderThemeContext();
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 100,
