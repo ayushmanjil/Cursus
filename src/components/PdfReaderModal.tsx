@@ -287,11 +287,23 @@ async function fetchPdfBytes(rawUrl: string): Promise<Uint8Array> {
 
   const candidates = getCandidateUrls(directUrl);
 
-  // 1. Check in-memory cache
-  for (const c of candidates) {
+  // 1. Check in-memory cache and ensure buffer is not detached
+  const allCacheKeys = [rawUrl, directUrl, ...candidates];
+  for (const c of allCacheKeys) {
     const cached = pdfDataCache.get(c);
-    if (cached) return cached;
+    if (cached) {
+      if (cached.byteLength > 0 && !(cached.buffer as any).detached) {
+        return cached.slice();
+      }
+      pdfDataCache.delete(c);
+    }
   }
+
+  const setCache = (bytes: Uint8Array) => {
+    for (const k of allCacheKeys) {
+      pdfDataCache.set(k, bytes);
+    }
+  };
 
   // 2. Direct high-speed download (typically < 750ms for raw GitHub)
   for (const c of candidates) {
@@ -303,8 +315,8 @@ async function fetchPdfBytes(rawUrl: string): Promise<Uint8Array> {
       if (resp.ok) {
         const buf = await resp.arrayBuffer();
         const bytes = new Uint8Array(buf);
-        pdfDataCache.set(c, bytes);
-        return bytes;
+        setCache(bytes);
+        return bytes.slice();
       }
     } catch {
       // Continue to next candidate
@@ -326,8 +338,8 @@ async function fetchPdfBytes(rawUrl: string): Promise<Uint8Array> {
         if (resp.ok) {
           const buf = await resp.arrayBuffer();
           const bytes = new Uint8Array(buf);
-          pdfDataCache.set(c, bytes);
-          return bytes;
+          setCache(bytes);
+          return bytes.slice();
         }
       } catch {
         // Try next proxy
@@ -341,7 +353,11 @@ async function fetchPdfBytes(rawUrl: string): Promise<Uint8Array> {
 // ── PDF loading ───────────────────────────────────────────────────────────────
 async function loadPdfDocument(url: string): Promise<pdfjsLib.PDFDocumentProxy> {
   const data = await fetchPdfBytes(url);
-  return await pdfjsLib.getDocument({ data }).promise;
+  // CRITICAL: PDF.js transfers the underlying ArrayBuffer to its Web Worker via postMessage(..., [buffer]).
+  // Transferring detaches the buffer (byteLength becomes 0).
+  // Slicing provides an independent ArrayBuffer copy for the worker, leaving the cached
+  // bytes intact so subsequent renders, re-mounts, and reloads succeed seamlessly.
+  return await pdfjsLib.getDocument({ data: data.slice() }).promise;
 }
 
 async function renderToDataUrl(
