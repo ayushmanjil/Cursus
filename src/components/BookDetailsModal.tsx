@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Heart, BookOpen, CheckCircle2, BookMarked, Trash2, ShoppingBag, Pencil, X, Plus, Quote, Calendar } from 'lucide-react';
+import { Heart, BookOpen, CheckCircle2, BookMarked, Trash2, ShoppingBag, Pencil, X, Plus, Quote, Calendar, FileText } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { StarRating } from './ui/StarRating';
@@ -8,6 +8,7 @@ import { ConfirmDialog } from './ui/ConfirmDialog';
 import type { Book, BookStatus, BookQuote } from '../types/book';
 import { STATUS_LABELS } from '../types/book';
 import { formatDate, classNames, todayIso } from '../utils/helpers';
+import { PdfReaderModal } from './PdfReaderModal';
 
 interface BookDetailsModalProps {
   book: Book | null;
@@ -35,6 +36,7 @@ export function BookDetailsModal({
   const [local, setLocal] = useState<Book | null>(book);
   const [error, setError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [showPdfReader, setShowPdfReader] = useState(false);
 
   // Literary Marginalia states
   const [newQuoteText, setNewQuoteText] = useState('');
@@ -286,6 +288,20 @@ export function BookDetailsModal({
               </div>
             )}
 
+            {/* PDF Link — only shown when editing */}
+            {isEditing && (
+              <div>
+                <FieldLabel>PDF Link</FieldLabel>
+                <input
+                  type="url"
+                  value={local.pdfUrl ?? ''}
+                  onChange={(e) => commitLocal({ pdfUrl: e.target.value })}
+                  placeholder="https://raw.githubusercontent.com/.../book.pdf"
+                  className={inputClass}
+                />
+              </div>
+            )}
+
             {local.status === 'read' && (
               <div>
                 <FieldLabel>Review</FieldLabel>
@@ -449,6 +465,16 @@ export function BookDetailsModal({
                 <CheckCircle2 size={14} /> Mark as Read
               </Button>
             )}
+            {local.pdfUrl && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowPdfReader(true)}
+                className="border-forest-400 text-forest-600 hover:bg-forest-50 dark:border-forest-400/40 dark:text-forest-300 dark:hover:bg-forest-400/10"
+              >
+                <FileText size={14} /> Read PDF
+              </Button>
+            )}
           </div>
 
           {/* Divider */}
@@ -526,6 +552,21 @@ export function BookDetailsModal({
         }}
         onCancel={() => setPendingStatus(null)}
       />
+
+      {/* In-app PDF reader */}
+      {showPdfReader && local?.pdfUrl && (
+        <PdfReaderModal
+          pdfUrl={local.pdfUrl}
+          bookTitle={local.title}
+          bookId={local.id}
+          initialPage={local.currentPage}
+          onSavePage={(pageNum) => {
+            commitLocal({ currentPage: pageNum });
+            onUpdate(local.id, { currentPage: pageNum });
+          }}
+          onClose={() => setShowPdfReader(false)}
+        />
+      )}
     </>
   );
 }

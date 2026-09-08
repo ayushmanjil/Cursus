@@ -724,7 +724,7 @@ function App() {
 
           {/* Demo Mode Pill */}
           {currentUser?.username === 'demo' && (
-            <div className="group relative flex items-center gap-2 rounded-full border-2 border-amber-500/40 bg-amber-500/20 px-4 py-1.5 text-sm font-bold text-amber-900 shadow-md backdrop-blur-md dark:border-amber-500/40 dark:bg-amber-500/25 dark:text-amber-300 transition-all duration-200 hover:scale-105">
+            <div className="group relative hidden sm:flex items-center gap-2 rounded-full border-2 border-amber-500/40 bg-amber-500/20 px-4 py-1.5 text-sm font-bold text-amber-900 shadow-md backdrop-blur-md dark:border-amber-500/40 dark:bg-amber-500/25 dark:text-amber-300 transition-all duration-200 hover:scale-105">
               <span className="h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
               <span>Demo Mode</span>
               <div className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 hidden w-60 rounded-lg border border-ink/10 bg-surface p-3 text-xs font-normal text-center text-ink-muted shadow-xl dark:border-paper/10 dark:bg-surface-dark dark:text-paper/70 group-hover:block transition-all z-50">

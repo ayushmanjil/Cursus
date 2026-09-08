@@ -6,7 +6,7 @@ import { generateId, todayIso } from '../utils/helpers';
 
 export type NewBookInput = Pick<
   Book,
-  'title' | 'author' | 'genre' | 'coverUrl' | 'notes' | 'status' | 'totalPages'
+  'title' | 'author' | 'genre' | 'coverUrl' | 'notes' | 'status' | 'totalPages' | 'pdfUrl'
 >;
 
 export function useBooks(userId: string | undefined) {
@@ -64,6 +64,9 @@ export function useBooks(userId: string | undefined) {
       if (input.status === 'reading') {
         newBook.currentPage = 0;
         newBook.dateStarted = todayIso();
+      }
+      if (input.pdfUrl?.trim()) {
+        newBook.pdfUrl = input.pdfUrl.trim();
       }
 
       await setDoc(doc(db, 'users', userId, 'books', id), newBook);

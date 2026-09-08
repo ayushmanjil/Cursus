@@ -5,12 +5,82 @@ import {
   X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
   BookOpen, Loader2, AlertCircle, ExternalLink,
   PanelLeftClose, PanelLeftOpen, LayoutList,
-  Bookmark, BookmarkCheck, Sun, Moon,
+  Bookmark, BookmarkCheck, Sun, Moon, Palette, Check,
 } from 'lucide-react';
 import BookLoader from './ui/BookLoader';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+
+// ── Paper Tone / Texture Themes ───────────────────────────────────────────────
+export type PaperThemeKey = 'white' | 'yellow' | 'crumbled' | 'night';
+
+export interface PaperThemeConfig {
+  key: PaperThemeKey;
+  label: string;
+  desc: string;
+  pageBg: string;
+  imgFilter: string;
+  blendMode: 'multiply' | 'normal';
+  swatch: string;
+  textColor: string;
+  textureType: 'none' | 'grain' | 'crumbled';
+}
+
+export const PAPER_THEMES: Record<PaperThemeKey, PaperThemeConfig> = {
+  white: {
+    key: 'white',
+    label: 'White',
+    desc: 'Clean & crisp original digital page',
+    pageBg: '#FFFFFF',
+    imgFilter: 'none',
+    blendMode: 'normal',
+    swatch: '#FFFFFF',
+    textColor: '#555555',
+    textureType: 'none',
+  },
+  yellow: {
+    key: 'yellow',
+    label: 'Old Book Yellow',
+    desc: 'Vintage paperback aged pages',
+    pageBg: '#EFE1B8',
+    imgFilter: 'sepia(0.38) contrast(1.05) brightness(0.96)',
+    blendMode: 'multiply',
+    swatch: '#E8D39A',
+    textColor: '#4E3A1D',
+    textureType: 'grain',
+  },
+  crumbled: {
+    key: 'crumbled',
+    label: 'Crumbled & Worn',
+    desc: 'Antique creased & weathered paper',
+    pageBg: '#E4CE9C',
+    imgFilter: 'sepia(0.46) contrast(1.09) brightness(0.95)',
+    blendMode: 'multiply',
+    swatch: '#D6BA80',
+    textColor: '#3F2F16',
+    textureType: 'crumbled',
+  },
+  night: {
+    key: 'night',
+    label: 'Night Slate',
+    desc: 'Inverted dark mode page',
+    pageBg: '#161310',
+    imgFilter: 'invert(0.92) hue-rotate(180deg) brightness(0.94) contrast(0.92)',
+    blendMode: 'normal',
+    swatch: '#24201B',
+    textColor: '#B8A68D',
+    textureType: 'none',
+  },
+};
+
+// Subtle tactile paper grain pattern overlay
+const PAPER_GRAIN_DATA_URI =
+  "data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E";
+
+// Crumbled / crinkled paper texture with physical 3D lighting highlights and shadow creases
+const CRUMBLED_TEXTURE_DATA_URI =
+  "data:image/svg+xml,%3Csvg viewBox='0 0 500 500' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='crinkle'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.024' numOctaves='5' result='noise'/%3E%3CfeDiffuseLighting in='noise' lighting-color='%23ffffff' surfaceScale='3.4' result='light'%3E%3CfeDistantLight azimuth='50' elevation='46'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23crinkle)' fill='%23fff'/%3E%3C/svg%3E";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 export interface PdfReaderModalProps {
@@ -101,10 +171,16 @@ const ReaderThemeContext = createContext<{
   T: ReaderTheme;
   themeMode: ReaderThemeMode;
   toggleTheme: () => void;
+  paperTheme: PaperThemeKey;
+  setPaperTheme: (key: PaperThemeKey) => void;
+  paperConfig: PaperThemeConfig;
 }>({
   T: THEMES.dark,
   themeMode: 'dark',
   toggleTheme: () => {},
+  paperTheme: 'yellow',
+  setPaperTheme: () => {},
+  paperConfig: PAPER_THEMES.yellow,
 });
 
 function ReaderThemeProvider({ children }: { children: React.ReactNode }) {
@@ -118,6 +194,15 @@ function ReaderThemeProvider({ children }: { children: React.ReactNode }) {
     return 'dark';
   });
 
+  const [paperTheme, setPaperThemeState] = useState<PaperThemeKey>(() => {
+    try {
+      const saved = localStorage.getItem('cursus:reader-paper-theme') as any;
+      if (saved && PAPER_THEMES[saved as PaperThemeKey]) return saved as PaperThemeKey;
+      if (saved === 'parchment' || saved === 'cream') return 'yellow';
+    } catch {}
+    return 'yellow';
+  });
+
   const toggleTheme = useCallback(() => {
     setThemeMode(prev => {
       const next = prev === 'dark' ? 'light' : 'dark';
@@ -126,10 +211,16 @@ function ReaderThemeProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const setPaperTheme = useCallback((theme: PaperThemeKey) => {
+    setPaperThemeState(theme);
+    try { localStorage.setItem('cursus:reader-paper-theme', theme); } catch {}
+  }, []);
+
   const T = THEMES[themeMode];
+  const paperConfig = PAPER_THEMES[paperTheme];
 
   return (
-    <ReaderThemeContext.Provider value={{ T, themeMode, toggleTheme }}>
+    <ReaderThemeContext.Provider value={{ T, themeMode, toggleTheme, paperTheme, setPaperTheme, paperConfig }}>
       {children}
     </ReaderThemeContext.Provider>
   );
@@ -271,12 +362,15 @@ async function renderToDataUrl(
 }
 
 // ── Shared toolbar ────────────────────────────────────────────────────────────
+// ── Shared toolbar ────────────────────────────────────────────────────────────
 function Toolbar({
   bookTitle, currentPage, numPages, zoom, sidebarOpen,
   onClose, onPrev, onNext, onZoomIn, onZoomOut, onToggleSidebar,
   onPageInput, isDriveMode = false, externalUrl,
   viewMode, onToggleViewMode,
   bookmarkedPage, onJumpToBookmark,
+  isTwoPageSupported = true,
+  windowWidth = 1200,
 }: {
   bookTitle: string; currentPage: number; numPages: number; zoom: number;
   sidebarOpen: boolean; isDriveMode?: boolean; externalUrl?: string;
@@ -285,15 +379,22 @@ function Toolbar({
   onZoomIn: () => void; onZoomOut: () => void;
   onToggleSidebar: () => void; onPageInput: (n: number) => void;
   bookmarkedPage?: number | null; onJumpToBookmark?: () => void;
+  isTwoPageSupported?: boolean;
+  windowWidth?: number;
 }) {
   const { T, themeMode, toggleTheme } = useReaderThemeContext();
   const [inputVal, setInputVal] = useState(String(currentPage));
+
+  const isMobile = windowWidth < 640;
+  const isNarrow = windowWidth < 440;
 
   useEffect(() => setInputVal(String(currentPage)), [currentPage]);
 
   return (
     <div style={{
       height: 52,
+      position: 'relative',
+      zIndex: 40,
       background: T.bgDark,
       borderBottom: `1px solid ${T.border}`,
       display: 'flex',
@@ -302,6 +403,8 @@ function Toolbar({
       flexShrink: 0,
       userSelect: 'none',
       transition: 'background 0.2s ease, border-color 0.2s ease',
+      paddingRight: isMobile ? 4 : 8,
+      overflow: 'visible',
     }}>
 
       {/* Close */}
@@ -309,18 +412,25 @@ function Toolbar({
         <X size={16} />
       </ToolBtn>
 
-      {/* Sidebar toggle */}
-      <ToolBtn onClick={onToggleSidebar} title="Toggle thumbnails" active={sidebarOpen}>
-        {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
-      </ToolBtn>
+      {/* Sidebar toggle — hide on narrow mobile to conserve space */}
+      {(!isMobile || windowWidth >= 500) && (
+        <ToolBtn onClick={onToggleSidebar} title="Toggle thumbnails" active={sidebarOpen}>
+          {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+        </ToolBtn>
+      )}
 
-      <div style={{ width: 1, height: 24, background: T.border, margin: '0 4px' }} />
+      <div style={{ width: 1, height: 24, background: T.border, margin: '0 2px' }} />
 
       {/* Book title */}
-      <div style={{ flex: 1, padding: '0 12px', minWidth: 0 }}>
+      <div style={{
+        flex: isMobile ? '0 1 auto' : 1,
+        padding: isMobile ? '0 6px' : '0 12px',
+        minWidth: 0,
+        maxWidth: isNarrow ? 90 : isMobile ? 130 : 'none',
+      }}>
         <div style={{
           fontFamily: '"Fraunces", Georgia, serif',
-          fontSize: 14,
+          fontSize: isMobile ? 12 : 14,
           fontWeight: 600,
           color: T.text,
           overflow: 'hidden',
@@ -330,22 +440,26 @@ function Toolbar({
         }}>
           {bookTitle}
         </div>
-        {isDriveMode && (
+        {isDriveMode && !isMobile && (
           <div style={{ fontSize: 10, color: T.brass, fontFamily: 'Inter', letterSpacing: '0.04em' }}>
             Google Drive viewer
           </div>
         )}
       </div>
 
-
       {/* Page nav — only when we know total */}
       {numPages > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 8px' }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: isMobile ? 2 : 6,
+          padding: isMobile ? '0 2px' : '0 8px',
+        }}>
           <ToolBtn onClick={onPrev} disabled={currentPage <= 1} title="Previous page (←)">
-            <ChevronLeft size={16} />
+            <ChevronLeft size={isMobile ? 14 : 16} />
           </ToolBtn>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 3 : 5 }}>
             <input
               value={inputVal}
               onChange={e => setInputVal(e.target.value)}
@@ -358,26 +472,27 @@ function Toolbar({
               }}
               onBlur={() => setInputVal(String(currentPage))}
               style={{
-                width: 38,
-                height: 26,
+                width: isMobile ? 28 : 38,
+                height: 24,
                 textAlign: 'center',
                 background: T.bg,
                 border: `1px solid ${T.border}`,
-                borderRadius: 6,
+                borderRadius: 5,
                 color: T.text,
-                fontSize: 12,
+                fontSize: isMobile ? 11 : 12,
                 fontFamily: 'Inter',
                 outline: 'none',
+                padding: 0,
               }}
               onFocus={e => e.target.select()}
             />
-            <span style={{ fontSize: 11, color: T.textMuted, fontFamily: 'Inter', whiteSpace: 'nowrap' }}>
-              / {numPages}
+            <span style={{ fontSize: isMobile ? 10 : 11, color: T.textMuted, fontFamily: 'Inter', whiteSpace: 'nowrap' }}>
+              /{numPages}
             </span>
           </div>
 
           <ToolBtn onClick={onNext} disabled={currentPage >= numPages} title="Next page (→)">
-            <ChevronRight size={16} />
+            <ChevronRight size={isMobile ? 14 : 16} />
           </ToolBtn>
         </div>
       )}
@@ -390,14 +505,14 @@ function Toolbar({
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 5,
-            padding: '4px 11px',
-            margin: '0 4px',
+            gap: 4,
+            padding: isMobile ? '3px 7px' : '4px 11px',
+            margin: '0 2px',
             borderRadius: 14,
             background: T.isDark ? 'rgba(184,134,63,0.18)' : 'rgba(184,134,63,0.14)',
             border: `1px solid ${T.isDark ? 'rgba(184,134,63,0.45)' : 'rgba(184,134,63,0.38)'}`,
             color: T.brassLight,
-            fontSize: 12,
+            fontSize: isMobile ? 10 : 12,
             fontFamily: 'Inter, sans-serif',
             fontWeight: 500,
             cursor: 'pointer',
@@ -406,22 +521,14 @@ function Toolbar({
             flexShrink: 0,
             outline: 'none',
           }}
-          onMouseEnter={e => {
-            e.currentTarget.style.background = T.isDark ? 'rgba(184,134,63,0.28)' : 'rgba(184,134,63,0.22)';
-            e.currentTarget.style.transform = 'translateY(-1px)';
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.background = T.isDark ? 'rgba(184,134,63,0.18)' : 'rgba(184,134,63,0.14)';
-            e.currentTarget.style.transform = 'translateY(0)';
-          }}
         >
-          <Bookmark size={12} style={{ fill: T.brass, color: T.brass }} />
-          <span>Jump to p. {bookmarkedPage}</span>
+          <Bookmark size={11} style={{ fill: T.brass, color: T.brass }} />
+          <span>{isMobile ? `p.${bookmarkedPage}` : `Jump to p. ${bookmarkedPage}`}</span>
         </button>
       )}
 
-      {/* Zoom — only in document mode */}
-      {!viewMode || viewMode === 'document' ? (
+      {/* Zoom — only in document mode on wider screens */}
+      {(!viewMode || viewMode === 'document') && !isMobile ? (
         <>
           <ToolBtn onClick={onZoomOut} disabled={zoom <= 0.5} title="Zoom out (-)"><ZoomOut size={16} /></ToolBtn>
           <div style={{ fontSize: 11, color: T.brass, fontFamily: 'Inter', minWidth: 36, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
@@ -432,8 +539,8 @@ function Toolbar({
         </>
       ) : null}
 
-      {/* View mode toggle */}
-      {onToggleViewMode && (
+      {/* View mode toggle — ONLY shown if screen resolution supports 2-page mode */}
+      {isTwoPageSupported && onToggleViewMode && (
         <div style={{ display: 'flex', gap: 2, padding: '0 4px' }}>
           <ToolBtn
             onClick={() => { if (viewMode === 'book') onToggleViewMode(); }}
@@ -452,21 +559,179 @@ function Toolbar({
         </div>
       )}
 
-      {onToggleViewMode && <div style={{ width: 1, height: 24, background: T.border, margin: '0 4px' }} />}
+      {isTwoPageSupported && onToggleViewMode && <div style={{ width: 1, height: 24, background: T.border, margin: '0 4px' }} />}
+
+      {/* Paper texture & tone selector — compact on mobile */}
+      <PaperThemeSelector compact={isMobile} />
 
       {/* Theme toggle: Dark / Light mode */}
       <ToolBtn
         onClick={toggleTheme}
-        title={themeMode === 'dark' ? 'Switch to Parchment Light mode' : 'Switch to Night Dark mode'}
+        title={themeMode === 'dark' ? 'Switch to Parchment Light desk' : 'Switch to Night Dark desk'}
       >
         {themeMode === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
       </ToolBtn>
 
-      {/* External link */}
-      {externalUrl && (
+      {/* External link — hidden on narrow mobile */}
+      {externalUrl && !isNarrow && (
         <a href={externalUrl} target="_blank" rel="noopener noreferrer" title="Open in Google Drive" style={{ textDecoration: 'none' }}>
           <ToolBtn as="span"><ExternalLink size={15} /></ToolBtn>
         </a>
+      )}
+    </div>
+  );
+}
+
+// ── Paper Theme Selector Popover ──────────────────────────────────────────────
+function PaperThemeSelector({ compact = false }: { compact?: boolean }) {
+  const { T, paperTheme, setPaperTheme, paperConfig } = useReaderThemeContext();
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative', zIndex: 50 }}>
+      <button
+        onClick={() => setOpen(prev => !prev)}
+        title="Change page paper texture & tone"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: compact ? 4 : 6,
+          padding: compact ? '4px 6px' : '4px 9px',
+          margin: '0 2px',
+          height: 32,
+          borderRadius: 8,
+          background: open ? (T.isDark ? 'rgba(184,134,63,0.2)' : 'rgba(184,134,63,0.18)') : 'transparent',
+          border: `1px solid ${open ? T.brassLight : 'transparent'}`,
+          color: T.text,
+          fontSize: 12,
+          fontFamily: 'Inter, sans-serif',
+          fontWeight: 500,
+          cursor: 'pointer',
+          transition: 'all 0.15s ease',
+          outline: 'none',
+        }}
+        onMouseEnter={e => {
+          if (!open) e.currentTarget.style.background = T.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+        }}
+        onMouseLeave={e => {
+          if (!open) e.currentTarget.style.background = 'transparent';
+        }}
+      >
+        <span
+          style={{
+            width: 13,
+            height: 13,
+            borderRadius: '50%',
+            background: paperConfig.pageBg,
+            border: `1px solid ${paperConfig.key === 'white' ? 'rgba(0,0,0,0.2)' : T.border}`,
+            boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+            display: 'inline-block',
+            flexShrink: 0,
+          }}
+        />
+        <Palette size={14} style={{ color: T.brassLight }} />
+        {!compact && (
+          <span style={{ fontSize: 11, color: T.textMuted, whiteSpace: 'nowrap' }}>{paperConfig.label}</span>
+        )}
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 6px)',
+            right: 0,
+            width: 204,
+            background: T.bgDark,
+            border: `1px solid ${T.borderHover}`,
+            borderRadius: 10,
+            padding: 5,
+            boxShadow: '0 14px 32px rgba(0,0,0,0.55)',
+            zIndex: 1000,
+            backdropFilter: 'blur(16px)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+          }}
+        >
+          <div style={{
+            fontSize: 10,
+            fontFamily: 'Inter, sans-serif',
+            color: T.textFaint,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            padding: '5px 8px 3px',
+            fontWeight: 600,
+          }}>
+            Page Tone & Texture
+          </div>
+
+          {(Object.values(PAPER_THEMES) as PaperThemeConfig[]).map(theme => {
+            const isSelected = theme.key === paperTheme;
+            return (
+              <button
+                key={theme.key}
+                onClick={() => {
+                  setPaperTheme(theme.key);
+                  setOpen(false);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  width: '100%',
+                  padding: '7px 9px',
+                  borderRadius: 6,
+                  background: isSelected ? (T.isDark ? 'rgba(184,134,63,0.18)' : 'rgba(184,134,63,0.14)') : 'transparent',
+                  border: isSelected ? `1px solid ${T.borderHover}` : '1px solid transparent',
+                  color: isSelected ? T.brassLight : T.text,
+                  fontSize: 12,
+                  fontFamily: 'Inter, sans-serif',
+                  fontWeight: isSelected ? 600 : 400,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.15s ease',
+                  outline: 'none',
+                }}
+                onMouseEnter={e => {
+                  if (!isSelected) e.currentTarget.style.background = T.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+                }}
+                onMouseLeave={e => {
+                  if (!isSelected) e.currentTarget.style.background = 'transparent';
+                }}
+              >
+                <span
+                  style={{
+                    width: 17,
+                    height: 17,
+                    borderRadius: '50%',
+                    background: theme.pageBg,
+                    border: `1.5px solid ${theme.key === 'white' ? 'rgba(0,0,0,0.25)' : T.border}`,
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                    flexShrink: 0,
+                  }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ lineHeight: 1.2 }}>{theme.label}</div>
+                  <div style={{ fontSize: 10, color: T.textFaint, fontWeight: 400, marginTop: 1 }}>{theme.desc}</div>
+                </div>
+                {isSelected && <Check size={14} style={{ color: T.brassLight, flexShrink: 0 }} />}
+              </button>
+            );
+          })}
+        </div>
       )}
     </div>
   );
@@ -649,6 +914,57 @@ function ThumbnailSidebar({
   );
 }
 
+// ── Paper Texture Overlay Component ───────────────────────────────────────────
+function PaperTextureOverlay({ config }: { config: PaperThemeConfig }) {
+  if (config.textureType === 'none') return null;
+
+  if (config.textureType === 'crumbled') {
+    return (
+      <>
+        {/* Crinkled / wrinkled lighting texture */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: `url("${CRUMBLED_TEXTURE_DATA_URI}")`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            mixBlendMode: 'multiply',
+            opacity: 0.48,
+            pointerEvents: 'none',
+            zIndex: 3,
+          }}
+        />
+        {/* Weathered antique edge darkening / vignette */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(125, 80, 25, 0.16) 76%, rgba(85, 50, 15, 0.36) 100%)',
+            pointerEvents: 'none',
+            zIndex: 4,
+          }}
+        />
+      </>
+    );
+  }
+
+  // 'grain' - authentic vintage paperback texture
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        backgroundImage: `url("${PAPER_GRAIN_DATA_URI}")`,
+        backgroundRepeat: 'repeat',
+        pointerEvents: 'none',
+        zIndex: 3,
+        opacity: 0.14,
+      }}
+    />
+  );
+}
+
 // ── Main page display ─────────────────────────────────────────────────────────
 function PageDisplay({
   pageState, pageNum, zoom,
@@ -657,7 +973,7 @@ function PageDisplay({
   pageNum: number;
   zoom: number;
 }) {
-  const T = useReaderTheme();
+  const { T, paperConfig } = useReaderThemeContext();
   return (
     <div style={{
       flex: 1,
@@ -688,11 +1004,22 @@ function PageDisplay({
           borderRadius: 2,
           overflow: 'hidden',
           border: '1px solid rgba(255,255,255,0.06)',
+          background: paperConfig.pageBg,
+          position: 'relative',
         }}>
+          <PaperTextureOverlay config={paperConfig} />
           <img
             src={pageState.dataUrl}
             alt={`Page ${pageNum}`}
-            style={{ display: 'block', maxWidth: '75vw', maxHeight: 'calc(100vh - 100px)', objectFit: 'contain' }}
+            style={{
+              display: 'block',
+              maxWidth: 'min(94vw, calc(100vw - 24px))',
+              maxHeight: 'calc(100vh - 78px)',
+              objectFit: 'contain',
+              mixBlendMode: paperConfig.blendMode,
+              filter: paperConfig.imgFilter,
+              transition: 'filter 0.25s ease',
+            }}
             draggable={false}
           />
         </div>
@@ -749,12 +1076,14 @@ function PageDisplay({
 // ── PdfPage — forwarded ref for react-pageflip ────────────────────────────────
 const PdfPage = forwardRef<HTMLDivElement, { pageState: PageState; pageNum: number }>(
   ({ pageState, pageNum }, ref) => {
-    const T = useReaderTheme();
+    const { paperConfig } = useReaderThemeContext();
+    const isEven = pageNum % 2 === 0;
+
     return (
       <div
         ref={ref}
         style={{
-          background: T.paper,
+          background: paperConfig.pageBg,
           width: '100%',
           height: '100%',
           display: 'flex',
@@ -763,8 +1092,27 @@ const PdfPage = forwardRef<HTMLDivElement, { pageState: PageState; pageNum: numb
           position: 'relative',
           overflow: 'hidden',
           boxSizing: 'border-box',
+          transition: 'background 0.25s ease',
         }}
       >
+        <PaperTextureOverlay config={paperConfig} />
+
+        {/* 3D Spine Gutter Shadow for realistic book spread depth */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            ...(isEven
+              ? { right: 0, width: 34, background: 'linear-gradient(to left, rgba(20,15,10,0.14) 0%, rgba(20,15,10,0.03) 16px, transparent 100%)' }
+              : { left: 0, width: 34, background: 'linear-gradient(to right, rgba(20,15,10,0.14) 0%, rgba(20,15,10,0.03) 16px, transparent 100%)' }),
+            pointerEvents: 'none',
+            zIndex: 5,
+            transition: 'opacity 0.2s ease',
+            opacity: paperConfig.key === 'night' ? 0.35 : 1,
+          }}
+        />
+
         {pageState.status === 'ready' && pageState.dataUrl ? (
           <img
             src={pageState.dataUrl}
@@ -776,12 +1124,15 @@ const PdfPage = forwardRef<HTMLDivElement, { pageState: PageState; pageNum: numb
               display: 'block',
               pointerEvents: 'none',
               userSelect: 'none',
+              mixBlendMode: paperConfig.blendMode,
+              filter: paperConfig.imgFilter,
+              transition: 'filter 0.25s ease',
             }}
             draggable={false}
           />
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: T.inkMuted }}>
-            <span style={{ fontSize: 11, fontFamily: 'Inter', color: T.inkFaint }}>Page {pageNum}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: paperConfig.textColor }}>
+            <span style={{ fontSize: 11, fontFamily: 'Inter', opacity: 0.7 }}>Page {pageNum}</span>
           </div>
         )}
         <div
@@ -792,10 +1143,12 @@ const PdfPage = forwardRef<HTMLDivElement, { pageState: PageState; pageNum: numb
             right: 0,
             textAlign: 'center',
             fontSize: 10,
-            color: '#C8B9A4',
+            color: paperConfig.textColor,
             fontFamily: 'Inter',
             letterSpacing: '0.05em',
             pointerEvents: 'none',
+            opacity: 0.7,
+            zIndex: 6,
           }}
         >
           {pageNum}
@@ -817,19 +1170,46 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
   const [flipReady,   setFlipReady]   = useState(false);
   const [error,       setError]       = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [viewMode,    setViewMode]    = useState<'document' | 'book'>('book');
+  // Window size tracking for responsive layout & two-page support
+  const [windowSize, setWindowSize] = useState<{ width: number; height: number }>(() => ({
+    width: typeof window !== 'undefined' ? window.innerWidth : 1200,
+    height: typeof window !== 'undefined' ? window.innerHeight : 800,
+  }));
+
+  useEffect(() => {
+    function handleResize() {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    }
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isTwoPageSupported = windowSize.width >= 900;
+
+  // View mode defaults to document if two-page is not supported (mobile / tablet portrait)
+  const [viewMode, setViewMode] = useState<'document' | 'book'>(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 900) return 'document';
+    return 'book';
+  });
+
+  // Auto-switch to document mode if window is resized below 900px
+  useEffect(() => {
+    if (!isTwoPageSupported && viewMode === 'book') {
+      setViewMode('document');
+    }
+  }, [isTwoPageSupported, viewMode]);
 
   // Bookmark storage key & state
   const bookmarkStorageKey = `cursus:bookmark:${bookId || bookTitle || pdfUrl}`;
   const [bookmarkedPage, setBookmarkedPage] = useState<number | null>(() => {
     try {
       const saved = localStorage.getItem(bookmarkStorageKey);
+      if (saved === 'none' || saved === '0' || saved === '') return null;
       if (saved) {
         const n = parseInt(saved, 10);
         if (!isNaN(n) && n >= 1) return n;
       }
     } catch {}
-    if (initialPage && initialPage >= 1) return initialPage;
     return null;
   });
 
@@ -837,7 +1217,7 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
   const [currentPage, setCurrentPage] = useState<number>(() => {
     try {
       const saved = localStorage.getItem(bookmarkStorageKey);
-      if (saved) {
+      if (saved && saved !== 'none') {
         const n = parseInt(saved, 10);
         if (!isNaN(n) && n >= 1) return n;
       }
@@ -860,11 +1240,15 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
   const handleToggleBookmark = useCallback(() => {
     if (bookmarkedPage === currentPage) {
       setBookmarkedPage(null);
-      try { localStorage.removeItem(bookmarkStorageKey); } catch {}
+      try {
+        localStorage.setItem(bookmarkStorageKey, 'none');
+      } catch {}
       setToastMessage('Bookmark removed');
     } else {
       setBookmarkedPage(currentPage);
-      try { localStorage.setItem(bookmarkStorageKey, String(currentPage)); } catch {}
+      try {
+        localStorage.setItem(bookmarkStorageKey, String(currentPage));
+      } catch {}
       onSavePage?.(currentPage);
       setToastMessage(`🔖 Bookmark saved at page ${currentPage}`);
     }
@@ -891,11 +1275,12 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
     }).catch(() => {});
   }, [pdfDoc]);
 
-  // Compute full-screen dimensions for 2-page spread
+  // Compute full-screen dimensions for 2-page spread with short-viewport clearance
   useEffect(() => {
     function compute() {
-      const maxH = Math.max(280, window.innerHeight - 52 - 16);
-      const maxSpreadW = Math.max(380, window.innerWidth - 116);
+      const vMargin = window.innerHeight < 680 ? 44 : 32;
+      const maxH = Math.max(200, window.innerHeight - 52 - vMargin);
+      const maxSpreadW = Math.max(380, window.innerWidth - (window.innerWidth < 1100 ? 80 : 120));
       const maxSingleW = Math.floor(maxSpreadW / 2);
 
       let w = maxSingleW;
@@ -1059,6 +1444,8 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
         }}
         bookmarkedPage={bookmarkedPage}
         onJumpToBookmark={handleJumpToBookmark}
+        isTwoPageSupported={isTwoPageSupported}
+        windowWidth={windowSize.width}
       />
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
@@ -1112,7 +1499,7 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
               <div style={{
                 flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: 'transparent', position: 'relative', overflow: 'hidden',
-                padding: '8px 56px',
+                padding: windowSize.height < 680 ? '4px 44px 14px' : '8px 56px',
                 transition: 'opacity 0.25s ease, background 0.25s ease',
                 opacity: flipReady ? 1 : 0,
                 visibility: flipReady ? 'visible' : 'hidden',
@@ -1605,6 +1992,17 @@ function ParchmentScrollDoodle({ size = 44 }: { size?: number }) {
 
 function ReaderDoodles() {
   const { T } = useReaderThemeContext();
+  const [isWide, setIsWide] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 900);
+
+  useEffect(() => {
+    function handleResize() {
+      setIsWide(window.innerWidth >= 900);
+    }
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  if (!isWide) return null;
 
   // Deep warm beige palette (no red or gold)
   const beigeColor = T.isDark ? '#C5A880' : '#8A6846';

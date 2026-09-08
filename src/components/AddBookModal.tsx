@@ -5,7 +5,7 @@ import { CoverUpload } from './ui/CoverUpload';
 import type { BookStatus } from '../types/book';
 import type { NewBookInput } from '../hooks/useBooks';
 import { STATUS_LABELS } from '../types/book';
-import { Search, Sparkles, Loader2, BookOpen, Check, X, AlertCircle } from 'lucide-react';
+import { Search, Sparkles, Loader2, BookOpen, Check, X, AlertCircle, FileText } from 'lucide-react';
 
 interface AddBookModalProps {
   open: boolean;
@@ -32,6 +32,7 @@ const initialForm = (status: BookStatus = 'on-shelf'): NewBookInput => ({
   coverUrl: '',
   notes: '',
   status,
+  pdfUrl: '',
 });
 
 async function fetchOnlineBooks(query: string): Promise<BookSearchResult[]> {
@@ -114,6 +115,7 @@ async function fetchOnlineBooks(query: string): Promise<BookSearchResult[]> {
 
 export function AddBookModal({ open, onClose, onAdd, defaultStatus = 'on-shelf' }: AddBookModalProps) {
   const [form, setForm] = useState<NewBookInput>(initialForm(defaultStatus));
+  const [showPdfInput, setShowPdfInput] = useState(false);
   const [error, setError] = useState('');
 
   // Online search state
@@ -138,6 +140,7 @@ export function AddBookModal({ open, onClose, onAdd, defaultStatus = 'on-shelf' 
       setHasSearched(false);
       setShowDropdown(false);
       setAutofilledTitle(null);
+      setShowPdfInput(false);
     }
   }, [open, defaultStatus]);
 
@@ -219,6 +222,7 @@ export function AddBookModal({ open, onClose, onAdd, defaultStatus = 'on-shelf' 
     setShowDropdown(false);
     setAutofilledTitle(null);
     setSubmitting(false);
+    setShowPdfInput(false);
     onClose();
   };
 
@@ -439,6 +443,36 @@ export function AddBookModal({ open, onClose, onAdd, defaultStatus = 'on-shelf' 
             heightClass="h-32"
           />
         </Field>
+
+        {/* PDF Link */}
+        <div>
+          <button
+            type="button"
+            onClick={() => {
+              setShowPdfInput((v) => !v);
+              if (showPdfInput) setForm({ ...form, pdfUrl: '' });
+            }}
+            className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint hover:text-ink dark:text-paper/40 dark:hover:text-paper/70 transition-colors"
+          >
+            <FileText size={13} />
+            {showPdfInput ? 'Remove PDF' : 'Add PDF'}
+          </button>
+          {showPdfInput && (
+            <div className="mt-2 space-y-1.5">
+              <input
+                type="url"
+                value={form.pdfUrl ?? ''}
+                onChange={(e) => setForm({ ...form, pdfUrl: e.target.value })}
+                placeholder="https://raw.githubusercontent.com/you/cursus-pdfs/main/book.pdf"
+                className={inputClass}
+              />
+              <p className="text-[10px] text-ink-faint dark:text-paper/30 leading-relaxed">
+                Best: upload to a public GitHub repo and paste the <span className="text-brass-500">Raw</span> URL.
+                Google Drive links also work but use Drive's own viewer.
+              </p>
+            </div>
+          )}
+        </div>
         {form.status === 'read' && (
           <Field label="Review" optionalHint="optional">
             <textarea

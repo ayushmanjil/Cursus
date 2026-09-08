@@ -41,7 +41,7 @@ export function Modal({
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -58,7 +58,7 @@ export function Modal({
             className={
               bare
                 ? `relative w-full ${maxWidth} flex flex-col items-center justify-center`
-                : `relative w-full ${maxWidth} max-h-[85vh] overflow-y-auto scrollbar-thin rounded-xl2 bg-surface dark:bg-surface-dark shadow-modal`
+                : `relative w-full ${maxWidth} max-h-[min(90vh,calc(100dvh-20px))] overflow-y-auto scrollbar-thin rounded-xl2 bg-surface dark:bg-surface-dark shadow-modal`
             }
             initial={{ opacity: 0, y: 16, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}

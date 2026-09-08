@@ -29,6 +29,7 @@ export interface Book {
   totalPages?: number; // total pages in the book
   currentPage?: number; // page the reader is currently on
   quotes?: BookQuote[]; // Literary Marginalia / quotes
+  pdfUrl?: string; // optional Google Drive / external PDF link
 }
 
 export type SortField =
