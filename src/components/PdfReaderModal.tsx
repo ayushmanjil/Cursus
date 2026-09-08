@@ -404,7 +404,7 @@ function Toolbar({
   const { T, themeMode, toggleTheme } = useReaderThemeContext();
   const [inputVal, setInputVal] = useState(String(currentPage));
 
-  const isMobile = windowWidth < 640;
+  const isMobile = windowWidth < 768;
   const isNarrow = windowWidth < 440;
 
   useEffect(() => setInputVal(String(currentPage)), [currentPage]);
@@ -431,8 +431,8 @@ function Toolbar({
         <X size={16} />
       </ToolBtn>
 
-      {/* Sidebar toggle — hide on narrow mobile to conserve space */}
-      {(!isMobile || windowWidth >= 500) && (
+      {/* Sidebar toggle — hide completely on mobile */}
+      {!isMobile && (
         <ToolBtn onClick={onToggleSidebar} title="Toggle thumbnails" active={sidebarOpen}>
           {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
         </ToolBtn>
@@ -1188,7 +1188,6 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
   const [loadingPdf,  setLoadingPdf]  = useState(true);
   const [flipReady,   setFlipReady]   = useState(false);
   const [error,       setError]       = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   // Window size tracking for responsive layout & two-page support
   const [windowSize, setWindowSize] = useState<{ width: number; height: number }>(() => ({
     width: typeof window !== 'undefined' ? window.innerWidth : 1200,
@@ -1203,7 +1202,12 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const isMobile = windowSize.width < 768;
   const isTwoPageSupported = windowSize.width >= 900;
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) return false;
+    return true;
+  });
 
   // View mode defaults to document if two-page is not supported (mobile / tablet portrait)
   const [viewMode, setViewMode] = useState<'document' | 'book'>(() => {
@@ -1384,9 +1388,9 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
     }
   }, [currentPage, pdfDoc, numPages, pages, renderDisplay, viewMode]);
 
-  // ── Progressive thumbnail rendering (ONLY when in document mode with sidebar open) ──
+  // ── Progressive thumbnail rendering (ONLY when in document mode with sidebar open on desktop) ──
   useEffect(() => {
-    if (!pdfDoc || !pages.length || viewMode !== 'document' || !sidebarOpen) return;
+    if (!pdfDoc || !pages.length || viewMode !== 'document' || !sidebarOpen || isMobile) return;
     let i = 0;
     const interval = setInterval(() => {
       while (i < numPages) {
@@ -1399,7 +1403,7 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
       clearInterval(interval);
     }, 150);
     return () => clearInterval(interval);
-  }, [pdfDoc, numPages, pages, renderThumb, viewMode, sidebarOpen]);
+  }, [pdfDoc, numPages, pages, renderThumb, viewMode, sidebarOpen, isMobile]);
 
   // ── Keyboard shortcuts ──
   useEffect(() => {
@@ -1448,7 +1452,7 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
         currentPage={currentPage}
         numPages={numPages}
         zoom={zoom}
-        sidebarOpen={sidebarOpen && viewMode === 'document'}
+        sidebarOpen={!isMobile && sidebarOpen && viewMode === 'document'}
         viewMode={viewMode}
         onToggleViewMode={() => setViewMode(v => v === 'document' ? 'book' : 'document')}
         onClose={onClose}
@@ -1649,7 +1653,7 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
         ) : (
           /* ── Document mode ── */
           <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
-            {sidebarOpen && numPages > 0 && (
+            {!isMobile && sidebarOpen && numPages > 0 && (
               <ThumbnailSidebar
                 pages={pages} currentPage={currentPage}
                 numPages={numPages} onSelect={n => setCurrentPage(n)}
