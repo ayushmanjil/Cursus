@@ -1435,6 +1435,39 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
     else setCurrentPage(p => Math.min(numPages, p + 1));
   };
 
+  // Mobile swipe gestures
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      touchStartX.current = e.touches[0].clientX;
+      touchStartY.current = e.touches[0].clientY;
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaX = touchEndX - touchStartX.current;
+    const deltaY = touchEndY - touchStartY.current;
+
+    // Minimum swipe threshold (40px) and ensure gesture is predominantly horizontal
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 40) {
+      if (deltaX > 0) {
+        // Swiped Left to Right -> Next page
+        handleNext();
+      } else {
+        // Swiped Right to Left -> Previous page
+        handlePrev();
+      }
+    }
+
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
+
   const handleJumpToBookmark = useCallback(() => {
     if (!bookmarkedPage) return;
     setCurrentPage(bookmarkedPage);
@@ -1652,7 +1685,17 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
           </div>
         ) : (
           /* ── Document mode ── */
-          <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
+          <div
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            style={{
+              flex: 1,
+              display: 'flex',
+              position: 'relative',
+              overflow: 'hidden',
+              touchAction: 'pan-y',
+            }}
+          >
             {!isMobile && sidebarOpen && numPages > 0 && (
               <ThumbnailSidebar
                 pages={pages} currentPage={currentPage}
@@ -1664,7 +1707,7 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
               <div style={{
                 position: 'absolute',
                 top: 14,
-                right: 28,
+                right: isMobile ? 12 : 28,
                 zIndex: 35,
               }}>
                 <button
@@ -1706,6 +1749,142 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
                   )}
                 </button>
               </div>
+
+              {/* On-screen Page Change Buttons for Document / Mobile Mode */}
+              {numPages > 0 && (
+                <>
+                  <button
+                    onClick={handlePrev}
+                    disabled={currentPage <= 1}
+                    style={{
+                      position: 'absolute',
+                      left: isMobile ? 8 : 16,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: isMobile ? 40 : 44,
+                      height: isMobile ? 40 : 44,
+                      borderRadius: '50%',
+                      border: `1px solid ${T.border}`,
+                      background: T.isDark ? 'rgba(21,18,14,0.88)' : 'rgba(250,247,241,0.92)',
+                      color: currentPage <= 1 ? T.textFaint : T.brass,
+                      cursor: currentPage <= 1 ? 'default' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backdropFilter: 'blur(8px)',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.28)',
+                      transition: 'all 0.2s ease',
+                      zIndex: 30,
+                      opacity: currentPage <= 1 ? 0.3 : 0.9,
+                    }}
+                    title="Previous page"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft size={isMobile ? 22 : 24} />
+                  </button>
+
+                  <button
+                    onClick={handleNext}
+                    disabled={currentPage >= numPages}
+                    style={{
+                      position: 'absolute',
+                      right: isMobile ? 8 : 16,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: isMobile ? 40 : 44,
+                      height: isMobile ? 40 : 44,
+                      borderRadius: '50%',
+                      border: `1px solid ${T.border}`,
+                      background: T.isDark ? 'rgba(21,18,14,0.88)' : 'rgba(250,247,241,0.92)',
+                      color: currentPage >= numPages ? T.textFaint : T.brass,
+                      cursor: currentPage >= numPages ? 'default' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backdropFilter: 'blur(8px)',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.28)',
+                      transition: 'all 0.2s ease',
+                      zIndex: 30,
+                      opacity: currentPage >= numPages ? 0.3 : 0.9,
+                    }}
+                    title="Next page"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight size={isMobile ? 22 : 24} />
+                  </button>
+
+                  {/* Mobile floating bottom page navigation pill */}
+                  {isMobile && (
+                    <div style={{
+                      position: 'absolute',
+                      bottom: 14,
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      background: T.isDark ? 'rgba(21,18,14,0.92)' : 'rgba(250,247,241,0.95)',
+                      border: `1px solid ${T.border}`,
+                      borderRadius: 24,
+                      padding: '3px 8px',
+                      boxShadow: '0 6px 20px rgba(0,0,0,0.3)',
+                      backdropFilter: 'blur(10px)',
+                      zIndex: 35,
+                      userSelect: 'none',
+                    }}>
+                      <button
+                        onClick={handlePrev}
+                        disabled={currentPage <= 1}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 2,
+                          background: 'none',
+                          border: 'none',
+                          color: currentPage <= 1 ? T.textFaint : T.brass,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: currentPage <= 1 ? 'default' : 'pointer',
+                          padding: '4px 8px',
+                          borderRadius: 12,
+                        }}
+                      >
+                        <ChevronLeft size={15} /> Prev
+                      </button>
+                      <span style={{
+                        fontSize: 11,
+                        fontFamily: 'Inter',
+                        color: T.text,
+                        fontWeight: 600,
+                        padding: '0 8px',
+                        borderLeft: `1px solid ${T.border}`,
+                        borderRight: `1px solid ${T.border}`,
+                      }}>
+                        {currentPage} / {numPages}
+                      </span>
+                      <button
+                        onClick={handleNext}
+                        disabled={currentPage >= numPages}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 2,
+                          background: 'none',
+                          border: 'none',
+                          color: currentPage >= numPages ? T.textFaint : T.brass,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: currentPage >= numPages ? 'default' : 'pointer',
+                          padding: '4px 8px',
+                          borderRadius: 12,
+                        }}
+                      >
+                        Next <ChevronRight size={15} />
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
 
               <PageDisplay pageState={pageState} pageNum={currentPage} zoom={zoom} />
             </div>
