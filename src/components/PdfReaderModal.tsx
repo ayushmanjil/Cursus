@@ -6,6 +6,7 @@ import {
   BookOpen, Loader2, AlertCircle, ExternalLink,
   PanelLeftClose, PanelLeftOpen, LayoutList,
   Bookmark, BookmarkCheck, Sun, Moon, Palette, Check,
+  Maximize2, Minimize2,
 } from 'lucide-react';
 import BookLoader from './ui/BookLoader';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -372,15 +373,21 @@ async function renderToDataUrl(
   const page     = await pdf.getPage(pageNum);
   const viewport = page.getViewport({ scale });
   const canvas   = document.createElement('canvas');
-  canvas.width   = viewport.width;
-  canvas.height  = viewport.height;
-  await page.render({ canvasContext: canvas.getContext('2d')!, viewport, canvas }).promise;
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.84);
+  canvas.width   = Math.floor(viewport.width);
+  canvas.height  = Math.floor(viewport.height);
+  const ctx      = canvas.getContext('2d', { alpha: false });
+  if (ctx) {
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+  } else {
+    await page.render({ canvasContext: canvas.getContext('2d')!, viewport, canvas }).promise;
+  }
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.96);
   pageDataUrlCache.set(cacheKey, dataUrl);
   return dataUrl;
 }
 
-// ── Shared toolbar ────────────────────────────────────────────────────────────
 // ── Shared toolbar ────────────────────────────────────────────────────────────
 function Toolbar({
   bookTitle, currentPage, numPages, zoom, sidebarOpen,
@@ -390,6 +397,9 @@ function Toolbar({
   bookmarkedPage, onJumpToBookmark,
   isTwoPageSupported = true,
   windowWidth = 1200,
+  isFullscreen = false,
+  onToggleFullscreen,
+  zenMode = false,
 }: {
   bookTitle: string; currentPage: number; numPages: number; zoom: number;
   sidebarOpen: boolean; isDriveMode?: boolean; externalUrl?: string;
@@ -400,6 +410,9 @@ function Toolbar({
   bookmarkedPage?: number | null; onJumpToBookmark?: () => void;
   isTwoPageSupported?: boolean;
   windowWidth?: number;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
+  zenMode?: boolean;
 }) {
   const { T, themeMode, toggleTheme } = useReaderThemeContext();
   const [inputVal, setInputVal] = useState(String(currentPage));
@@ -411,19 +424,26 @@ function Toolbar({
 
   return (
     <div style={{
-      height: 52,
+      height: zenMode ? 0 : 52,
+      maxHeight: zenMode ? 0 : 52,
       position: 'relative',
-      zIndex: 40,
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 50,
       background: T.bgDark,
-      borderBottom: `1px solid ${T.border}`,
+      borderBottom: zenMode ? 'none' : `1px solid ${T.border}`,
+      opacity: zenMode ? 0 : 1,
+      transform: zenMode ? 'translateY(-100%)' : 'translateY(0)',
+      transition: 'all 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
       display: 'flex',
       alignItems: 'center',
       gap: 0,
       flexShrink: 0,
       userSelect: 'none',
-      transition: 'background 0.2s ease, border-color 0.2s ease',
       paddingRight: isMobile ? 4 : 8,
-      overflow: 'visible',
+      overflow: 'hidden',
+      pointerEvents: zenMode ? 'none' : 'auto',
     }}>
 
       {/* Close */}
@@ -590,6 +610,17 @@ function Toolbar({
       >
         {themeMode === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
       </ToolBtn>
+
+      {/* Fullscreen toggle (HTML5 Native Fullscreen) */}
+      {onToggleFullscreen && (
+        <ToolBtn
+          onClick={onToggleFullscreen}
+          active={isFullscreen}
+          title={isFullscreen ? 'Exit Full Screen (F / Esc)' : 'Full Screen — Edge-to-Edge (F)'}
+        >
+          {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+        </ToolBtn>
+      )}
 
       {/* External link — hidden on narrow mobile */}
       {externalUrl && !isNarrow && (
@@ -986,11 +1017,13 @@ function PaperTextureOverlay({ config }: { config: PaperThemeConfig }) {
 
 // ── Main page display ─────────────────────────────────────────────────────────
 function PageDisplay({
-  pageState, pageNum, zoom,
+  pageState, pageNum, zoom, zenMode = false, fsAnimation = null,
 }: {
   pageState: PageState;
   pageNum: number;
   zoom: number;
+  zenMode?: boolean;
+  fsAnimation?: 'entering' | 'exiting' | null;
 }) {
   const { T, paperConfig } = useReaderThemeContext();
   return (
@@ -1002,45 +1035,61 @@ function PageDisplay({
       background: T.bg,
       overflow: 'auto',
       position: 'relative',
+      width: '100%',
+      height: '100%',
     }}
       className="scrollbar-thin"
     >
       {/* Warm radial glow */}
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        background: 'radial-gradient(ellipse 60% 50% at 50% 50%, rgba(184,134,63,0.05) 0%, transparent 70%)',
-        pointerEvents: 'none',
-      }} />
+      {!zenMode && (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'radial-gradient(ellipse 60% 50% at 50% 50%, rgba(184,134,63,0.05) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+      )}
 
       {pageState.status === 'ready' && pageState.dataUrl ? (
-        <div style={{
-          transform: `scale(${zoom})`,
-          transformOrigin: 'center center',
-          transition: 'transform 0.2s ease',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.5), 0 12px 40px rgba(0,0,0,0.6), 0 32px 80px rgba(0,0,0,0.4)',
-          lineHeight: 0,
-          borderRadius: 2,
-          overflow: 'hidden',
-          border: '1px solid rgba(255,255,255,0.06)',
-          background: paperConfig.pageBg,
-          position: 'relative',
-        }}>
-          <PaperTextureOverlay config={paperConfig} />
-          <img
-            src={pageState.dataUrl}
-            alt={`Page ${pageNum}`}
-            style={{
-              display: 'block',
-              maxWidth: 'min(94vw, calc(100vw - 24px))',
-              maxHeight: 'calc(100vh - 78px)',
-              objectFit: 'contain',
-              mixBlendMode: paperConfig.blendMode,
-              filter: paperConfig.imgFilter,
-              transition: 'filter 0.25s ease',
-            }}
-            draggable={false}
-          />
+        <div
+          className={fsAnimation === 'entering' ? 'reader-fs-enter' : fsAnimation === 'exiting' ? 'reader-fs-exit' : ''}
+          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <div style={{
+            transform: `scale(${zoom})`,
+            transformOrigin: 'center center',
+            transition: 'all 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
+            boxShadow: zenMode ? 'none' : '0 2px 8px rgba(0,0,0,0.5), 0 12px 40px rgba(0,0,0,0.6), 0 32px 80px rgba(0,0,0,0.4)',
+            lineHeight: 0,
+            borderRadius: zenMode ? 0 : 2,
+            overflow: 'hidden',
+            border: zenMode ? 'none' : '1px solid rgba(255,255,255,0.06)',
+            background: paperConfig.pageBg,
+            position: 'relative',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            maxWidth: '100vw',
+            maxHeight: zenMode ? '100vh' : 'calc(100vh - 52px)',
+          }}>
+            <PaperTextureOverlay config={paperConfig} />
+            <img
+              src={pageState.dataUrl}
+              alt={`Page ${pageNum}`}
+              style={{
+                display: 'block',
+                maxWidth: '100vw',
+                maxHeight: zenMode ? '100vh' : 'calc(100vh - 52px)',
+                width: 'auto',
+                height: 'auto',
+                objectFit: 'contain',
+                mixBlendMode: paperConfig.blendMode,
+                filter: paperConfig.imgFilter,
+                transition: 'filter 0.25s ease, max-height 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
+              }}
+              draggable={false}
+            />
+          </div>
         </div>
       ) : pageState.status === 'error' ? (
         <div style={{ textAlign: 'center', color: T.textMuted, fontFamily: 'Inter' }}>
@@ -1067,8 +1116,8 @@ function PageDisplay({
         </div>
       )}
 
-      {/* Page number badge at bottom */}
-      {pageState.status === 'ready' && (
+      {/* Page number badge at bottom — hidden in zenMode for zero-bars view */}
+      {!zenMode && pageState.status === 'ready' && (
         <div style={{
           position: 'absolute',
           bottom: 14,
@@ -1093,8 +1142,8 @@ function PageDisplay({
 }
 
 // ── PdfPage — forwarded ref for react-pageflip ────────────────────────────────
-const PdfPage = forwardRef<HTMLDivElement, { pageState: PageState; pageNum: number }>(
-  ({ pageState, pageNum }, ref) => {
+const PdfPage = forwardRef<HTMLDivElement, { pageState: PageState; pageNum: number; zenMode?: boolean }>(
+  ({ pageState, pageNum, zenMode = false }, ref) => {
     const { paperConfig } = useReaderThemeContext();
     const isEven = pageNum % 2 === 0;
 
@@ -1154,834 +1203,31 @@ const PdfPage = forwardRef<HTMLDivElement, { pageState: PageState; pageNum: numb
             <span style={{ fontSize: 11, fontFamily: 'Inter', opacity: 0.7 }}>Page {pageNum}</span>
           </div>
         )}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 10,
-            left: 0,
-            right: 0,
-            textAlign: 'center',
-            fontSize: 10,
-            color: paperConfig.textColor,
-            fontFamily: 'Inter',
-            letterSpacing: '0.05em',
-            pointerEvents: 'none',
-            opacity: 0.7,
-            zIndex: 6,
-          }}
-        >
-          {pageNum}
-        </div>
+        {!zenMode && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 10,
+              left: 0,
+              right: 0,
+              textAlign: 'center',
+              fontSize: 10,
+              color: paperConfig.textColor,
+              fontFamily: 'Inter',
+              letterSpacing: '0.05em',
+              pointerEvents: 'none',
+              opacity: 0.7,
+              zIndex: 6,
+            }}
+          >
+            {pageNum}
+          </div>
+        )}
       </div>
     );
   }
 );
 PdfPage.displayName = 'PdfPage';
-
-// ── PDFJS READER MODE ─────────────────────────────────────────────────────────
-function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, onClose }: PdfReaderModalProps) {
-  const T = useReaderTheme();
-  const [pdfDoc,      setPdfDoc]      = useState<pdfjsLib.PDFDocumentProxy | null>(null);
-  const [numPages,    setNumPages]    = useState(0);
-  const [pages,       setPages]       = useState<PageState[]>([]);
-  const [zoom,        setZoom]        = useState(1);
-  const [loadingPdf,  setLoadingPdf]  = useState(true);
-  const [flipReady,   setFlipReady]   = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
-  // Window size tracking for responsive layout & two-page support
-  const [windowSize, setWindowSize] = useState<{ width: number; height: number }>(() => ({
-    width: typeof window !== 'undefined' ? window.innerWidth : 1200,
-    height: typeof window !== 'undefined' ? window.innerHeight : 800,
-  }));
-
-  useEffect(() => {
-    function handleResize() {
-      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
-    }
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const isMobile = windowSize.width < 768;
-  const isTwoPageSupported = windowSize.width >= 900;
-  const [sidebarOpen, setSidebarOpen] = useState(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) return false;
-    return true;
-  });
-
-  // View mode defaults to document if two-page is not supported (mobile / tablet portrait)
-  const [viewMode, setViewMode] = useState<'document' | 'book'>(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 900) return 'document';
-    return 'book';
-  });
-
-  // Auto-switch to document mode if window is resized below 900px
-  useEffect(() => {
-    if (!isTwoPageSupported && viewMode === 'book') {
-      setViewMode('document');
-    }
-  }, [isTwoPageSupported, viewMode]);
-
-  // Bookmark storage key & state
-  const bookmarkStorageKey = `cursus:bookmark:${bookId || bookTitle || pdfUrl}`;
-  const [bookmarkedPage, setBookmarkedPage] = useState<number | null>(() => {
-    try {
-      const saved = localStorage.getItem(bookmarkStorageKey);
-      if (saved === 'none' || saved === '0' || saved === '') return null;
-      if (saved) {
-        const n = parseInt(saved, 10);
-        if (!isNaN(n) && n >= 1) return n;
-      }
-    } catch {}
-    return null;
-  });
-
-  // Current page initializes directly at saved bookmark or initialPage
-  const [currentPage, setCurrentPage] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem(bookmarkStorageKey);
-      if (saved && saved !== 'none') {
-        const n = parseInt(saved, 10);
-        if (!isNaN(n) && n >= 1) return n;
-      }
-    } catch {}
-    if (initialPage && initialPage >= 1) return initialPage;
-    return 1;
-  });
-
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  // Notify user if resumed from bookmark
-  useEffect(() => {
-    if (bookmarkedPage && bookmarkedPage > 1) {
-      setToastMessage(`🔖 Resumed from bookmark at page ${bookmarkedPage}`);
-      const t = setTimeout(() => setToastMessage(null), 3500);
-      return () => clearTimeout(t);
-    }
-  }, []);
-
-  const handleToggleBookmark = useCallback(() => {
-    if (bookmarkedPage === currentPage) {
-      setBookmarkedPage(null);
-      try {
-        localStorage.setItem(bookmarkStorageKey, 'none');
-      } catch {}
-      setToastMessage('Bookmark removed');
-    } else {
-      setBookmarkedPage(currentPage);
-      try {
-        localStorage.setItem(bookmarkStorageKey, String(currentPage));
-      } catch {}
-      onSavePage?.(currentPage);
-      setToastMessage(`🔖 Bookmark saved at page ${currentPage}`);
-    }
-    const t = setTimeout(() => setToastMessage(null), 3000);
-    return () => clearTimeout(t);
-  }, [bookmarkedPage, currentPage, bookmarkStorageKey, onSavePage]);
-
-  const flipBookRef      = useRef<any>(null);
-  const renderingDisplay = useRef<Set<number>>(new Set());
-  const renderingThumb   = useRef<Set<number>>(new Set());
-
-  // Responsive 2-page spread sizing: fills screen leaving room for toolbar + side margins
-  const [flipPageSize, setFlipPageSize] = useState({ width: 460, height: 650 });
-  const [pdfAspectRatio, setPdfAspectRatio] = useState(0.707);
-
-  // Measure actual PDF page aspect ratio once loaded
-  useEffect(() => {
-    if (!pdfDoc) return;
-    pdfDoc.getPage(1).then(page => {
-      const vp = page.getViewport({ scale: 1 });
-      if (vp.width && vp.height) {
-        setPdfAspectRatio(vp.width / vp.height);
-      }
-    }).catch(() => {});
-  }, [pdfDoc]);
-
-  // Compute full-screen dimensions for 2-page spread with short-viewport clearance
-  useEffect(() => {
-    function compute() {
-      const vMargin = window.innerHeight < 680 ? 44 : 32;
-      const maxH = Math.max(200, window.innerHeight - 52 - vMargin);
-      const maxSpreadW = Math.max(380, window.innerWidth - (window.innerWidth < 1100 ? 80 : 120));
-      const maxSingleW = Math.floor(maxSpreadW / 2);
-
-      let w = maxSingleW;
-      let h = Math.round(w / pdfAspectRatio);
-      if (h > maxH) {
-        h = maxH;
-        w = Math.round(h * pdfAspectRatio);
-      }
-      setFlipPageSize({ width: Math.floor(w), height: Math.floor(h) });
-    }
-    compute();
-    window.addEventListener('resize', compute);
-    return () => window.removeEventListener('resize', compute);
-  }, [pdfAspectRatio]);
-
-  // ── Load PDF ──
-  useEffect(() => {
-    let cancelled = false;
-    setLoadingPdf(true);
-    setFlipReady(false);
-    setError(null);
-    setPdfDoc(null);
-
-    loadPdfDocument(pdfUrl)
-      .then(doc => {
-        if (cancelled) return;
-        setPdfDoc(doc);
-        setNumPages(doc.numPages);
-        const initPages = Array.from({ length: doc.numPages }, () => ({ status: 'pending' as PageStatus }));
-        setPages(initPages);
-        setLoadingPdf(false);
-      })
-      .catch(e => {
-        if (!cancelled) { setError(e.message); setLoadingPdf(false); }
-      });
-
-    return () => { cancelled = true; };
-  }, [pdfUrl]);
-
-  // Flipbook readiness safety timer
-  useEffect(() => {
-    if (!loadingPdf && pages.length > 0 && !flipReady) {
-      const timer = setTimeout(() => {
-        setFlipReady(true);
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [loadingPdf, pages.length, flipReady]);
-
-  // ── Render display page ──
-  const renderDisplay = useCallback(async (doc: pdfjsLib.PDFDocumentProxy, n: number) => {
-    if (renderingDisplay.current.has(n)) return;
-    renderingDisplay.current.add(n);
-    setPages(p => { const a = [...p]; a[n-1] = { ...a[n-1], status: 'loading' }; return a; });
-    try {
-      const dataUrl = await renderToDataUrl(doc, n, 1.4);
-      setPages(p => { const a = [...p]; a[n-1] = { ...a[n-1], status: 'ready', dataUrl }; return a; });
-    } catch {
-      setPages(p => { const a = [...p]; a[n-1] = { ...a[n-1], status: 'error' }; return a; });
-    }
-  }, []);
-
-  // ── Render thumbnail ──
-  const renderThumb = useCallback(async (doc: pdfjsLib.PDFDocumentProxy, n: number) => {
-    if (renderingThumb.current.has(n)) return;
-    renderingThumb.current.add(n);
-    try {
-      const thumbUrl = await renderToDataUrl(doc, n, 0.2);
-      setPages(p => { const a = [...p]; a[n-1] = { ...a[n-1], thumbUrl }; return a; });
-    } catch { /* silent fail for thumbnails */ }
-  }, []);
-
-  // ── Priority-render visible & nearby pages ──
-  useEffect(() => {
-    if (!pdfDoc || !pages.length) return;
-    const offsets = viewMode === 'book' ? [0, 1, -1, 2, 3] : [0, 1, -1, 2];
-    for (const off of offsets) {
-      const n = currentPage + off;
-      if (n >= 1 && n <= numPages && pages[n-1]?.status === 'pending') {
-        renderDisplay(pdfDoc, n);
-      }
-    }
-  }, [currentPage, pdfDoc, numPages, pages, renderDisplay, viewMode]);
-
-  // ── Progressive thumbnail rendering (ONLY when in document mode with sidebar open on desktop) ──
-  useEffect(() => {
-    if (!pdfDoc || !pages.length || viewMode !== 'document' || !sidebarOpen || isMobile) return;
-    let i = 0;
-    const interval = setInterval(() => {
-      while (i < numPages) {
-        const n = i + 1; i++;
-        if (!pages[n-1]?.thumbUrl && !renderingThumb.current.has(n)) {
-          renderThumb(pdfDoc, n);
-          return;
-        }
-      }
-      clearInterval(interval);
-    }, 150);
-    return () => clearInterval(interval);
-  }, [pdfDoc, numPages, pages, renderThumb, viewMode, sidebarOpen, isMobile]);
-
-  // ── Keyboard shortcuts ──
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { onClose(); return; }
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        if (viewMode === 'book') flipBookRef.current?.pageFlip()?.flipNext();
-        else setCurrentPage(p => Math.min(numPages, p + 1));
-      }
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        if (viewMode === 'book') flipBookRef.current?.pageFlip()?.flipPrev();
-        else setCurrentPage(p => Math.max(1, p - 1));
-      }
-      if (e.key === '=' || e.key === '+') setZoom(z => Math.min(3, +(z + 0.15).toFixed(2)));
-      if (e.key === '-') setZoom(z => Math.max(0.5, +(z - 0.15).toFixed(2)));
-    };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, [onClose, numPages, viewMode]);
-
-  const pageState = pages[currentPage - 1] ?? { status: 'pending' };
-
-  const handlePrev = () => {
-    if (viewMode === 'book') flipBookRef.current?.pageFlip()?.flipPrev();
-    else setCurrentPage(p => Math.max(1, p - 1));
-  };
-  const handleNext = () => {
-    if (viewMode === 'book') flipBookRef.current?.pageFlip()?.flipNext();
-    else setCurrentPage(p => Math.min(numPages, p + 1));
-  };
-
-  // Mobile swipe gestures
-  const touchStartX = useRef<number | null>(null);
-  const touchStartY = useRef<number | null>(null);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 1) {
-      touchStartX.current = e.touches[0].clientX;
-      touchStartY.current = e.touches[0].clientY;
-    }
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null || touchStartY.current === null) return;
-    const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
-    const deltaX = touchEndX - touchStartX.current;
-    const deltaY = touchEndY - touchStartY.current;
-
-    // Minimum swipe threshold (40px) and ensure gesture is predominantly horizontal
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 40) {
-      if (deltaX > 0) {
-        // Swiped Left to Right -> Next page
-        handleNext();
-      } else {
-        // Swiped Right to Left -> Previous page
-        handlePrev();
-      }
-    }
-
-    touchStartX.current = null;
-    touchStartY.current = null;
-  };
-
-  const handleJumpToBookmark = useCallback(() => {
-    if (!bookmarkedPage) return;
-    setCurrentPage(bookmarkedPage);
-    if (viewMode === 'book') {
-      flipBookRef.current?.pageFlip()?.turnToPage(bookmarkedPage - 1);
-    }
-  }, [bookmarkedPage, viewMode]);
-
-  const isCurrentPageBookmarked = bookmarkedPage === currentPage;
-
-  return (
-    <Shell>
-      <Toolbar
-        bookTitle={bookTitle}
-        currentPage={currentPage}
-        numPages={numPages}
-        zoom={zoom}
-        sidebarOpen={!isMobile && sidebarOpen && viewMode === 'document'}
-        viewMode={viewMode}
-        onToggleViewMode={() => setViewMode(v => v === 'document' ? 'book' : 'document')}
-        onClose={onClose}
-        onPrev={handlePrev}
-        onNext={handleNext}
-        onZoomIn={() => setZoom(z => Math.min(3, +(z + 0.15).toFixed(2)))}
-        onZoomOut={() => setZoom(z => Math.max(0.5, +(z - 0.15).toFixed(2)))}
-        onToggleSidebar={() => setSidebarOpen(v => !v)}
-        onPageInput={n => {
-          setCurrentPage(n);
-          if (viewMode === 'book') flipBookRef.current?.pageFlip()?.turnToPage(n - 1);
-        }}
-        bookmarkedPage={bookmarkedPage}
-        onJumpToBookmark={handleJumpToBookmark}
-        isTwoPageSupported={isTwoPageSupported}
-        windowWidth={windowSize.width}
-      />
-
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
-        {/* Toast notification banner */}
-        {toastMessage && (
-          <div style={{
-            position: 'absolute',
-            bottom: 24,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 60,
-            background: T.isDark ? 'rgba(21,18,14,0.92)' : 'rgba(250,247,241,0.95)',
-            border: `1px solid ${T.border}`,
-            color: T.text,
-            padding: '8px 20px',
-            borderRadius: 24,
-            fontSize: 12,
-            fontFamily: 'Inter',
-            fontWeight: 500,
-            boxShadow: '0 8px 28px rgba(0,0,0,0.3)',
-            backdropFilter: 'blur(10px)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            pointerEvents: 'none',
-          }}>
-            <span>{toastMessage}</span>
-          </div>
-        )}
-
-        {error ? (
-          <ErrorScreen error={error} url={pdfUrl} />
-        ) : (
-          <>
-            {/* Seamless loader overlay until PDF is parsed AND flipbook has initialized */}
-            {(loadingPdf || (viewMode === 'book' && !flipReady)) && (
-              <div style={{
-                position: 'absolute',
-                inset: 0,
-                zIndex: 80,
-                background: T.bg,
-                display: 'flex',
-                flexDirection: 'column',
-              }}>
-                <LoadingScreen message="Opening your book…" bookTitle={bookTitle} />
-              </div>
-            )}
-
-            {!loadingPdf && (viewMode === 'book' ? (
-              /* ── Book flip mode ── */
-              <div style={{
-                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'transparent', position: 'relative', overflow: 'hidden',
-                padding: windowSize.height < 680 ? '4px 44px 14px' : '8px 56px',
-                transition: 'opacity 0.25s ease, background 0.25s ease',
-                opacity: flipReady ? 1 : 0,
-                visibility: flipReady ? 'visible' : 'hidden',
-                pointerEvents: flipReady ? 'auto' : 'none',
-              }}>
-            {/* Interactive "Bookmark here" Ribbon Widget */}
-            <div style={{
-              position: 'absolute',
-              top: 12,
-              right: 68,
-              zIndex: 35,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-end',
-              gap: 6,
-            }}>
-              <button
-                onClick={handleToggleBookmark}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: isCurrentPageBookmarked ? '7px 15px' : '6px 13px',
-                  background: isCurrentPageBookmarked
-                    ? 'linear-gradient(135deg, #8B3A42 0%, #6F2E35 100%)'
-                    : T.isDark ? 'rgba(21,18,14,0.85)' : 'rgba(250,247,241,0.94)',
-                  color: isCurrentPageBookmarked ? '#FAF7F1' : T.text,
-                  border: `1px solid ${isCurrentPageBookmarked ? 'rgba(184,134,63,0.55)' : T.border}`,
-                  borderRadius: '7px 7px 12px 12px',
-                  boxShadow: isCurrentPageBookmarked
-                    ? '0 6px 18px rgba(139,58,66,0.35), 0 0 0 1px rgba(184,134,63,0.25)'
-                    : '0 4px 14px rgba(0,0,0,0.18)',
-                  cursor: 'pointer',
-                  fontSize: 12,
-                  fontFamily: 'Inter, sans-serif',
-                  fontWeight: 500,
-                  backdropFilter: 'blur(8px)',
-                  transition: 'all 0.18s ease',
-                  outline: 'none',
-                  userSelect: 'none',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(2px)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; }}
-                title={isCurrentPageBookmarked ? `Bookmarked on page ${currentPage}. Click to remove.` : `Bookmark page ${currentPage}`}
-              >
-                {isCurrentPageBookmarked ? (
-                  <>
-                    <BookmarkCheck size={14} style={{ color: '#E5C1C4' }} />
-                    <span>Bookmarked (p. {currentPage})</span>
-                  </>
-                ) : (
-                  <>
-                    <Bookmark size={13} style={{ color: T.brass }} />
-                    <span style={{ color: T.textMuted }}>Bookmark here</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* Warm desk glow / vignette */}
-            <div style={{
-              position: 'absolute', inset: 0, pointerEvents: 'none',
-              background: T.deskVignette,
-            }} />
-            <div style={{
-              filter: T.shadow,
-              willChange: 'transform',
-              transform: 'translateZ(0)',
-            }}>
-              <HTMLFlipBook
-                ref={flipBookRef}
-                width={flipPageSize.width}
-                height={flipPageSize.height}
-                size="fixed"
-                minWidth={200} minHeight={280} maxWidth={1600} maxHeight={2000}
-                drawShadow={true}
-                flippingTime={380}
-                usePortrait={false}
-                startPage={Math.max(0, currentPage - 1)}
-                style={{ margin: '0 auto' }} startZIndex={10} autoSize={false}
-                maxShadowOpacity={T.isDark ? 0.25 : 0.18}
-                showCover={false}
-                mobileScrollSupport={true}
-                onFlip={(e: any) => setCurrentPage(Math.max(1, (e.data as number) + 1))}
-                onChangeOrientation={() => {}} onChangeState={() => {}}
-                onInit={() => setFlipReady(true)}
-                className="" clickEventForward={true} useMouseEvents={true}
-                swipeDistance={30} showPageCorners={true}
-                disableFlipByClick={false}
-              >
-                {pages.map((ps, i) => (
-                  <PdfPage key={i} pageState={ps} pageNum={i + 1} />
-                ))}
-              </HTMLFlipBook>
-            </div>
-            {/* Nav arrows with proper margin */}
-            <button
-              onClick={handlePrev} disabled={currentPage <= 1}
-              style={{
-                position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
-                width: 44, height: 44, borderRadius: '50%',
-                border: `1px solid ${T.border}`,
-                background: T.isDark ? 'rgba(21,18,14,0.85)' : 'rgba(250,247,241,0.9)',
-                color: currentPage <= 1 ? T.textFaint : T.brass,
-                cursor: currentPage <= 1 ? 'default' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                backdropFilter: 'blur(8px)', transition: 'all 0.2s',
-                zIndex: 20,
-              }}
-              title="Previous page (Left Arrow)"
-            ><ChevronLeft size={22} /></button>
-            <button
-              onClick={handleNext} disabled={currentPage >= numPages}
-              style={{
-                position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                width: 44, height: 44, borderRadius: '50%',
-                border: `1px solid ${T.border}`,
-                background: T.isDark ? 'rgba(21,18,14,0.85)' : 'rgba(250,247,241,0.9)',
-                color: currentPage >= numPages ? T.textFaint : T.brass,
-                cursor: currentPage >= numPages ? 'default' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                backdropFilter: 'blur(8px)', transition: 'all 0.2s',
-                zIndex: 20,
-              }}
-              title="Next page (Right Arrow)"
-            ><ChevronRight size={22} /></button>
-          </div>
-        ) : (
-          /* ── Document mode ── */
-          <div
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-            style={{
-              flex: 1,
-              display: 'flex',
-              position: 'relative',
-              overflow: 'hidden',
-              touchAction: 'pan-y',
-            }}
-          >
-            {!isMobile && sidebarOpen && numPages > 0 && (
-              <ThumbnailSidebar
-                pages={pages} currentPage={currentPage}
-                numPages={numPages} onSelect={n => setCurrentPage(n)}
-              />
-            )}
-            <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
-              {/* Document mode Bookmark Widget */}
-              <div style={{
-                position: 'absolute',
-                top: 14,
-                right: isMobile ? 12 : 28,
-                zIndex: 35,
-              }}>
-                <button
-                  onClick={handleToggleBookmark}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: isCurrentPageBookmarked ? '7px 15px' : '6px 13px',
-                    background: isCurrentPageBookmarked
-                      ? 'linear-gradient(135deg, #8B3A42 0%, #6F2E35 100%)'
-                      : T.isDark ? 'rgba(21,18,14,0.85)' : 'rgba(250,247,241,0.94)',
-                    color: isCurrentPageBookmarked ? '#FAF7F1' : T.text,
-                    border: `1px solid ${isCurrentPageBookmarked ? 'rgba(184,134,63,0.55)' : T.border}`,
-                    borderRadius: '7px 7px 12px 12px',
-                    boxShadow: isCurrentPageBookmarked
-                      ? '0 6px 18px rgba(139,58,66,0.35)'
-                      : '0 4px 14px rgba(0,0,0,0.18)',
-                    cursor: 'pointer',
-                    fontSize: 12,
-                    fontFamily: 'Inter, sans-serif',
-                    fontWeight: 500,
-                    backdropFilter: 'blur(8px)',
-                    transition: 'all 0.18s ease',
-                    outline: 'none',
-                  }}
-                  title={isCurrentPageBookmarked ? `Bookmarked on page ${currentPage}. Click to remove.` : `Bookmark page ${currentPage}`}
-                >
-                  {isCurrentPageBookmarked ? (
-                    <>
-                      <BookmarkCheck size={14} style={{ color: '#E5C1C4' }} />
-                      <span>Bookmarked (p. {currentPage})</span>
-                    </>
-                  ) : (
-                    <>
-                      <Bookmark size={13} style={{ color: T.brass }} />
-                      <span style={{ color: T.textMuted }}>Bookmark here</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* On-screen Page Change Buttons for Document / Mobile Mode */}
-              {numPages > 0 && (
-                <>
-                  <button
-                    onClick={handlePrev}
-                    disabled={currentPage <= 1}
-                    style={{
-                      position: 'absolute',
-                      left: isMobile ? 8 : 16,
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      width: isMobile ? 40 : 44,
-                      height: isMobile ? 40 : 44,
-                      borderRadius: '50%',
-                      border: `1px solid ${T.border}`,
-                      background: T.isDark ? 'rgba(21,18,14,0.88)' : 'rgba(250,247,241,0.92)',
-                      color: currentPage <= 1 ? T.textFaint : T.brass,
-                      cursor: currentPage <= 1 ? 'default' : 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backdropFilter: 'blur(8px)',
-                      boxShadow: '0 4px 16px rgba(0,0,0,0.28)',
-                      transition: 'all 0.2s ease',
-                      zIndex: 30,
-                      opacity: currentPage <= 1 ? 0.3 : 0.9,
-                    }}
-                    title="Previous page"
-                    aria-label="Previous page"
-                  >
-                    <ChevronLeft size={isMobile ? 22 : 24} />
-                  </button>
-
-                  <button
-                    onClick={handleNext}
-                    disabled={currentPage >= numPages}
-                    style={{
-                      position: 'absolute',
-                      right: isMobile ? 8 : 16,
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      width: isMobile ? 40 : 44,
-                      height: isMobile ? 40 : 44,
-                      borderRadius: '50%',
-                      border: `1px solid ${T.border}`,
-                      background: T.isDark ? 'rgba(21,18,14,0.88)' : 'rgba(250,247,241,0.92)',
-                      color: currentPage >= numPages ? T.textFaint : T.brass,
-                      cursor: currentPage >= numPages ? 'default' : 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backdropFilter: 'blur(8px)',
-                      boxShadow: '0 4px 16px rgba(0,0,0,0.28)',
-                      transition: 'all 0.2s ease',
-                      zIndex: 30,
-                      opacity: currentPage >= numPages ? 0.3 : 0.9,
-                    }}
-                    title="Next page"
-                    aria-label="Next page"
-                  >
-                    <ChevronRight size={isMobile ? 22 : 24} />
-                  </button>
-
-                  {/* Mobile floating bottom page navigation pill */}
-                  {isMobile && (
-                    <div style={{
-                      position: 'absolute',
-                      bottom: 14,
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 2,
-                      background: T.isDark ? 'rgba(21,18,14,0.92)' : 'rgba(250,247,241,0.95)',
-                      border: `1px solid ${T.border}`,
-                      borderRadius: 24,
-                      padding: '3px 8px',
-                      boxShadow: '0 6px 20px rgba(0,0,0,0.3)',
-                      backdropFilter: 'blur(10px)',
-                      zIndex: 35,
-                      userSelect: 'none',
-                    }}>
-                      <button
-                        onClick={handlePrev}
-                        disabled={currentPage <= 1}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 2,
-                          background: 'none',
-                          border: 'none',
-                          color: currentPage <= 1 ? T.textFaint : T.brass,
-                          fontSize: 12,
-                          fontWeight: 600,
-                          cursor: currentPage <= 1 ? 'default' : 'pointer',
-                          padding: '4px 8px',
-                          borderRadius: 12,
-                        }}
-                      >
-                        <ChevronLeft size={15} /> Prev
-                      </button>
-                      <span style={{
-                        fontSize: 11,
-                        fontFamily: 'Inter',
-                        color: T.text,
-                        fontWeight: 600,
-                        padding: '0 8px',
-                        borderLeft: `1px solid ${T.border}`,
-                        borderRight: `1px solid ${T.border}`,
-                      }}>
-                        {currentPage} / {numPages}
-                      </span>
-                      <button
-                        onClick={handleNext}
-                        disabled={currentPage >= numPages}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 2,
-                          background: 'none',
-                          border: 'none',
-                          color: currentPage >= numPages ? T.textFaint : T.brass,
-                          fontSize: 12,
-                          fontWeight: 600,
-                          cursor: currentPage >= numPages ? 'default' : 'pointer',
-                          padding: '4px 8px',
-                          borderRadius: 12,
-                        }}
-                      >
-                        Next <ChevronRight size={15} />
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-
-              <PageDisplay pageState={pageState} pageNum={currentPage} zoom={zoom} />
-            </div>
-          </div>
-        ))}
-          </>
-        )}
-      </div>
-    </Shell>
-  );
-}
-
-// ── DRIVE IFRAME MODE ─────────────────────────────────────────────────────────
-function DriveReaderMode({ pdfUrl, bookTitle, onClose }: PdfReaderModalProps) {
-  const { T, themeMode, toggleTheme } = useReaderThemeContext();
-  const fileId   = extractDriveFileId(pdfUrl);
-  const embedUrl = fileId ? getDriveEmbedUrl(fileId) : null;
-
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, [onClose]);
-
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 100,
-      display: 'flex', flexDirection: 'column',
-      background: T.bg,
-    }}>
-      {/* Header — explicit z-index so iframe can never cover it */}
-      <div style={{
-        height: 52, flexShrink: 0, position: 'relative', zIndex: 10,
-        background: T.bgDark,
-        borderBottom: `1px solid ${T.border}`,
-        display: 'flex', alignItems: 'center', gap: 4, padding: '0 8px',
-        userSelect: 'none',
-      }}>
-        {/* Close */}
-        <ToolBtn onClick={onClose} title="Close (Esc)"><X size={16} /></ToolBtn>
-
-        <div style={{ width: 1, height: 24, background: T.border, margin: '0 4px' }} />
-
-        {/* Title */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontFamily: '"Fraunces", Georgia, serif',
-            fontSize: 14, fontWeight: 600, color: T.text,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
-            {bookTitle}
-          </div>
-          <div style={{ fontSize: 10, color: T.brass, fontFamily: 'Inter', letterSpacing: '0.04em' }}>
-            Google Drive viewer
-          </div>
-        </div>
-
-        {/* Theme toggle */}
-        <ToolBtn
-          onClick={toggleTheme}
-          title={themeMode === 'dark' ? 'Switch to Parchment Light mode' : 'Switch to Night Dark mode'}
-        >
-          {themeMode === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-        </ToolBtn>
-
-        <div style={{ width: 1, height: 24, background: T.border, margin: '0 4px' }} />
-
-        {/* Open externally */}
-        <a
-          href={pdfUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ textDecoration: 'none', display: 'flex' }}
-          title="Open in Google Drive"
-        >
-          <ToolBtn as="span"><ExternalLink size={15} /></ToolBtn>
-        </a>
-      </div>
-
-      {/* Iframe area */}
-      <div style={{ flex: 1, position: 'relative', zIndex: 1, overflow: 'hidden' }}>
-        {embedUrl ? (
-          <iframe
-            src={embedUrl}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
-            allow="autoplay"
-            title={bookTitle}
-          />
-        ) : (
-          <ErrorScreen error="Could not parse Google Drive file ID from this URL." />
-        )}
-      </div>
-
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  );
-}
 
 // ── Library & Book Theme Doodles in Background ──────────────────────────────
 function TallBookStackDoodle({ size = 56 }: { size?: number }) {
@@ -2168,34 +1414,107 @@ function ReaderDoodles() {
 }
 
 // ── Utility screens ───────────────────────────────────────────────────────────
-function Shell({ children }: { children: React.ReactNode }) {
-  const { T } = useReaderThemeContext();
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 100,
-      display: 'flex', flexDirection: 'column',
-      background: T.bg, fontFamily: 'Inter, sans-serif',
-      transition: 'background 0.25s ease',
-    }}>
-      {/* Parchment texture overlay in light mode */}
-      {!T.isDark && (
-        <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
-          backgroundImage: `radial-gradient(circle at 50% 45%, rgba(255,255,255,0.45) 0%, rgba(235,225,208,0.4) 100%), url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.038'/%3E%3C/svg%3E")`,
-          opacity: 0.95,
-        }} />
-      )}
+const Shell = forwardRef<HTMLDivElement, { children: React.ReactNode; style?: React.CSSProperties; zenMode?: boolean }>(
+  ({ children, style, zenMode = false }, ref) => {
+    const { T } = useReaderThemeContext();
 
-      {/* Literary Book Doodles in background (dark & light modes) */}
-      <ReaderDoodles />
+    useEffect(() => {
+      const prevHtmlBg = document.documentElement.style.backgroundColor;
+      const prevBodyBg = document.body.style.backgroundColor;
+      document.documentElement.style.backgroundColor = T.bg;
+      document.body.style.backgroundColor = T.bg;
+      return () => {
+        document.documentElement.style.backgroundColor = prevHtmlBg;
+        document.body.style.backgroundColor = prevBodyBg;
+      };
+    }, [T.bg]);
 
-      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', overflow: 'hidden' }}>
-        {children}
+    return (
+      <div
+        ref={ref}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          display: 'flex', flexDirection: 'column',
+          background: T.bg,
+          fontFamily: 'Inter, sans-serif',
+          transition: 'background 0.25s ease',
+          ...style,
+        }}
+      >
+        {/* Parchment texture overlay in light mode — adapts seamlessly */}
+        {!T.isDark && (
+          <div style={{
+            position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
+            backgroundImage: `radial-gradient(circle at 50% 45%, rgba(255,255,255,0.45) 0%, rgba(235,225,208,0.4) 100%), url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.038'/%3E%3C/svg%3E")`,
+            opacity: 0.95,
+          }} />
+        )}
+
+        {/* Literary Book Doodles in background — completely hidden in zenMode */}
+        {!zenMode && <ReaderDoodles />}
+
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', overflow: 'hidden' }}>
+          {children}
+        </div>
+        <style>{`
+          @keyframes spin { to { transform: rotate(360deg); } }
+          @keyframes fadeFloatIn {
+            0% {
+              opacity: 0;
+              transform: translateY(8px) scale(0.85);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+          @keyframes readerFsEnter {
+            0% {
+              opacity: 0.94;
+            }
+            100% {
+              opacity: 1;
+            }
+          }
+          @keyframes readerFsExit {
+            0% {
+              opacity: 0.94;
+            }
+            100% {
+              opacity: 1;
+            }
+          }
+          @keyframes veilPulse {
+            0% {
+              opacity: 0;
+            }
+            30% {
+              opacity: 0.45;
+            }
+            100% {
+              opacity: 0;
+            }
+          }
+          .reader-fs-enter {
+            animation: readerFsEnter 0.36s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+            will-change: transform, opacity;
+          }
+          .reader-fs-exit {
+            animation: readerFsExit 0.3s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+            will-change: transform, opacity;
+          }
+
+          /* Prevent black-out flash during browser fullscreen transitions */
+          html, body, :fullscreen, ::backdrop, :fullscreen::backdrop, :-webkit-full-screen, :-webkit-full-screen::backdrop {
+            background: ${T.bg} !important;
+            background-color: ${T.bg} !important;
+          }
+        `}</style>
       </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  );
-}
+    );
+  }
+);
+Shell.displayName = 'Shell';
 
 function LoadingScreen({ message, bookTitle }: { message: string; bookTitle?: string }) {
   const T = useReaderTheme();
@@ -2297,6 +1616,1344 @@ function ErrorScreen({ error, url }: { error: string; url?: string }) {
   );
 }
 
+// ── PDFJS READER MODE ─────────────────────────────────────────────────────────
+function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, onClose }: PdfReaderModalProps) {
+  const T = useReaderTheme();
+  const [pdfDoc,      setPdfDoc]      = useState<pdfjsLib.PDFDocumentProxy | null>(null);
+  const [numPages,    setNumPages]    = useState(0);
+  const [pages,       setPages]       = useState<PageState[]>([]);
+  const [zoom,        setZoom]        = useState(1);
+  const [loadingPdf,  setLoadingPdf]  = useState(true);
+  const [flipReady,   setFlipReady]   = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
+
+  // ── Fullscreen & Zen Mode States ──
+  const [isFullscreen, setIsFullscreen]         = useState(false);
+  const [zenMode, setZenMode]                   = useState(false);
+  const [showZenControls, setShowZenControls]   = useState(false);
+  const [toastMessage, setToastMessage]         = useState<string | null>(null);
+  const [fsAnimation, setFsAnimation]           = useState<'entering' | 'exiting' | null>(null);
+  const fsAnimTimerRef                          = useRef<any>(null);
+
+  const triggerFsAnimation = useCallback((type: 'entering' | 'exiting') => {
+    if (fsAnimTimerRef.current) clearTimeout(fsAnimTimerRef.current);
+    setFsAnimation(type);
+    fsAnimTimerRef.current = setTimeout(() => {
+      setFsAnimation(null);
+    }, 550);
+  }, []);
+
+  // Window size tracking for responsive layout & two-page support
+  const [windowSize, setWindowSize] = useState<{ width: number; height: number }>(() => ({
+    width: typeof window !== 'undefined' ? window.innerWidth : 1200,
+    height: typeof window !== 'undefined' ? window.innerHeight : 800,
+  }));
+
+  useEffect(() => {
+    function handleResize() {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    }
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isMobile = windowSize.width < 768;
+  const isTwoPageSupported = windowSize.width >= 900;
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) return false;
+    return true;
+  });
+
+  // View mode defaults to document if two-page is not supported (mobile / tablet portrait)
+  const [viewMode, setViewMode] = useState<'document' | 'book'>(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 900) return 'document';
+    return 'book';
+  });
+
+  // Auto-switch to document mode if window is resized below 900px
+  useEffect(() => {
+    if (!isTwoPageSupported && viewMode === 'book') {
+      setViewMode('document');
+    }
+  }, [isTwoPageSupported, viewMode]);
+
+  // Bookmark storage key & state
+  const bookmarkStorageKey = `cursus:bookmark:${bookId || bookTitle || pdfUrl}`;
+  const [bookmarkedPage, setBookmarkedPage] = useState<number | null>(() => {
+    try {
+      const saved = localStorage.getItem(bookmarkStorageKey);
+      if (saved === 'none' || saved === '0' || saved === '') return null;
+      if (saved) {
+        const n = parseInt(saved, 10);
+        if (!isNaN(n) && n >= 1) return n;
+      }
+    } catch {}
+    return null;
+  });
+
+  // Current page initializes directly at saved bookmark or initialPage
+  const [currentPage, setCurrentPage] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem(bookmarkStorageKey);
+      if (saved && saved !== 'none') {
+        const n = parseInt(saved, 10);
+        if (!isNaN(n) && n >= 1) return n;
+      }
+    } catch {}
+    if (initialPage && initialPage >= 1) return initialPage;
+    return 1;
+  });
+
+  // Auto-dismiss toast messages after brief delay
+  useEffect(() => {
+    if (!toastMessage) return;
+    const t = setTimeout(() => setToastMessage(null), 2400);
+    return () => clearTimeout(t);
+  }, [toastMessage]);
+
+  // Notify user if resumed from bookmark
+  useEffect(() => {
+    if (bookmarkedPage && bookmarkedPage > 1) {
+      setToastMessage(`🔖 Resumed from bookmark at page ${bookmarkedPage}`);
+    }
+  }, []);
+
+  const handleToggleBookmark = useCallback(() => {
+    if (bookmarkedPage === currentPage) {
+      setBookmarkedPage(null);
+      try {
+        localStorage.setItem(bookmarkStorageKey, 'none');
+      } catch {}
+      setToastMessage('Bookmark removed');
+    } else {
+      setBookmarkedPage(currentPage);
+      try {
+        localStorage.setItem(bookmarkStorageKey, String(currentPage));
+      } catch {}
+      onSavePage?.(currentPage);
+      setToastMessage(`🔖 Bookmark saved at page ${currentPage}`);
+    }
+  }, [bookmarkedPage, currentPage, bookmarkStorageKey, onSavePage]);
+
+  const shellRef         = useRef<HTMLDivElement>(null);
+  const flipBookRef      = useRef<any>(null);
+  const renderingDisplay = useRef<Set<number>>(new Set());
+  const renderingThumb   = useRef<Set<number>>(new Set());
+
+  // Fullscreen change listener to keep React state in sync with browser/OS
+  useEffect(() => {
+    const handleFsChange = () => {
+      const isFs = Boolean(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+      setIsFullscreen(isFs);
+      if (isFs) {
+        setZenMode(true);
+        setShowZenControls(false);
+        setToastMessage(null);
+        triggerFsAnimation('entering');
+      } else {
+        setZenMode(false);
+        setShowZenControls(false);
+        triggerFsAnimation('exiting');
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+    document.addEventListener('mozfullscreenchange', handleFsChange);
+    document.addEventListener('MSFullscreenChange', handleFsChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+      document.removeEventListener('mozfullscreenchange', handleFsChange);
+      document.removeEventListener('MSFullscreenChange', handleFsChange);
+    };
+  }, [triggerFsAnimation]);
+
+  // HTML5 Fullscreen Toggler (Cross-browser with graceful Zen Mode fallback)
+  const toggleFullscreen = useCallback(async () => {
+    const el = document.documentElement;
+    if (!el) return;
+    try {
+      const isFs = Boolean(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+
+      if (!isFs) {
+        const fsOptions = { navigationUI: 'hide' } as FullscreenOptions;
+        if (el.requestFullscreen) {
+          await el.requestFullscreen(fsOptions);
+        } else if ((el as any).webkitRequestFullscreen) {
+          await (el as any).webkitRequestFullscreen();
+        } else if ((el as any).mozRequestFullScreen) {
+          await (el as any).mozRequestFullScreen();
+        } else if ((el as any).msRequestFullscreen) {
+          await (el as any).msRequestFullscreen();
+        } else {
+          // Mobile Safari or browsers without Fullscreen API
+          setZenMode(true);
+          triggerFsAnimation('entering');
+          setIsFullscreen(true);
+        }
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        } else if ((document as any).mozCancelFullScreen) {
+          await (document as any).mozCancelFullScreen();
+        } else if ((document as any).msExitFullscreen) {
+          await (document as any).msExitFullscreen();
+        } else {
+          setZenMode(false);
+          triggerFsAnimation('exiting');
+          setIsFullscreen(false);
+        }
+      }
+    } catch (err) {
+      console.warn('Fullscreen request failed:', err);
+      // Fallback: If native fullscreen is blocked, still toggle Zen Mode
+      setZenMode(z => {
+        const next = !z;
+        triggerFsAnimation(next ? 'entering' : 'exiting');
+        return next;
+      });
+      setIsFullscreen(f => !f);
+    }
+  }, [triggerFsAnimation]);
+
+  const toggleZenMode = useCallback(() => {
+    setZenMode(z => {
+      const next = !z;
+      setShowZenControls(false);
+      triggerFsAnimation(next ? 'entering' : 'exiting');
+      return next;
+    });
+  }, [triggerFsAnimation]);
+
+  // Auto-hide controls after delay when in zenMode
+  useEffect(() => {
+    if (!zenMode || !showZenControls) return;
+    const timer = setTimeout(() => {
+      setShowZenControls(false);
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, [zenMode, showZenControls, currentPage]);
+
+  // Responsive 2-page spread sizing: fills screen edge-to-edge with minimum borders
+  const [flipPageSize, setFlipPageSize] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const availW = window.innerWidth;
+      const availH = window.innerHeight;
+      const aspect = 0.707;
+      const spreadAspect = 2 * aspect;
+      if (availW / availH >= spreadAspect) {
+        const h = availH;
+        const w = Math.floor(h * aspect);
+        return { width: w, height: h };
+      } else {
+        const w = Math.floor(availW / 2);
+        const h = Math.round(w / aspect);
+        return { width: w, height: h };
+      }
+    }
+    return { width: 600, height: 850 };
+  });
+  const [pdfAspectRatio, setPdfAspectRatio] = useState(0.707);
+
+  // Measure actual PDF page aspect ratio once loaded
+  useEffect(() => {
+    if (!pdfDoc) return;
+    pdfDoc.getPage(1).then(page => {
+      const vp = page.getViewport({ scale: 1 });
+      if (vp.width && vp.height && vp.height > 0) {
+        const ratio = vp.width / vp.height;
+        if (!isNaN(ratio) && ratio > 0.2 && ratio < 4) {
+          setPdfAspectRatio(ratio);
+        }
+      }
+    }).catch(() => {});
+  }, [pdfDoc]);
+
+  // Compute full-screen edge-to-edge dimensions for 2-page spread
+  // Stably anchored so HTMLFlipBook NEVER unmounts/remounts during fullscreen transitions
+  useEffect(() => {
+    let timer: any = null;
+    function compute() {
+      const maxH = Math.max(100, window.innerHeight - 44);
+      const maxSpreadW = window.innerWidth;
+
+      const aspect = (!pdfAspectRatio || isNaN(pdfAspectRatio) || pdfAspectRatio <= 0) ? 0.707 : pdfAspectRatio;
+      const spreadAspect = 2 * aspect;
+
+      let singleW: number;
+      let h: number;
+
+      // Fit to screen:
+      if (maxSpreadW / maxH >= spreadAspect) {
+        h = maxH;
+        singleW = Math.floor(h * aspect);
+      } else {
+        singleW = Math.floor(maxSpreadW / 2);
+        h = Math.round(singleW / aspect);
+      }
+
+      if (singleW > 50 && h > 50) {
+        setFlipPageSize(prev => {
+          if (Math.abs(prev.width - singleW) <= 2 && Math.abs(prev.height - h) <= 2) {
+            return prev;
+          }
+          return { width: singleW, height: h };
+        });
+      }
+    }
+
+    const debouncedCompute = () => {
+      clearTimeout(timer);
+      timer = setTimeout(compute, 60);
+    };
+
+    compute();
+    window.addEventListener('resize', debouncedCompute);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', debouncedCompute);
+    };
+  }, [pdfAspectRatio]);
+
+  // ── Load PDF ──
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingPdf(true);
+    setFlipReady(false);
+    setError(null);
+    setPdfDoc(null);
+
+    loadPdfDocument(pdfUrl)
+      .then(doc => {
+        if (cancelled) return;
+        setPdfDoc(doc);
+        setNumPages(doc.numPages);
+        const initPages = Array.from({ length: doc.numPages }, () => ({ status: 'pending' as PageStatus }));
+        setPages(initPages);
+        setLoadingPdf(false);
+      })
+      .catch(e => {
+        if (!cancelled) { setError(e.message); setLoadingPdf(false); }
+      });
+
+    return () => { cancelled = true; };
+  }, [pdfUrl]);
+
+  // Flipbook readiness safety timer
+  useEffect(() => {
+    if (!loadingPdf && pages.length > 0 && !flipReady) {
+      const timer = setTimeout(() => {
+        setFlipReady(true);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [loadingPdf, pages.length, flipReady]);
+
+  // ── Render display page ──
+  const renderDisplay = useCallback(async (doc: pdfjsLib.PDFDocumentProxy, n: number) => {
+    if (renderingDisplay.current.has(n)) return;
+    renderingDisplay.current.add(n);
+    setPages(p => { const a = [...p]; a[n-1] = { ...a[n-1], status: 'loading' }; return a; });
+    try {
+      const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
+      const targetScale = Math.max(2.4, Math.min(3.6, dpr * 1.8));
+      const dataUrl = await renderToDataUrl(doc, n, targetScale);
+      setPages(p => { const a = [...p]; a[n-1] = { ...a[n-1], status: 'ready', dataUrl }; return a; });
+    } catch {
+      setPages(p => { const a = [...p]; a[n-1] = { ...a[n-1], status: 'error' }; return a; });
+    }
+  }, []);
+
+  // ── Render thumbnail ──
+  const renderThumb = useCallback(async (doc: pdfjsLib.PDFDocumentProxy, n: number) => {
+    if (renderingThumb.current.has(n)) return;
+    renderingThumb.current.add(n);
+    try {
+      const thumbUrl = await renderToDataUrl(doc, n, 0.2);
+      setPages(p => { const a = [...p]; a[n-1] = { ...a[n-1], thumbUrl }; return a; });
+    } catch { /* silent fail for thumbnails */ }
+  }, []);
+
+  // ── Priority-render visible & nearby pages ──
+  useEffect(() => {
+    if (!pdfDoc || !pages.length) return;
+    const offsets = viewMode === 'book' ? [0, 1, -1, 2, 3] : [0, 1, -1, 2];
+    for (const off of offsets) {
+      const n = currentPage + off;
+      if (n >= 1 && n <= numPages && pages[n-1]?.status === 'pending') {
+        renderDisplay(pdfDoc, n);
+      }
+    }
+  }, [currentPage, pdfDoc, numPages, pages, renderDisplay, viewMode]);
+
+  // ── Progressive thumbnail rendering (ONLY when in document mode with sidebar open on desktop) ──
+  useEffect(() => {
+    if (!pdfDoc || !pages.length || viewMode !== 'document' || !sidebarOpen || isMobile) return;
+    let i = 0;
+    const interval = setInterval(() => {
+      while (i < numPages) {
+        const n = i + 1; i++;
+        if (!pages[n-1]?.thumbUrl && !renderingThumb.current.has(n)) {
+          renderThumb(pdfDoc, n);
+          return;
+        }
+      }
+      clearInterval(interval);
+    }, 150);
+    return () => clearInterval(interval);
+  }, [pdfDoc, numPages, pages, renderThumb, viewMode, sidebarOpen, isMobile]);
+
+  // ── Keyboard shortcuts ──
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      const activeTag = (document.activeElement?.tagName || '').toLowerCase();
+      const isInput = activeTag === 'input' || activeTag === 'textarea';
+
+      if (e.key === 'Escape') {
+        const isCurrentlyFs = Boolean(
+          document.fullscreenElement ||
+          (document as any).webkitFullscreenElement
+        );
+        if (isCurrentlyFs || isFullscreen || zenMode) {
+          if (isCurrentlyFs) {
+            if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+            else if ((document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen();
+          }
+          setZenMode(false);
+          setShowZenControls(false);
+          return;
+        }
+        onClose();
+        return;
+      }
+
+      if (!isInput) {
+        if (e.key === 'f' || e.key === 'F') {
+          toggleFullscreen();
+          return;
+        }
+        if (e.key === 'z' || e.key === 'Z') {
+          toggleZenMode();
+          return;
+        }
+      }
+
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        if (viewMode === 'book') flipBookRef.current?.pageFlip()?.flipNext();
+        else setCurrentPage(p => Math.min(numPages, p + 1));
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        if (viewMode === 'book') flipBookRef.current?.pageFlip()?.flipPrev();
+        else setCurrentPage(p => Math.max(1, p - 1));
+      }
+      if (e.key === '=' || e.key === '+') setZoom(z => Math.min(3, +(z + 0.15).toFixed(2)));
+      if (e.key === '-') setZoom(z => Math.max(0.5, +(z - 0.15).toFixed(2)));
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [onClose, numPages, viewMode, zenMode, isFullscreen, toggleFullscreen, toggleZenMode]);
+
+  const pageState = pages[currentPage - 1] ?? { status: 'pending' };
+
+  const handlePrev = () => {
+    if (viewMode === 'book') flipBookRef.current?.pageFlip()?.flipPrev();
+    else setCurrentPage(p => Math.max(1, p - 1));
+  };
+  const handleNext = () => {
+    if (viewMode === 'book') flipBookRef.current?.pageFlip()?.flipNext();
+    else setCurrentPage(p => Math.min(numPages, p + 1));
+  };
+
+  // Mobile swipe gestures & tap zones
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      touchStartX.current = e.touches[0].clientX;
+      touchStartY.current = e.touches[0].clientY;
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaX = touchEndX - touchStartX.current;
+    const deltaY = touchEndY - touchStartY.current;
+
+    // Minimum swipe threshold (40px) and ensure gesture is predominantly horizontal
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 40) {
+      if (deltaX > 0) {
+        // Swiped Left to Right -> Previous page (turn back)
+        handlePrev();
+      } else {
+        // Swiped Right to Left -> Next page (turn forward)
+        handleNext();
+      }
+    } else if (Math.abs(deltaX) < 15 && Math.abs(deltaY) < 15) {
+      // Tap detected!
+      const width = window.innerWidth;
+      const tapX = touchEndX;
+      if (zenMode) {
+        if (tapX < width * 0.25) {
+          handlePrev();
+        } else if (tapX > width * 0.75) {
+          handleNext();
+        } else {
+          setShowZenControls(prev => !prev);
+        }
+      }
+    }
+
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
+
+  const handleJumpToBookmark = useCallback(() => {
+    if (!bookmarkedPage) return;
+    setCurrentPage(bookmarkedPage);
+    if (viewMode === 'book') {
+      flipBookRef.current?.pageFlip()?.turnToPage(bookmarkedPage - 1);
+    }
+  }, [bookmarkedPage, viewMode]);
+
+  const isCurrentPageBookmarked = bookmarkedPage === currentPage;
+
+  return (
+    <Shell ref={shellRef} zenMode={zenMode}>
+      <Toolbar
+        bookTitle={bookTitle}
+        currentPage={currentPage}
+        numPages={numPages}
+        zoom={zoom}
+        sidebarOpen={!isMobile && sidebarOpen && viewMode === 'document' && !zenMode}
+        viewMode={viewMode}
+        onToggleViewMode={() => setViewMode(v => v === 'document' ? 'book' : 'document')}
+        onClose={onClose}
+        onPrev={handlePrev}
+        onNext={handleNext}
+        onZoomIn={() => setZoom(z => Math.min(3, +(z + 0.15).toFixed(2)))}
+        onZoomOut={() => setZoom(z => Math.max(0.5, +(z - 0.15).toFixed(2)))}
+        onToggleSidebar={() => setSidebarOpen(v => !v)}
+        onPageInput={n => {
+          setCurrentPage(n);
+          if (viewMode === 'book') flipBookRef.current?.pageFlip()?.turnToPage(n - 1);
+        }}
+        bookmarkedPage={bookmarkedPage}
+        onJumpToBookmark={handleJumpToBookmark}
+        isTwoPageSupported={isTwoPageSupported}
+        windowWidth={windowSize.width}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={toggleFullscreen}
+        zenMode={zenMode}
+      />
+
+      <div
+        style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}
+      >
+        {/* Toast notification banner */}
+        {toastMessage && (
+          <div style={{
+            position: 'absolute',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 60,
+            background: T.isDark ? 'rgba(21,18,14,0.92)' : 'rgba(250,247,241,0.95)',
+            border: `1px solid ${T.border}`,
+            color: T.text,
+            padding: '8px 20px',
+            borderRadius: 24,
+            fontSize: 12,
+            fontFamily: 'Inter',
+            fontWeight: 500,
+            boxShadow: '0 8px 28px rgba(0,0,0,0.3)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            pointerEvents: 'none',
+          }}>
+            <span>{toastMessage}</span>
+          </div>
+        )}
+
+        {/* Cinematic Fullscreen Transition Bloom Veil */}
+        {fsAnimation && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 58,
+              pointerEvents: 'none',
+              background: fsAnimation === 'entering'
+                ? `radial-gradient(ellipse at center, ${T.isDark ? 'rgba(184,134,63,0.14)' : 'rgba(255,255,255,0.5)'} 0%, transparent 70%)`
+                : `radial-gradient(ellipse at center, ${T.isDark ? 'rgba(0,0,0,0.22)' : 'rgba(184,134,63,0.08)'} 0%, transparent 70%)`,
+              animation: 'veilPulse 0.48s cubic-bezier(0.16, 1, 0.3, 1) both',
+            }}
+          />
+        )}
+
+        {/* Exit fullscreen button — clearly visible in bottom-right corner */}
+        {zenMode && (
+          <button
+            onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
+            title="Exit full screen (Esc)"
+            style={{
+              position: 'absolute',
+              bottom: 16,
+              right: 16,
+              zIndex: 60,
+              width: 36,
+              height: 36,
+              borderRadius: '50%',
+              background: T.isDark ? '#1e1a14' : '#ffffff',
+              border: `1.5px solid ${T.isDark ? '#5c4832' : '#d2c2ad'}`,
+              color: T.isDark ? '#f2e8d5' : '#2e2014',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: '0 3px 12px rgba(0,0,0,0.35)',
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+              outline: 'none',
+              padding: 0,
+              flexShrink: 0,
+              animation: 'fadeFloatIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = T.brass;
+              e.currentTarget.style.borderColor = T.brass;
+              e.currentTarget.style.transform = 'scale(1.1)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = T.isDark ? '#f2e8d5' : '#2e2014';
+              e.currentTarget.style.borderColor = T.isDark ? '#5c4832' : '#d2c2ad';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+            onTouchStart={e => { e.currentTarget.style.transform = 'scale(1.1)'; }}
+            onTouchEnd={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+            aria-label="Exit full screen"
+          >
+            <Minimize2 size={18} strokeWidth={2.2} />
+          </button>
+        )}
+
+        {error ? (
+          <ErrorScreen error={error} url={pdfUrl} />
+        ) : (
+          <>
+            {/* Seamless loader overlay until PDF is parsed AND flipbook has initialized */}
+            {(loadingPdf || (viewMode === 'book' && !flipReady)) && (
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                zIndex: 80,
+                background: T.bg,
+                display: 'flex',
+                flexDirection: 'column',
+              }}>
+                <LoadingScreen message="Opening your book…" bookTitle={bookTitle} />
+              </div>
+            )}
+
+            {!loadingPdf && (viewMode === 'book' ? (
+              /* ── Book flip mode ── */
+              <div style={{
+                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'transparent', position: 'relative', overflow: 'hidden',
+                padding: 0,
+                transition: 'opacity 0.25s ease, background 0.25s ease',
+                opacity: flipReady ? 1 : 0,
+                visibility: flipReady ? 'visible' : 'hidden',
+                pointerEvents: flipReady ? 'auto' : 'none',
+              }}>
+            {/* Interactive "Bookmark here" Ribbon Widget */}
+            <div style={{
+              position: 'absolute',
+              top: 12,
+              right: 68,
+              zIndex: 35,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-end',
+              gap: 6,
+              opacity: zenMode && !showZenControls ? 0 : 1,
+              pointerEvents: zenMode && !showZenControls ? 'none' : 'auto',
+              transition: 'opacity 0.25s ease',
+            }}>
+              <button
+                onClick={handleToggleBookmark}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: isCurrentPageBookmarked ? '7px 15px' : '6px 13px',
+                  background: isCurrentPageBookmarked
+                    ? 'linear-gradient(135deg, #8B3A42 0%, #6F2E35 100%)'
+                    : T.isDark ? 'rgba(21,18,14,0.85)' : 'rgba(250,247,241,0.94)',
+                  color: isCurrentPageBookmarked ? '#FAF7F1' : T.text,
+                  border: `1px solid ${isCurrentPageBookmarked ? 'rgba(184,134,63,0.55)' : T.border}`,
+                  borderRadius: '7px 7px 12px 12px',
+                  boxShadow: isCurrentPageBookmarked
+                    ? '0 6px 18px rgba(139,58,66,0.35), 0 0 0 1px rgba(184,134,63,0.25)'
+                    : '0 4px 14px rgba(0,0,0,0.18)',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontFamily: 'Inter, sans-serif',
+                  fontWeight: 500,
+                  backdropFilter: 'blur(8px)',
+                  transition: 'all 0.18s ease',
+                  outline: 'none',
+                  userSelect: 'none',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(2px)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; }}
+                title={isCurrentPageBookmarked ? `Bookmarked on page ${currentPage}. Click to remove.` : `Bookmark page ${currentPage}`}
+              >
+                {isCurrentPageBookmarked ? (
+                  <>
+                    <BookmarkCheck size={14} style={{ color: '#E5C1C4' }} />
+                    <span>Bookmarked (p. {currentPage})</span>
+                  </>
+                ) : (
+                  <>
+                    <Bookmark size={13} style={{ color: T.brass }} />
+                    <span style={{ color: T.textMuted }}>Bookmark here</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Warm desk glow / vignette — hidden in zenMode */}
+            {!zenMode && (
+              <div style={{
+                position: 'absolute', inset: 0, pointerEvents: 'none',
+                background: T.deskVignette,
+              }} />
+            )}
+            <div
+              className={fsAnimation === 'entering' ? 'reader-fs-enter' : fsAnimation === 'exiting' ? 'reader-fs-exit' : ''}
+              style={{
+                filter: zenMode ? 'none' : T.shadow,
+                willChange: 'transform',
+                transform: 'translateZ(0)',
+                transition: 'all 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
+              }}
+            >
+              <HTMLFlipBook
+                key={`flip_${flipPageSize.width}_${flipPageSize.height}`}
+                ref={flipBookRef}
+                width={flipPageSize.width}
+                height={flipPageSize.height}
+                size="fixed"
+                minWidth={100} minHeight={100} maxWidth={4000} maxHeight={4000}
+                drawShadow={!zenMode}
+                flippingTime={380}
+                usePortrait={false}
+                startPage={Math.max(0, currentPage - 1)}
+                style={{ margin: '0 auto' }} startZIndex={10} autoSize={false}
+                maxShadowOpacity={zenMode ? 0.05 : (T.isDark ? 0.25 : 0.18)}
+                showCover={false}
+                mobileScrollSupport={true}
+                onFlip={(e: any) => setCurrentPage(Math.max(1, (e.data as number) + 1))}
+                onChangeOrientation={() => {}} onChangeState={() => {}}
+                onInit={() => setFlipReady(true)}
+                className="" clickEventForward={true} useMouseEvents={true}
+                swipeDistance={30} showPageCorners={true}
+                disableFlipByClick={false}
+              >
+                {pages.map((ps, i) => (
+                  <PdfPage key={i} pageState={ps} pageNum={i + 1} zenMode={zenMode} />
+                ))}
+              </HTMLFlipBook>
+            </div>
+            {/* Nav arrows with proper margin */}
+            <button
+              onClick={handlePrev} disabled={currentPage <= 1}
+              style={{
+                position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+                width: 44, height: 44, borderRadius: '50%',
+                border: `1px solid ${T.border}`,
+                background: T.isDark ? 'rgba(21,18,14,0.85)' : 'rgba(250,247,241,0.9)',
+                color: currentPage <= 1 ? T.textFaint : T.brass,
+                cursor: currentPage <= 1 ? 'default' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                backdropFilter: 'blur(8px)', transition: 'all 0.2s',
+                zIndex: 20,
+                opacity: zenMode && !showZenControls ? 0 : currentPage <= 1 ? 0.3 : 1,
+                pointerEvents: zenMode && !showZenControls ? 'none' : 'auto',
+              }}
+              title="Previous page (Left Arrow)"
+            ><ChevronLeft size={22} /></button>
+            <button
+              onClick={handleNext} disabled={currentPage >= numPages}
+              style={{
+                position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                width: 44, height: 44, borderRadius: '50%',
+                border: `1px solid ${T.border}`,
+                background: T.isDark ? 'rgba(21,18,14,0.85)' : 'rgba(250,247,241,0.9)',
+                color: currentPage >= numPages ? T.textFaint : T.brass,
+                cursor: currentPage >= numPages ? 'default' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                backdropFilter: 'blur(8px)', transition: 'all 0.2s',
+                zIndex: 20,
+                opacity: zenMode && !showZenControls ? 0 : currentPage >= numPages ? 0.3 : 1,
+                pointerEvents: zenMode && !showZenControls ? 'none' : 'auto',
+              }}
+              title="Next page (Right Arrow)"
+            ><ChevronRight size={22} /></button>
+          </div>
+        ) : (
+          /* ── Document mode ── */
+          <div
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            style={{
+              flex: 1,
+              display: 'flex',
+              position: 'relative',
+              overflow: 'hidden',
+              touchAction: 'pan-y',
+            }}
+          >
+            {!isMobile && sidebarOpen && numPages > 0 && !zenMode && (
+              <ThumbnailSidebar
+                pages={pages} currentPage={currentPage}
+                numPages={numPages} onSelect={n => setCurrentPage(n)}
+              />
+            )}
+            <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
+              {/* Document mode Bookmark Widget */}
+              <div style={{
+                position: 'absolute',
+                top: 14,
+                right: isMobile ? 12 : 28,
+                zIndex: 35,
+                opacity: zenMode && !showZenControls ? 0 : 1,
+                pointerEvents: zenMode && !showZenControls ? 'none' : 'auto',
+                transition: 'opacity 0.25s ease',
+              }}>
+                <button
+                  onClick={handleToggleBookmark}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: isCurrentPageBookmarked ? '7px 15px' : '6px 13px',
+                    background: isCurrentPageBookmarked
+                      ? 'linear-gradient(135deg, #8B3A42 0%, #6F2E35 100%)'
+                      : T.isDark ? 'rgba(21,18,14,0.85)' : 'rgba(250,247,241,0.94)',
+                    color: isCurrentPageBookmarked ? '#FAF7F1' : T.text,
+                    border: `1px solid ${isCurrentPageBookmarked ? 'rgba(184,134,63,0.55)' : T.border}`,
+                    borderRadius: '7px 7px 12px 12px',
+                    boxShadow: isCurrentPageBookmarked
+                      ? '0 6px 18px rgba(139,58,66,0.35)'
+                      : '0 4px 14px rgba(0,0,0,0.18)',
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    fontFamily: 'Inter, sans-serif',
+                    fontWeight: 500,
+                    backdropFilter: 'blur(8px)',
+                    transition: 'all 0.18s ease',
+                    outline: 'none',
+                  }}
+                  title={isCurrentPageBookmarked ? `Bookmarked on page ${currentPage}. Click to remove.` : `Bookmark page ${currentPage}`}
+                >
+                  {isCurrentPageBookmarked ? (
+                    <>
+                      <BookmarkCheck size={14} style={{ color: '#E5C1C4' }} />
+                      <span>Bookmarked (p. {currentPage})</span>
+                    </>
+                  ) : (
+                    <>
+                      <Bookmark size={13} style={{ color: T.brass }} />
+                      <span style={{ color: T.textMuted }}>Bookmark here</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* On-screen Page Change Buttons for Document / Mobile Mode */}
+              {numPages > 0 && (
+                <>
+                  <button
+                    onClick={handlePrev}
+                    disabled={currentPage <= 1}
+                    style={{
+                      position: 'absolute',
+                      left: isMobile ? 8 : 16,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: isMobile ? 40 : 44,
+                      height: isMobile ? 40 : 44,
+                      borderRadius: '50%',
+                      border: `1px solid ${T.border}`,
+                      background: T.isDark ? 'rgba(21,18,14,0.88)' : 'rgba(250,247,241,0.92)',
+                      color: currentPage <= 1 ? T.textFaint : T.brass,
+                      cursor: currentPage <= 1 ? 'default' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backdropFilter: 'blur(8px)',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.28)',
+                      transition: 'all 0.2s ease',
+                      zIndex: 30,
+                      opacity: zenMode && !showZenControls ? 0 : currentPage <= 1 ? 0.3 : 0.9,
+                      pointerEvents: zenMode && !showZenControls ? 'none' : 'auto',
+                    }}
+                    title="Previous page"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft size={isMobile ? 22 : 24} />
+                  </button>
+
+                  <button
+                    onClick={handleNext}
+                    disabled={currentPage >= numPages}
+                    style={{
+                      position: 'absolute',
+                      right: isMobile ? 8 : 16,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: isMobile ? 40 : 44,
+                      height: isMobile ? 40 : 44,
+                      borderRadius: '50%',
+                      border: `1px solid ${T.border}`,
+                      background: T.isDark ? 'rgba(21,18,14,0.88)' : 'rgba(250,247,241,0.92)',
+                      color: currentPage >= numPages ? T.textFaint : T.brass,
+                      cursor: currentPage >= numPages ? 'default' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backdropFilter: 'blur(8px)',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.28)',
+                      transition: 'all 0.2s ease',
+                      zIndex: 30,
+                      opacity: zenMode && !showZenControls ? 0 : currentPage >= numPages ? 0.3 : 0.9,
+                      pointerEvents: zenMode && !showZenControls ? 'none' : 'auto',
+                    }}
+                    title="Next page"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight size={isMobile ? 22 : 24} />
+                  </button>
+
+                  {/* Mobile floating bottom page navigation pill */}
+                  {isMobile && (
+                    <div style={{
+                      position: 'absolute',
+                      bottom: 14,
+                      left: '50%',
+                      transform: zenMode && !showZenControls ? 'translateX(-50%) translateY(120%)' : 'translateX(-50%) translateY(0)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      background: T.isDark ? 'rgba(21,18,14,0.92)' : 'rgba(250,247,241,0.95)',
+                      border: `1px solid ${T.border}`,
+                      borderRadius: 24,
+                      padding: '3px 8px',
+                      boxShadow: '0 6px 20px rgba(0,0,0,0.3)',
+                      backdropFilter: 'blur(10px)',
+                      zIndex: 35,
+                      userSelect: 'none',
+                      opacity: zenMode && !showZenControls ? 0 : 1,
+                      pointerEvents: zenMode && !showZenControls ? 'none' : 'auto',
+                      transition: 'transform 0.28s ease, opacity 0.25s ease',
+                    }}>
+                      <button
+                        onClick={handlePrev}
+                        disabled={currentPage <= 1}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 2,
+                          background: 'none',
+                          border: 'none',
+                          color: currentPage <= 1 ? T.textFaint : T.brass,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: currentPage <= 1 ? 'default' : 'pointer',
+                          padding: '4px 8px',
+                          borderRadius: 12,
+                        }}
+                      >
+                        <ChevronLeft size={15} /> Prev
+                      </button>
+                      <span style={{
+                        fontSize: 11,
+                        fontFamily: 'Inter',
+                        color: T.text,
+                        fontWeight: 600,
+                        padding: '0 8px',
+                        borderLeft: `1px solid ${T.border}`,
+                        borderRight: `1px solid ${T.border}`,
+                      }}>
+                        {currentPage} / {numPages}
+                      </span>
+                      <button
+                        onClick={handleNext}
+                        disabled={currentPage >= numPages}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 2,
+                          background: 'none',
+                          border: 'none',
+                          color: currentPage >= numPages ? T.textFaint : T.brass,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: currentPage >= numPages ? 'default' : 'pointer',
+                          padding: '4px 8px',
+                          borderRadius: 12,
+                        }}
+                      >
+                        Next <ChevronRight size={15} />
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <PageDisplay pageState={pageState} pageNum={currentPage} zoom={zoom} zenMode={zenMode} fsAnimation={fsAnimation} />
+            </div>
+          </div>
+        ))}
+          </>
+        )}
+      </div>
+    </Shell>
+  );
+}
+
+// ── DRIVE IFRAME MODE ─────────────────────────────────────────────────────────
+function DriveReaderMode({ pdfUrl, bookTitle, onClose }: PdfReaderModalProps) {
+  const { T, themeMode, toggleTheme } = useReaderThemeContext();
+  const fileId   = extractDriveFileId(pdfUrl);
+  const embedUrl = fileId ? getDriveEmbedUrl(fileId) : null;
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const [isFullscreen, setIsFullscreen]       = useState(false);
+  const [zenMode, setZenMode]                 = useState(false);
+  const [fsAnimation, setFsAnimation]         = useState<'entering' | 'exiting' | null>(null);
+  const fsAnimTimerRef                        = useRef<any>(null);
+
+  const triggerFsAnimation = useCallback((type: 'entering' | 'exiting') => {
+    if (fsAnimTimerRef.current) clearTimeout(fsAnimTimerRef.current);
+    setFsAnimation(type);
+    fsAnimTimerRef.current = setTimeout(() => {
+      setFsAnimation(null);
+    }, 550);
+  }, []);
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      const isFs = Boolean(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+      setIsFullscreen(isFs);
+      if (isFs) {
+        setZenMode(true);
+        triggerFsAnimation('entering');
+      } else {
+        setZenMode(false);
+        triggerFsAnimation('exiting');
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+    };
+  }, [triggerFsAnimation]);
+
+  const toggleFullscreen = useCallback(async () => {
+    const el = document.documentElement;
+    if (!el) return;
+    try {
+      const isFs = Boolean(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+      if (!isFs) {
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else if ((el as any).webkitRequestFullscreen) await (el as any).webkitRequestFullscreen();
+        else {
+          setZenMode(true);
+          triggerFsAnimation('entering');
+        }
+      } else {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if ((document as any).webkitExitFullscreen) await (document as any).webkitExitFullscreen();
+        else {
+          setZenMode(false);
+          triggerFsAnimation('exiting');
+        }
+      }
+    } catch {
+      setZenMode(z => {
+        const next = !z;
+        triggerFsAnimation(next ? 'entering' : 'exiting');
+        return next;
+      });
+    }
+  }, [triggerFsAnimation]);
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (zenMode && !isFullscreen) {
+          setZenMode(false);
+          return;
+        }
+        onClose();
+        return;
+      }
+      if (e.key === 'f' || e.key === 'F') {
+        toggleFullscreen();
+      }
+      if (e.key === 'z' || e.key === 'Z') {
+        setZenMode(z => !z);
+      }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [onClose, zenMode, isFullscreen, toggleFullscreen]);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 100,
+        display: 'flex', flexDirection: 'column',
+        background: T.bg,
+      }}
+    >
+      {/* Header — explicit z-index so iframe can never cover it */}
+      <div style={{
+        height: zenMode ? 0 : 52,
+        maxHeight: zenMode ? 0 : 52,
+        flexShrink: 0,
+        position: 'relative',
+        top: 0, left: 0, right: 0,
+        zIndex: 10,
+        background: T.bgDark,
+        borderBottom: zenMode ? 'none' : `1px solid ${T.border}`,
+        opacity: zenMode ? 0 : 1,
+        transform: zenMode ? 'translateY(-100%)' : 'translateY(0)',
+        transition: 'all 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
+        display: 'flex', alignItems: 'center', gap: 4, padding: zenMode ? 0 : '0 8px',
+        userSelect: 'none',
+        overflow: 'hidden',
+        pointerEvents: zenMode ? 'none' : 'auto',
+      }}>
+        {/* Close */}
+        <ToolBtn onClick={onClose} title="Close (Esc)"><X size={16} /></ToolBtn>
+
+        <div style={{ width: 1, height: 24, background: T.border, margin: '0 4px' }} />
+
+        {/* Title */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontFamily: '"Fraunces", Georgia, serif',
+            fontSize: 14, fontWeight: 600, color: T.text,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {bookTitle}
+          </div>
+          <div style={{ fontSize: 10, color: T.brass, fontFamily: 'Inter', letterSpacing: '0.04em' }}>
+            Google Drive viewer
+          </div>
+        </div>
+
+        {/* Theme toggle */}
+        <ToolBtn
+          onClick={toggleTheme}
+          title={themeMode === 'dark' ? 'Switch to Parchment Light mode' : 'Switch to Night Dark mode'}
+        >
+          {themeMode === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+        </ToolBtn>
+
+
+        {/* Fullscreen toggle */}
+        <ToolBtn
+          onClick={toggleFullscreen}
+          active={isFullscreen}
+          title={isFullscreen ? 'Exit Full Screen (F / Esc)' : 'Full Screen — Edge-to-Edge (F)'}
+        >
+          {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+        </ToolBtn>
+
+        <div style={{ width: 1, height: 24, background: T.border, margin: '0 4px' }} />
+
+        {/* Open externally */}
+        <a
+          href={pdfUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ textDecoration: 'none', display: 'flex' }}
+          title="Open in Google Drive"
+        >
+          <ToolBtn as="span"><ExternalLink size={15} /></ToolBtn>
+        </a>
+      </div>
+
+      {/* Exit fullscreen button — clearly visible in bottom-right corner */}
+      {zenMode && (
+        <button
+          onClick={toggleFullscreen}
+          title="Exit full screen (Esc)"
+          style={{
+            position: 'absolute',
+            bottom: 16,
+            right: 16,
+            zIndex: 60,
+            width: 36,
+            height: 36,
+            borderRadius: '50%',
+            background: T.isDark ? '#1e1a14' : '#ffffff',
+            border: `1.5px solid ${T.isDark ? '#5c4832' : '#d2c2ad'}`,
+            color: T.isDark ? '#f2e8d5' : '#2e2014',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            boxShadow: '0 3px 12px rgba(0,0,0,0.35)',
+            transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+            outline: 'none',
+            padding: 0,
+            flexShrink: 0,
+            animation: 'fadeFloatIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.color = T.brass;
+            e.currentTarget.style.borderColor = T.brass;
+            e.currentTarget.style.transform = 'scale(1.1)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.color = T.isDark ? '#f2e8d5' : '#2e2014';
+            e.currentTarget.style.borderColor = T.isDark ? '#5c4832' : '#d2c2ad';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+          onTouchStart={e => { e.currentTarget.style.transform = 'scale(1.1)'; }}
+          onTouchEnd={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+          aria-label="Exit full screen"
+        >
+          <Minimize2 size={18} strokeWidth={2.2} />
+        </button>
+      )}
+
+      {/* Cinematic Fullscreen Transition Bloom Veil */}
+      {fsAnimation && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 58,
+            pointerEvents: 'none',
+            background: fsAnimation === 'entering'
+              ? `radial-gradient(ellipse at center, ${T.isDark ? 'rgba(184,134,63,0.14)' : 'rgba(255,255,255,0.5)'} 0%, transparent 70%)`
+              : `radial-gradient(ellipse at center, ${T.isDark ? 'rgba(0,0,0,0.22)' : 'rgba(184,134,63,0.08)'} 0%, transparent 70%)`,
+            animation: 'veilPulse 0.48s cubic-bezier(0.16, 1, 0.3, 1) both',
+          }}
+        />
+      )}
+
+      {/* Iframe area */}
+      <div
+        className={fsAnimation === 'entering' ? 'reader-fs-enter' : fsAnimation === 'exiting' ? 'reader-fs-exit' : ''}
+        style={{ flex: 1, position: 'relative', zIndex: 1, overflow: 'hidden' }}
+      >
+        {embedUrl ? (
+          <iframe
+            src={embedUrl}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
+            allow="autoplay"
+            title={bookTitle}
+          />
+        ) : (
+          <ErrorScreen error="Could not parse Google Drive file ID from this URL." />
+        )}
+      </div>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeFloatIn {
+          0% {
+            opacity: 0;
+            transform: translateY(8px) scale(0.85);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        @keyframes readerFsEnter {
+          0% {
+            opacity: 0.94;
+          }
+          100% {
+            opacity: 1;
+          }
+        }
+        @keyframes readerFsExit {
+          0% {
+            opacity: 0.94;
+          }
+          100% {
+            opacity: 1;
+          }
+        }
+        @keyframes veilPulse {
+          0% {
+            opacity: 0;
+          }
+          30% {
+            opacity: 0.45;
+          }
+          100% {
+            opacity: 0;
+          }
+        }
+        .reader-fs-enter {
+          animation: readerFsEnter 0.36s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+          will-change: transform, opacity;
+        }
+        .reader-fs-exit {
+          animation: readerFsExit 0.3s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+          will-change: transform, opacity;
+        }
+
+        html, body, :fullscreen, ::backdrop, :fullscreen::backdrop, :-webkit-full-screen, :-webkit-full-screen::backdrop {
+          background: ${T.bg} !important;
+          background-color: ${T.bg} !important;
+        }
+      `}</style>
+    </div>
+  );
+}
+
 // ── Root export ───────────────────────────────────────────────────────────────
 export function PdfReaderModal(props: PdfReaderModalProps) {
   return (
@@ -2307,3 +2964,4 @@ export function PdfReaderModal(props: PdfReaderModalProps) {
     </ReaderThemeProvider>
   );
 }
+
