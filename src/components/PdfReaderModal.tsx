@@ -435,7 +435,7 @@ function Toolbar({
       borderBottom: zenMode ? 'none' : `1px solid ${T.border}`,
       opacity: zenMode ? 0 : 1,
       transform: zenMode ? 'translateY(-100%)' : 'translateY(0)',
-      transition: 'all 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
+      transition: 'transform 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), height 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), max-height 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
       display: 'flex',
       alignItems: 'center',
       gap: 0,
@@ -1017,13 +1017,12 @@ function PaperTextureOverlay({ config }: { config: PaperThemeConfig }) {
 
 // ── Main page display ─────────────────────────────────────────────────────────
 function PageDisplay({
-  pageState, pageNum, zoom, zenMode = false, fsAnimation = null,
+  pageState, pageNum, zoom, zenMode = false,
 }: {
   pageState: PageState;
   pageNum: number;
   zoom: number;
   zenMode?: boolean;
-  fsAnimation?: 'entering' | 'exiting' | null;
 }) {
   const { T, paperConfig } = useReaderThemeContext();
   return (
@@ -1041,27 +1040,24 @@ function PageDisplay({
       className="scrollbar-thin"
     >
       {/* Warm radial glow */}
-      {!zenMode && (
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'radial-gradient(ellipse 60% 50% at 50% 50%, rgba(184,134,63,0.05) 0%, transparent 70%)',
-          pointerEvents: 'none',
-        }} />
-      )}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'radial-gradient(ellipse 60% 50% at 50% 50%, rgba(184,134,63,0.05) 0%, transparent 70%)',
+        pointerEvents: 'none',
+        opacity: zenMode ? 0 : 1,
+        transition: 'opacity 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
+      }} />
 
       {pageState.status === 'ready' && pageState.dataUrl ? (
-        <div
-          className={fsAnimation === 'entering' ? 'reader-fs-enter' : fsAnimation === 'exiting' ? 'reader-fs-exit' : ''}
-          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-        >
+        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{
             transform: `scale(${zoom})`,
             transformOrigin: 'center center',
-            transition: 'all 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
-            boxShadow: zenMode ? 'none' : '0 2px 8px rgba(0,0,0,0.5), 0 12px 40px rgba(0,0,0,0.6), 0 32px 80px rgba(0,0,0,0.4)',
+            transition: 'transform 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), border-radius 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), box-shadow 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
+            boxShadow: zenMode ? '0 0 0 rgba(0,0,0,0)' : '0 20px 60px rgba(0,0,0,0.35)',
             lineHeight: 0,
-            borderRadius: zenMode ? 0 : 2,
+            borderRadius: zenMode ? 0 : 20,
             overflow: 'hidden',
             border: zenMode ? 'none' : '1px solid rgba(255,255,255,0.06)',
             background: paperConfig.pageBg,
@@ -1203,26 +1199,25 @@ const PdfPage = forwardRef<HTMLDivElement, { pageState: PageState; pageNum: numb
             <span style={{ fontSize: 11, fontFamily: 'Inter', opacity: 0.7 }}>Page {pageNum}</span>
           </div>
         )}
-        {!zenMode && (
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 10,
-              left: 0,
-              right: 0,
-              textAlign: 'center',
-              fontSize: 10,
-              color: paperConfig.textColor,
-              fontFamily: 'Inter',
-              letterSpacing: '0.05em',
-              pointerEvents: 'none',
-              opacity: 0.7,
-              zIndex: 6,
-            }}
-          >
-            {pageNum}
-          </div>
-        )}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 10,
+            left: 0,
+            right: 0,
+            textAlign: 'center',
+            fontSize: 10,
+            color: paperConfig.textColor,
+            fontFamily: 'Inter',
+            letterSpacing: '0.05em',
+            pointerEvents: 'none',
+            opacity: zenMode ? 0 : 0.7,
+            transition: 'opacity 0.25s ease',
+            zIndex: 6,
+          }}
+        >
+          {pageNum}
+        </div>
       </div>
     );
   }
@@ -1450,8 +1445,15 @@ const Shell = forwardRef<HTMLDivElement, { children: React.ReactNode; style?: Re
           }} />
         )}
 
-        {/* Literary Book Doodles in background — completely hidden in zenMode */}
-        {!zenMode && <ReaderDoodles />}
+        {/* Literary Book Doodles in background — smoothly fades in zenMode */}
+        <div style={{
+          opacity: zenMode ? 0 : 1,
+          transition: 'opacity 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
+          pointerEvents: 'none',
+          willChange: 'opacity',
+        }}>
+          <ReaderDoodles />
+        </div>
 
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', overflow: 'hidden' }}>
           {children}
@@ -1468,44 +1470,9 @@ const Shell = forwardRef<HTMLDivElement, { children: React.ReactNode; style?: Re
               transform: translateY(0) scale(1);
             }
           }
-          @keyframes readerFsEnter {
-            0% {
-              opacity: 0.94;
-            }
-            100% {
-              opacity: 1;
-            }
-          }
-          @keyframes readerFsExit {
-            0% {
-              opacity: 0.94;
-            }
-            100% {
-              opacity: 1;
-            }
-          }
-          @keyframes veilPulse {
-            0% {
-              opacity: 0;
-            }
-            30% {
-              opacity: 0.45;
-            }
-            100% {
-              opacity: 0;
-            }
-          }
-          .reader-fs-enter {
-            animation: readerFsEnter 0.36s cubic-bezier(0.16, 1, 0.3, 1) both !important;
-            will-change: transform, opacity;
-          }
-          .reader-fs-exit {
-            animation: readerFsExit 0.3s cubic-bezier(0.16, 1, 0.3, 1) both !important;
-            will-change: transform, opacity;
-          }
 
           /* Prevent black-out flash during browser fullscreen transitions */
-          html, body, :fullscreen, ::backdrop, :fullscreen::backdrop, :-webkit-full-screen, :-webkit-full-screen::backdrop {
+          html, body, :fullscreen, ::backdrop, :fullscreen::backdrop, *::backdrop, :-webkit-full-screen, :-webkit-full-screen::backdrop {
             background: ${T.bg} !important;
             background-color: ${T.bg} !important;
           }
@@ -1632,16 +1599,6 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
   const [zenMode, setZenMode]                   = useState(false);
   const [showZenControls, setShowZenControls]   = useState(false);
   const [toastMessage, setToastMessage]         = useState<string | null>(null);
-  const [fsAnimation, setFsAnimation]           = useState<'entering' | 'exiting' | null>(null);
-  const fsAnimTimerRef                          = useRef<any>(null);
-
-  const triggerFsAnimation = useCallback((type: 'entering' | 'exiting') => {
-    if (fsAnimTimerRef.current) clearTimeout(fsAnimTimerRef.current);
-    setFsAnimation(type);
-    fsAnimTimerRef.current = setTimeout(() => {
-      setFsAnimation(null);
-    }, 550);
-  }, []);
 
   // Window size tracking for responsive layout & two-page support
   const [windowSize, setWindowSize] = useState<{ width: number; height: number }>(() => ({
@@ -1754,11 +1711,9 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
         setZenMode(true);
         setShowZenControls(false);
         setToastMessage(null);
-        triggerFsAnimation('entering');
       } else {
         setZenMode(false);
         setShowZenControls(false);
-        triggerFsAnimation('exiting');
       }
     };
 
@@ -1773,7 +1728,7 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
       document.removeEventListener('mozfullscreenchange', handleFsChange);
       document.removeEventListener('MSFullscreenChange', handleFsChange);
     };
-  }, [triggerFsAnimation]);
+  }, []);
 
   // HTML5 Fullscreen Toggler (Cross-browser with graceful Zen Mode fallback)
   const toggleFullscreen = useCallback(async () => {
@@ -1787,6 +1742,10 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
         (document as any).msFullscreenElement
       );
 
+      // Instantly start the UI transition on click without waiting for async browser event
+      setZenMode(!isFs);
+      setShowZenControls(false);
+
       if (!isFs) {
         const fsOptions = { navigationUI: 'hide' } as FullscreenOptions;
         if (el.requestFullscreen) {
@@ -1799,8 +1758,6 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
           await (el as any).msRequestFullscreen();
         } else {
           // Mobile Safari or browsers without Fullscreen API
-          setZenMode(true);
-          triggerFsAnimation('entering');
           setIsFullscreen(true);
         }
       } else {
@@ -1813,31 +1770,24 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
         } else if ((document as any).msExitFullscreen) {
           await (document as any).msExitFullscreen();
         } else {
-          setZenMode(false);
-          triggerFsAnimation('exiting');
           setIsFullscreen(false);
         }
       }
     } catch (err) {
       console.warn('Fullscreen request failed:', err);
       // Fallback: If native fullscreen is blocked, still toggle Zen Mode
-      setZenMode(z => {
-        const next = !z;
-        triggerFsAnimation(next ? 'entering' : 'exiting');
-        return next;
-      });
+      setZenMode(z => !z);
       setIsFullscreen(f => !f);
     }
-  }, [triggerFsAnimation]);
+  }, []);
 
   const toggleZenMode = useCallback(() => {
     setZenMode(z => {
       const next = !z;
       setShowZenControls(false);
-      triggerFsAnimation(next ? 'entering' : 'exiting');
       return next;
     });
-  }, [triggerFsAnimation]);
+  }, []);
 
   // Auto-hide controls after delay when in zenMode
   useEffect(() => {
@@ -1851,17 +1801,17 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
   // Responsive 2-page spread sizing: fills screen edge-to-edge with minimum borders
   const [flipPageSize, setFlipPageSize] = useState(() => {
     if (typeof window !== 'undefined') {
-      const availW = window.innerWidth;
-      const availH = window.innerHeight;
+      const availW = Math.max(window.screen?.width || 0, window.innerWidth || 1200);
+      const availH = Math.max(window.screen?.height || 0, window.innerHeight || 800);
       const aspect = 0.707;
       const spreadAspect = 2 * aspect;
       if (availW / availH >= spreadAspect) {
         const h = availH;
-        const w = Math.floor(h * aspect);
+        const w = Math.min(Math.floor(availW / 2), Math.round(h * aspect));
         return { width: w, height: h };
       } else {
         const w = Math.floor(availW / 2);
-        const h = Math.round(w / aspect);
+        const h = Math.min(availH, Math.round(w / aspect));
         return { width: w, height: h };
       }
     }
@@ -1885,14 +1835,15 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
   }, [pdfDoc, currentPage]);
 
   // Compute full-screen edge-to-edge dimensions for 2-page spread
-  // Stably anchored so HTMLFlipBook NEVER unmounts/remounts unnecessarily
+  // Anchored to display resolution so HTMLFlipBook NEVER unmounts during fullscreen transitions
   useEffect(() => {
     let timer: any = null;
     function compute() {
-      const isFull = zenMode || isFullscreen;
-      // In fullscreen/zen mode, fill 100% of viewport height; in normal mode, account for toolbar
-      const maxH = isFull ? window.innerHeight : Math.max(100, window.innerHeight - 52);
-      const maxSpreadW = window.innerWidth;
+      const screenH = typeof window !== 'undefined' ? Math.max(window.screen?.height || 0, window.innerHeight || 800) : 800;
+      const screenW = typeof window !== 'undefined' ? Math.max(window.screen?.width || 0, window.innerWidth || 1200) : 1200;
+
+      const maxH = screenH;
+      const maxSpreadW = screenW;
 
       const aspect = (!pdfAspectRatio || isNaN(pdfAspectRatio) || pdfAspectRatio <= 0) ? 0.707 : pdfAspectRatio;
       const spreadAspect = 2 * aspect;
@@ -1913,7 +1864,8 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
 
       if (singleW > 50 && h > 50) {
         setFlipPageSize(prev => {
-          if (prev.width === singleW && prev.height === h) {
+          // Avoid tiny jitter updates so key stays completely stable
+          if (Math.abs(prev.width - singleW) < 8 && Math.abs(prev.height - h) < 8) {
             return prev;
           }
           return { width: singleW, height: h };
@@ -1923,25 +1875,17 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
 
     const debouncedCompute = () => {
       clearTimeout(timer);
-      timer = setTimeout(compute, 60);
+      timer = setTimeout(compute, 350);
     };
 
     compute();
-    const t1 = setTimeout(compute, 50);
-    const t2 = setTimeout(compute, 250);
 
     window.addEventListener('resize', debouncedCompute);
-    document.addEventListener('fullscreenchange', debouncedCompute);
-    document.addEventListener('webkitfullscreenchange', debouncedCompute);
     return () => {
       clearTimeout(timer);
-      clearTimeout(t1);
-      clearTimeout(t2);
       window.removeEventListener('resize', debouncedCompute);
-      document.removeEventListener('fullscreenchange', debouncedCompute);
-      document.removeEventListener('webkitfullscreenchange', debouncedCompute);
     };
-  }, [pdfAspectRatio, zenMode, isFullscreen]);
+  }, [pdfAspectRatio]);
 
   // ── Load PDF ──
   useEffect(() => {
@@ -2207,66 +2151,56 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
           </div>
         )}
 
-        {/* Cinematic Fullscreen Transition Bloom Veil */}
-        {fsAnimation && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              zIndex: 58,
-              pointerEvents: 'none',
-              background: fsAnimation === 'entering'
-                ? `radial-gradient(ellipse at center, ${T.isDark ? 'rgba(184,134,63,0.14)' : 'rgba(255,255,255,0.5)'} 0%, transparent 70%)`
-                : `radial-gradient(ellipse at center, ${T.isDark ? 'rgba(0,0,0,0.22)' : 'rgba(184,134,63,0.08)'} 0%, transparent 70%)`,
-              animation: 'veilPulse 0.48s cubic-bezier(0.16, 1, 0.3, 1) both',
-            }}
-          />
-        )}
-
-        {/* Exit fullscreen button — clearly visible in bottom-right corner */}
-        {zenMode && (
-          <button
-            onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
-            title="Exit full screen (Esc)"
-            style={{
-              position: 'absolute',
-              bottom: 16,
-              right: 16,
-              zIndex: 60,
-              width: 36,
-              height: 36,
-              borderRadius: '50%',
-              background: T.isDark ? '#1e1a14' : '#ffffff',
-              border: `1.5px solid ${T.isDark ? '#5c4832' : '#d2c2ad'}`,
-              color: T.isDark ? '#f2e8d5' : '#2e2014',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              boxShadow: '0 3px 12px rgba(0,0,0,0.35)',
-              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-              outline: 'none',
-              padding: 0,
-              flexShrink: 0,
-              animation: 'fadeFloatIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.color = T.brass;
-              e.currentTarget.style.borderColor = T.brass;
+        {/* Exit fullscreen button — styled with Apple glassmorphism */}
+        <button
+          onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
+          title="Exit full screen (Esc)"
+          style={{
+            position: 'absolute',
+            bottom: 20,
+            right: 20,
+            zIndex: 60,
+            width: 42,
+            height: 42,
+            borderRadius: 12,
+            background: T.isDark ? 'rgba(30, 26, 20, 0.65)' : 'rgba(255, 255, 255, 0.65)',
+            border: `1px solid ${T.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'}`,
+            color: T.isDark ? '#f2e8d5' : '#2e2014',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+            opacity: zenMode ? 1 : 0,
+            pointerEvents: zenMode ? 'auto' : 'none',
+            transform: zenMode ? 'scale(1)' : 'scale(0.8)',
+            transition: 'opacity 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), transform 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
+            outline: 'none',
+            padding: 0,
+            flexShrink: 0,
+          }}
+          onMouseEnter={e => {
+            if (zenMode) {
               e.currentTarget.style.transform = 'scale(1.1)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.color = T.isDark ? '#f2e8d5' : '#2e2014';
-              e.currentTarget.style.borderColor = T.isDark ? '#5c4832' : '#d2c2ad';
+              e.currentTarget.style.background = T.isDark ? 'rgba(45, 38, 30, 0.85)' : 'rgba(255, 255, 255, 0.85)';
+              e.currentTarget.style.boxShadow = '0 0 20px rgba(0,0,0,0.2)';
+            }
+          }}
+          onMouseLeave={e => {
+            if (zenMode) {
               e.currentTarget.style.transform = 'scale(1)';
-            }}
-            onTouchStart={e => { e.currentTarget.style.transform = 'scale(1.1)'; }}
-            onTouchEnd={e => { e.currentTarget.style.transform = 'scale(1)'; }}
-            aria-label="Exit full screen"
-          >
-            <Minimize2 size={18} strokeWidth={2.2} />
-          </button>
-        )}
+              e.currentTarget.style.background = T.isDark ? 'rgba(30, 26, 20, 0.65)' : 'rgba(255, 255, 255, 0.65)';
+              e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.25)';
+            }
+          }}
+          onMouseDown={e => { if (zenMode) e.currentTarget.style.transform = 'scale(0.95)'; }}
+          onMouseUp={e => { if (zenMode) e.currentTarget.style.transform = 'scale(1.1)'; }}
+          aria-label="Exit full screen"
+        >
+          <Minimize2 size={18} strokeWidth={2.2} />
+        </button>
 
         {error ? (
           <ErrorScreen error={error} url={pdfUrl} />
@@ -2291,12 +2225,29 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
               <div style={{
                 flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: 'transparent', position: 'relative', overflow: 'hidden',
+                perspective: 1500,
                 padding: 0,
-                transition: 'opacity 0.25s ease, background 0.25s ease',
+                transition: 'opacity 0.3s ease',
                 opacity: flipReady ? 1 : 0,
                 visibility: flipReady ? 'visible' : 'hidden',
                 pointerEvents: flipReady ? 'auto' : 'none',
               }}>
+            {/* Apple-style backdrop blur transition */}
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                pointerEvents: 'none',
+                background: T.isDark ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0.18)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                opacity: (zenMode || isFullscreen) ? 1 : 0,
+                transition: 'opacity 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
+                willChange: 'opacity',
+                zIndex: 2,
+              }}
+            />
+
             {/* Interactive "Bookmark here" Ribbon Widget */}
             <div style={{
               position: 'absolute',
@@ -2354,49 +2305,71 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
               </button>
             </div>
 
-            {/* Warm desk glow / vignette — hidden in zenMode */}
-            {!zenMode && (
-              <div style={{
-                position: 'absolute', inset: 0, pointerEvents: 'none',
-                background: T.deskVignette,
-              }} />
-            )}
-            <div
-              className={fsAnimation === 'entering' ? 'reader-fs-enter' : fsAnimation === 'exiting' ? 'reader-fs-exit' : ''}
-              style={{
-                filter: zenMode ? 'none' : T.shadow,
-                willChange: 'transform',
-                transform: 'translateZ(0)',
-                transition: 'all 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
-              }}
-            >
-              <HTMLFlipBook
-                key={`flip_${flipPageSize.width}_${flipPageSize.height}`}
-                ref={flipBookRef}
-                width={flipPageSize.width}
-                height={flipPageSize.height}
-                size="fixed"
-                minWidth={100} minHeight={100} maxWidth={4000} maxHeight={4000}
-                drawShadow={!zenMode}
-                flippingTime={380}
-                usePortrait={false}
-                startPage={Math.max(0, currentPage - 1)}
-                style={{ margin: '0 auto' }} startZIndex={10} autoSize={false}
-                maxShadowOpacity={zenMode ? 0.05 : (T.isDark ? 0.25 : 0.18)}
-                showCover={false}
-                mobileScrollSupport={true}
-                onFlip={(e: any) => setCurrentPage(Math.max(1, (e.data as number) + 1))}
-                onChangeOrientation={() => {}} onChangeState={() => {}}
-                onInit={() => setFlipReady(true)}
-                className="" clickEventForward={true} useMouseEvents={true}
-                swipeDistance={30} showPageCorners={true}
-                disableFlipByClick={false}
-              >
-                {pages.map((ps, i) => (
-                  <PdfPage key={i} pageState={ps} pageNum={i + 1} zenMode={zenMode} />
-                ))}
-              </HTMLFlipBook>
-            </div>
+            {/* Warm desk glow / vignette — smoothly fades in zenMode */}
+            <div style={{
+              position: 'absolute', inset: 0, pointerEvents: 'none',
+              background: T.deskVignette,
+              opacity: (zenMode || isFullscreen) ? 0 : 1,
+              transition: 'opacity 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
+              willChange: 'opacity',
+            }} />
+            {/* Apple-style Spread Container with smooth scale, radius, and shadow morphing */}
+            {(() => {
+              const availNormalH = Math.max(300, (windowSize.height || 800) - 100);
+              const availNormalW = Math.max(400, (windowSize.width || 1200) - (sidebarOpen ? 280 : 64));
+              const scaleH = availNormalH / Math.max(1, flipPageSize.height);
+              const scaleW = availNormalW / Math.max(1, flipPageSize.width * 2);
+              const normalScale = Math.min(0.92, Math.max(0.50, Math.min(scaleH, scaleW)));
+
+              return (
+                <div
+                  style={{
+                    position: 'relative',
+                    zIndex: 10,
+                    borderRadius: (zenMode || isFullscreen) ? 0 : 20,
+                    overflow: 'hidden',
+                    boxShadow: (zenMode || isFullscreen)
+                      ? '0 0 0 rgba(0,0,0,0)'
+                      : (T.isDark
+                        ? '0 20px 60px rgba(0,0,0,0.55), 0 4px 16px rgba(0,0,0,0.4)'
+                        : '0 20px 60px rgba(0,0,0,0.22), 0 4px 12px rgba(0,0,0,0.08)'),
+                    transform: (zenMode || isFullscreen)
+                      ? 'scale(1)'
+                      : `scale(${normalScale})`,
+                    transformOrigin: 'center center',
+                    willChange: 'transform, box-shadow, border-radius',
+                    transition: 'transform 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), border-radius 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), box-shadow 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
+                  }}
+                >
+                  <HTMLFlipBook
+                    key={`flip_${flipPageSize.width}_${flipPageSize.height}`}
+                    ref={flipBookRef}
+                    width={flipPageSize.width}
+                    height={flipPageSize.height}
+                    size="fixed"
+                    minWidth={100} minHeight={100} maxWidth={4000} maxHeight={4000}
+                    drawShadow={true}
+                    flippingTime={380}
+                    usePortrait={false}
+                    startPage={Math.max(0, currentPage - 1)}
+                    style={{ margin: '0 auto' }} startZIndex={10} autoSize={false}
+                    maxShadowOpacity={T.isDark ? 0.25 : 0.18}
+                    showCover={false}
+                    mobileScrollSupport={true}
+                    onFlip={(e: any) => setCurrentPage(Math.max(1, (e.data as number) + 1))}
+                    onChangeOrientation={() => {}} onChangeState={() => {}}
+                    onInit={() => setFlipReady(true)}
+                    className="" clickEventForward={true} useMouseEvents={true}
+                    swipeDistance={30} showPageCorners={true}
+                    disableFlipByClick={false}
+                  >
+                    {pages.map((ps, i) => (
+                      <PdfPage key={i} pageState={ps} pageNum={i + 1} zenMode={zenMode} />
+                    ))}
+                  </HTMLFlipBook>
+                </div>
+              );
+            })()}
             {/* Nav arrows with proper margin */}
             <button
               onClick={handlePrev} disabled={currentPage <= 1}
@@ -2644,7 +2617,7 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
                 </>
               )}
 
-              <PageDisplay pageState={pageState} pageNum={currentPage} zoom={zoom} zenMode={zenMode} fsAnimation={fsAnimation} />
+              <PageDisplay pageState={pageState} pageNum={currentPage} zoom={zoom} zenMode={zenMode} />
             </div>
           </div>
         ))}
@@ -2664,16 +2637,6 @@ function DriveReaderMode({ pdfUrl, bookTitle, onClose }: PdfReaderModalProps) {
 
   const [isFullscreen, setIsFullscreen]       = useState(false);
   const [zenMode, setZenMode]                 = useState(false);
-  const [fsAnimation, setFsAnimation]         = useState<'entering' | 'exiting' | null>(null);
-  const fsAnimTimerRef                        = useRef<any>(null);
-
-  const triggerFsAnimation = useCallback((type: 'entering' | 'exiting') => {
-    if (fsAnimTimerRef.current) clearTimeout(fsAnimTimerRef.current);
-    setFsAnimation(type);
-    fsAnimTimerRef.current = setTimeout(() => {
-      setFsAnimation(null);
-    }, 550);
-  }, []);
 
   useEffect(() => {
     const handleFsChange = () => {
@@ -2684,13 +2647,7 @@ function DriveReaderMode({ pdfUrl, bookTitle, onClose }: PdfReaderModalProps) {
         (document as any).msFullscreenElement
       );
       setIsFullscreen(isFs);
-      if (isFs) {
-        setZenMode(true);
-        triggerFsAnimation('entering');
-      } else {
-        setZenMode(false);
-        triggerFsAnimation('exiting');
-      }
+      setZenMode(isFs);
     };
     document.addEventListener('fullscreenchange', handleFsChange);
     document.addEventListener('webkitfullscreenchange', handleFsChange);
@@ -2698,7 +2655,7 @@ function DriveReaderMode({ pdfUrl, bookTitle, onClose }: PdfReaderModalProps) {
       document.removeEventListener('fullscreenchange', handleFsChange);
       document.removeEventListener('webkitfullscreenchange', handleFsChange);
     };
-  }, [triggerFsAnimation]);
+  }, []);
 
   const toggleFullscreen = useCallback(async () => {
     const el = document.documentElement;
@@ -2710,29 +2667,26 @@ function DriveReaderMode({ pdfUrl, bookTitle, onClose }: PdfReaderModalProps) {
         (document as any).mozFullScreenElement ||
         (document as any).msFullscreenElement
       );
+      // Instantly start UI transition on click
+      setZenMode(!isFs);
       if (!isFs) {
         if (el.requestFullscreen) await el.requestFullscreen();
         else if ((el as any).webkitRequestFullscreen) await (el as any).webkitRequestFullscreen();
         else {
-          setZenMode(true);
-          triggerFsAnimation('entering');
+          setIsFullscreen(true);
         }
       } else {
         if (document.exitFullscreen) await document.exitFullscreen();
         else if ((document as any).webkitExitFullscreen) await (document as any).webkitExitFullscreen();
         else {
-          setZenMode(false);
-          triggerFsAnimation('exiting');
+          setIsFullscreen(false);
         }
       }
     } catch {
-      setZenMode(z => {
-        const next = !z;
-        triggerFsAnimation(next ? 'entering' : 'exiting');
-        return next;
-      });
+      setZenMode(z => !z);
+      setIsFullscreen(f => !f);
     }
-  }, [triggerFsAnimation]);
+  }, []);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -2755,6 +2709,8 @@ function DriveReaderMode({ pdfUrl, bookTitle, onClose }: PdfReaderModalProps) {
     return () => window.removeEventListener('keydown', h);
   }, [onClose, zenMode, isFullscreen, toggleFullscreen]);
 
+  const isFull = zenMode || isFullscreen;
+
   return (
     <div
       ref={containerRef}
@@ -2771,12 +2727,12 @@ function DriveReaderMode({ pdfUrl, bookTitle, onClose }: PdfReaderModalProps) {
         flexShrink: 0,
         position: 'relative',
         top: 0, left: 0, right: 0,
-        zIndex: 10,
+        zIndex: 70,
         background: T.bgDark,
         borderBottom: zenMode ? 'none' : `1px solid ${T.border}`,
         opacity: zenMode ? 0 : 1,
         transform: zenMode ? 'translateY(-100%)' : 'translateY(0)',
-        transition: 'all 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
+        transition: 'transform 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), height 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), max-height 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
         display: 'flex', alignItems: 'center', gap: 4, padding: zenMode ? 0 : '0 8px',
         userSelect: 'none',
         overflow: zenMode ? 'hidden' : 'visible',
@@ -2809,7 +2765,6 @@ function DriveReaderMode({ pdfUrl, bookTitle, onClose }: PdfReaderModalProps) {
           {themeMode === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
         </ToolBtn>
 
-
         {/* Fullscreen toggle */}
         <ToolBtn
           onClick={toggleFullscreen}
@@ -2833,71 +2788,74 @@ function DriveReaderMode({ pdfUrl, bookTitle, onClose }: PdfReaderModalProps) {
         </a>
       </div>
 
-      {/* Exit fullscreen button — clearly visible in bottom-right corner */}
-      {zenMode && (
-        <button
-          onClick={toggleFullscreen}
-          title="Exit full screen (Esc)"
-          style={{
-            position: 'absolute',
-            bottom: 16,
-            right: 16,
-            zIndex: 60,
-            width: 36,
-            height: 36,
-            borderRadius: '50%',
-            background: T.isDark ? '#1e1a14' : '#ffffff',
-            border: `1.5px solid ${T.isDark ? '#5c4832' : '#d2c2ad'}`,
-            color: T.isDark ? '#f2e8d5' : '#2e2014',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            boxShadow: '0 3px 12px rgba(0,0,0,0.35)',
-            transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-            outline: 'none',
-            padding: 0,
-            flexShrink: 0,
-            animation: 'fadeFloatIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both',
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.color = T.brass;
-            e.currentTarget.style.borderColor = T.brass;
+      {/* Exit fullscreen button — styled with Apple glassmorphism */}
+      <button
+        onClick={toggleFullscreen}
+        title="Exit full screen (Esc)"
+        style={{
+          position: 'absolute',
+          bottom: 20,
+          right: 20,
+          zIndex: 60,
+          width: 42,
+          height: 42,
+          borderRadius: 12,
+          background: T.isDark ? 'rgba(30, 26, 20, 0.65)' : 'rgba(255, 255, 255, 0.65)',
+          border: `1px solid ${T.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'}`,
+          color: T.isDark ? '#f2e8d5' : '#2e2014',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+          opacity: isFull ? 1 : 0,
+          pointerEvents: isFull ? 'auto' : 'none',
+          transform: isFull ? 'scale(1)' : 'scale(0.8)',
+          transition: 'opacity 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), transform 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
+          outline: 'none',
+          padding: 0,
+          flexShrink: 0,
+        }}
+        onMouseEnter={e => {
+          if (isFull) {
             e.currentTarget.style.transform = 'scale(1.1)';
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.color = T.isDark ? '#f2e8d5' : '#2e2014';
-            e.currentTarget.style.borderColor = T.isDark ? '#5c4832' : '#d2c2ad';
+            e.currentTarget.style.background = T.isDark ? 'rgba(45, 38, 30, 0.85)' : 'rgba(255, 255, 255, 0.85)';
+            e.currentTarget.style.boxShadow = '0 0 20px rgba(0,0,0,0.2)';
+          }
+        }}
+        onMouseLeave={e => {
+          if (isFull) {
             e.currentTarget.style.transform = 'scale(1)';
-          }}
-          onTouchStart={e => { e.currentTarget.style.transform = 'scale(1.1)'; }}
-          onTouchEnd={e => { e.currentTarget.style.transform = 'scale(1)'; }}
-          aria-label="Exit full screen"
-        >
-          <Minimize2 size={18} strokeWidth={2.2} />
-        </button>
-      )}
+            e.currentTarget.style.background = T.isDark ? 'rgba(30, 26, 20, 0.65)' : 'rgba(255, 255, 255, 0.65)';
+            e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.25)';
+          }
+        }}
+        onMouseDown={e => { if (isFull) e.currentTarget.style.transform = 'scale(0.95)'; }}
+        onMouseUp={e => { if (isFull) e.currentTarget.style.transform = 'scale(1.1)'; }}
+        aria-label="Exit full screen"
+      >
+        <Minimize2 size={18} strokeWidth={2.2} />
+      </button>
 
-      {/* Cinematic Fullscreen Transition Bloom Veil */}
-      {fsAnimation && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 58,
-            pointerEvents: 'none',
-            background: fsAnimation === 'entering'
-              ? `radial-gradient(ellipse at center, ${T.isDark ? 'rgba(184,134,63,0.14)' : 'rgba(255,255,255,0.5)'} 0%, transparent 70%)`
-              : `radial-gradient(ellipse at center, ${T.isDark ? 'rgba(0,0,0,0.22)' : 'rgba(184,134,63,0.08)'} 0%, transparent 70%)`,
-            animation: 'veilPulse 0.48s cubic-bezier(0.16, 1, 0.3, 1) both',
-          }}
-        />
-      )}
-
-      {/* Iframe area */}
+      {/* Iframe area — Apple-style spread transition */}
       <div
-        className={fsAnimation === 'entering' ? 'reader-fs-enter' : fsAnimation === 'exiting' ? 'reader-fs-exit' : ''}
-        style={{ flex: 1, position: 'relative', zIndex: 1, overflow: 'hidden' }}
+        style={{
+          flex: 1,
+          position: 'relative',
+          zIndex: 1,
+          overflow: 'hidden',
+          borderRadius: isFull ? 0 : 20,
+          boxShadow: isFull
+            ? '0 0 0 rgba(0,0,0,0)'
+            : (T.isDark ? '0 20px 60px rgba(0,0,0,0.55)' : '0 20px 60px rgba(0,0,0,0.22)'),
+          margin: isFull ? 0 : '12px 20px 20px 20px',
+          transform: isFull ? 'scale(1)' : 'scale(0.97)',
+          transformOrigin: 'center center',
+          transition: 'transform 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), border-radius 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), box-shadow 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
+          willChange: 'transform, box-shadow, border-radius',
+        }}
       >
         {embedUrl ? (
           <iframe
@@ -2922,41 +2880,6 @@ function DriveReaderMode({ pdfUrl, bookTitle, onClose }: PdfReaderModalProps) {
             opacity: 1;
             transform: translateY(0) scale(1);
           }
-        }
-        @keyframes readerFsEnter {
-          0% {
-            opacity: 0.94;
-          }
-          100% {
-            opacity: 1;
-          }
-        }
-        @keyframes readerFsExit {
-          0% {
-            opacity: 0.94;
-          }
-          100% {
-            opacity: 1;
-          }
-        }
-        @keyframes veilPulse {
-          0% {
-            opacity: 0;
-          }
-          30% {
-            opacity: 0.45;
-          }
-          100% {
-            opacity: 0;
-          }
-        }
-        .reader-fs-enter {
-          animation: readerFsEnter 0.36s cubic-bezier(0.16, 1, 0.3, 1) both !important;
-          will-change: transform, opacity;
-        }
-        .reader-fs-exit {
-          animation: readerFsExit 0.3s cubic-bezier(0.16, 1, 0.3, 1) both !important;
-          will-change: transform, opacity;
         }
 
         html, body, :fullscreen, ::backdrop, :fullscreen::backdrop, :-webkit-full-screen, :-webkit-full-screen::backdrop {
