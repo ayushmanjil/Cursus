@@ -430,7 +430,7 @@ function Toolbar({
       top: 0,
       left: 0,
       right: 0,
-      zIndex: 50,
+      zIndex: 70,
       background: T.bgDark,
       borderBottom: zenMode ? 'none' : `1px solid ${T.border}`,
       opacity: zenMode ? 0 : 1,
@@ -442,7 +442,7 @@ function Toolbar({
       flexShrink: 0,
       userSelect: 'none',
       paddingRight: isMobile ? 4 : 8,
-      overflow: 'hidden',
+      overflow: zenMode ? 'hidden' : 'visible',
       pointerEvents: zenMode ? 'none' : 'auto',
     }}>
 
@@ -1869,26 +1869,29 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
   });
   const [pdfAspectRatio, setPdfAspectRatio] = useState(0.707);
 
-  // Measure actual PDF page aspect ratio once loaded
+  // Measure actual PDF page aspect ratio once loaded (checks current page or page 1)
   useEffect(() => {
     if (!pdfDoc) return;
-    pdfDoc.getPage(1).then(page => {
+    const pageToMeasure = Math.min(Math.max(1, currentPage), pdfDoc.numPages || 1);
+    pdfDoc.getPage(pageToMeasure).then(page => {
       const vp = page.getViewport({ scale: 1 });
       if (vp.width && vp.height && vp.height > 0) {
         const ratio = vp.width / vp.height;
         if (!isNaN(ratio) && ratio > 0.2 && ratio < 4) {
-          setPdfAspectRatio(ratio);
+          setPdfAspectRatio(prev => Math.abs(prev - ratio) > 0.005 ? ratio : prev);
         }
       }
     }).catch(() => {});
-  }, [pdfDoc]);
+  }, [pdfDoc, currentPage]);
 
   // Compute full-screen edge-to-edge dimensions for 2-page spread
-  // Stably anchored so HTMLFlipBook NEVER unmounts/remounts during fullscreen transitions
+  // Stably anchored so HTMLFlipBook NEVER unmounts/remounts unnecessarily
   useEffect(() => {
     let timer: any = null;
     function compute() {
-      const maxH = Math.max(100, window.innerHeight - 44);
+      const isFull = zenMode || isFullscreen;
+      // In fullscreen/zen mode, fill 100% of viewport height; in normal mode, account for toolbar
+      const maxH = isFull ? window.innerHeight : Math.max(100, window.innerHeight - 52);
       const maxSpreadW = window.innerWidth;
 
       const aspect = (!pdfAspectRatio || isNaN(pdfAspectRatio) || pdfAspectRatio <= 0) ? 0.707 : pdfAspectRatio;
@@ -1897,18 +1900,20 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
       let singleW: number;
       let h: number;
 
-      // Fit to screen:
+      // Fit to screen as much as the aspect ratio supports:
       if (maxSpreadW / maxH >= spreadAspect) {
+        // Height is the constraint (widescreen displays): book touches top and bottom edges
         h = maxH;
-        singleW = Math.floor(h * aspect);
+        singleW = Math.min(Math.floor(maxSpreadW / 2), Math.round(h * aspect));
       } else {
+        // Width is the constraint (narrow/portrait displays): book touches left and right edges
         singleW = Math.floor(maxSpreadW / 2);
-        h = Math.round(singleW / aspect);
+        h = Math.min(maxH, Math.round(singleW / aspect));
       }
 
       if (singleW > 50 && h > 50) {
         setFlipPageSize(prev => {
-          if (Math.abs(prev.width - singleW) <= 2 && Math.abs(prev.height - h) <= 2) {
+          if (prev.width === singleW && prev.height === h) {
             return prev;
           }
           return { width: singleW, height: h };
@@ -1922,12 +1927,21 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
     };
 
     compute();
+    const t1 = setTimeout(compute, 50);
+    const t2 = setTimeout(compute, 250);
+
     window.addEventListener('resize', debouncedCompute);
+    document.addEventListener('fullscreenchange', debouncedCompute);
+    document.addEventListener('webkitfullscreenchange', debouncedCompute);
     return () => {
       clearTimeout(timer);
+      clearTimeout(t1);
+      clearTimeout(t2);
       window.removeEventListener('resize', debouncedCompute);
+      document.removeEventListener('fullscreenchange', debouncedCompute);
+      document.removeEventListener('webkitfullscreenchange', debouncedCompute);
     };
-  }, [pdfAspectRatio]);
+  }, [pdfAspectRatio, zenMode, isFullscreen]);
 
   // ── Load PDF ──
   useEffect(() => {
@@ -2765,7 +2779,7 @@ function DriveReaderMode({ pdfUrl, bookTitle, onClose }: PdfReaderModalProps) {
         transition: 'all 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
         display: 'flex', alignItems: 'center', gap: 4, padding: zenMode ? 0 : '0 8px',
         userSelect: 'none',
-        overflow: 'hidden',
+        overflow: zenMode ? 'hidden' : 'visible',
         pointerEvents: zenMode ? 'none' : 'auto',
       }}>
         {/* Close */}
