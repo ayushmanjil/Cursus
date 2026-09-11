@@ -432,10 +432,11 @@ function Toolbar({
       right: 0,
       zIndex: 70,
       background: T.bgDark,
-      borderBottom: zenMode ? 'none' : `1px solid ${T.border}`,
+      borderBottom: `1px solid ${zenMode ? 'transparent' : T.border}`,
       opacity: zenMode ? 0 : 1,
       transform: zenMode ? 'translateY(-100%)' : 'translateY(0)',
-      transition: 'transform 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), height 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), max-height 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
+      marginBottom: zenMode ? -52 : 0,
+      transition: 'transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.42s cubic-bezier(0.32, 0.72, 0, 1), margin-bottom 0.42s cubic-bezier(0.32, 0.72, 0, 1), border-color 0.42s cubic-bezier(0.32, 0.72, 0, 1)',
       display: 'flex',
       alignItems: 'center',
       gap: 0,
@@ -1054,10 +1055,12 @@ function PageDisplay({
           <div style={{
             transform: `scale(${zoom})`,
             transformOrigin: 'center center',
-            transition: 'transform 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), border-radius 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), box-shadow 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
-            boxShadow: zenMode ? '0 0 0 rgba(0,0,0,0)' : '0 20px 60px rgba(0,0,0,0.35)',
+            transition: 'transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), box-shadow 0.42s cubic-bezier(0.32, 0.72, 0, 1)',
+            boxShadow: zenMode
+              ? (T.isDark ? '0 24px 64px rgba(0,0,0,0.65)' : '0 24px 64px rgba(0,0,0,0.22)')
+              : (T.isDark ? '0 16px 48px rgba(0,0,0,0.50)' : '0 16px 48px rgba(0,0,0,0.18)'),
             lineHeight: 0,
-            borderRadius: zenMode ? 0 : 20,
+            borderRadius: 18,
             overflow: 'hidden',
             border: zenMode ? 'none' : '1px solid rgba(255,255,255,0.06)',
             background: paperConfig.pageBg,
@@ -1155,6 +1158,7 @@ const PdfPage = forwardRef<HTMLDivElement, { pageState: PageState; pageNum: numb
           justifyContent: 'center',
           position: 'relative',
           overflow: 'hidden',
+          borderRadius: isEven ? '18px 0 0 18px' : '0 18px 18px 0',
           boxSizing: 'border-box',
           transition: 'background 0.25s ease',
         }}
@@ -1188,6 +1192,7 @@ const PdfPage = forwardRef<HTMLDivElement, { pageState: PageState; pageNum: numb
               display: 'block',
               pointerEvents: 'none',
               userSelect: 'none',
+              borderRadius: isEven ? '18px 0 0 18px' : '0 18px 18px 0',
               mixBlendMode: paperConfig.blendMode,
               filter: paperConfig.imgFilter,
               transition: 'filter 0.25s ease',
@@ -1448,7 +1453,7 @@ const Shell = forwardRef<HTMLDivElement, { children: React.ReactNode; style?: Re
         {/* Literary Book Doodles in background — smoothly fades in zenMode */}
         <div style={{
           opacity: zenMode ? 0 : 1,
-          transition: 'opacity 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
+          transition: 'opacity 0.42s cubic-bezier(0.32, 0.72, 0, 1)',
           pointerEvents: 'none',
           willChange: 'opacity',
         }}>
@@ -1742,11 +1747,13 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
         (document as any).msFullscreenElement
       );
 
-      // Instantly start the UI transition on click without waiting for async browser event
-      setZenMode(!isFs);
+      // Instantly start the UI transition on click for synchronized one-flow animation
+      const target = !isFs;
+      setZenMode(target);
+      setIsFullscreen(target);
       setShowZenControls(false);
 
-      if (!isFs) {
+      if (target) {
         const fsOptions = { navigationUI: 'hide' } as FullscreenOptions;
         if (el.requestFullscreen) {
           await el.requestFullscreen(fsOptions);
@@ -2176,7 +2183,7 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
             opacity: zenMode ? 1 : 0,
             pointerEvents: zenMode ? 'auto' : 'none',
             transform: zenMode ? 'scale(1)' : 'scale(0.8)',
-            transition: 'opacity 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), transform 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
+            transition: 'opacity 0.42s cubic-bezier(0.32, 0.72, 0, 1), transform 0.42s cubic-bezier(0.32, 0.72, 0, 1)',
             outline: 'none',
             padding: 0,
             flexShrink: 0,
@@ -2241,8 +2248,8 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
                 background: T.isDark ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0.18)',
                 backdropFilter: 'blur(12px)',
                 WebkitBackdropFilter: 'blur(12px)',
-                opacity: (zenMode || isFullscreen) ? 1 : 0,
-                transition: 'opacity 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
+                opacity: zenMode ? 1 : 0,
+                transition: 'opacity 0.42s cubic-bezier(0.32, 0.72, 0, 1)',
                 willChange: 'opacity',
                 zIndex: 2,
               }}
@@ -2309,8 +2316,8 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
             <div style={{
               position: 'absolute', inset: 0, pointerEvents: 'none',
               background: T.deskVignette,
-              opacity: (zenMode || isFullscreen) ? 0 : 1,
-              transition: 'opacity 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
+              opacity: zenMode ? 0 : 1,
+              transition: 'opacity 0.42s cubic-bezier(0.32, 0.72, 0, 1)',
               willChange: 'opacity',
             }} />
             {/* Apple-style Spread Container with smooth scale, radius, and shadow morphing */}
@@ -2326,19 +2333,21 @@ function PdfJsReaderMode({ pdfUrl, bookTitle, bookId, initialPage, onSavePage, o
                   style={{
                     position: 'relative',
                     zIndex: 10,
-                    borderRadius: (zenMode || isFullscreen) ? 0 : 20,
+                    borderRadius: 18,
                     overflow: 'hidden',
-                    boxShadow: (zenMode || isFullscreen)
-                      ? '0 0 0 rgba(0,0,0,0)'
+                    boxShadow: zenMode
+                      ? (T.isDark
+                        ? '0 24px 70px rgba(0,0,0,0.65), 0 4px 20px rgba(0,0,0,0.45)'
+                        : '0 24px 70px rgba(0,0,0,0.26), 0 4px 16px rgba(0,0,0,0.12)')
                       : (T.isDark
-                        ? '0 20px 60px rgba(0,0,0,0.55), 0 4px 16px rgba(0,0,0,0.4)'
-                        : '0 20px 60px rgba(0,0,0,0.22), 0 4px 12px rgba(0,0,0,0.08)'),
-                    transform: (zenMode || isFullscreen)
+                        ? '0 16px 48px rgba(0,0,0,0.50), 0 4px 14px rgba(0,0,0,0.35)'
+                        : '0 16px 48px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.06)'),
+                    transform: zenMode
                       ? 'scale(1)'
                       : `scale(${normalScale})`,
                     transformOrigin: 'center center',
-                    willChange: 'transform, box-shadow, border-radius',
-                    transition: 'transform 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), border-radius 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), box-shadow 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
+                    willChange: 'transform, box-shadow',
+                    transition: 'transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), box-shadow 0.42s cubic-bezier(0.32, 0.72, 0, 1)',
                   }}
                 >
                   <HTMLFlipBook
@@ -2667,9 +2676,11 @@ function DriveReaderMode({ pdfUrl, bookTitle, onClose }: PdfReaderModalProps) {
         (document as any).mozFullScreenElement ||
         (document as any).msFullscreenElement
       );
-      // Instantly start UI transition on click
-      setZenMode(!isFs);
-      if (!isFs) {
+      // Instantly start UI transition on click for synchronized one-flow animation
+      const target = !isFs;
+      setZenMode(target);
+      setIsFullscreen(target);
+      if (target) {
         if (el.requestFullscreen) await el.requestFullscreen();
         else if ((el as any).webkitRequestFullscreen) await (el as any).webkitRequestFullscreen();
         else {
@@ -2729,11 +2740,12 @@ function DriveReaderMode({ pdfUrl, bookTitle, onClose }: PdfReaderModalProps) {
         top: 0, left: 0, right: 0,
         zIndex: 70,
         background: T.bgDark,
-        borderBottom: zenMode ? 'none' : `1px solid ${T.border}`,
+        borderBottom: `1px solid ${zenMode ? 'transparent' : T.border}`,
         opacity: zenMode ? 0 : 1,
         transform: zenMode ? 'translateY(-100%)' : 'translateY(0)',
-        transition: 'transform 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), height 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), max-height 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
-        display: 'flex', alignItems: 'center', gap: 4, padding: zenMode ? 0 : '0 8px',
+        marginBottom: zenMode ? -52 : 0,
+        transition: 'transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.42s cubic-bezier(0.32, 0.72, 0, 1), margin-bottom 0.42s cubic-bezier(0.32, 0.72, 0, 1), border-color 0.42s cubic-bezier(0.32, 0.72, 0, 1)',
+        display: 'flex', alignItems: 'center', gap: 4, padding: '0 8px',
         userSelect: 'none',
         overflow: zenMode ? 'hidden' : 'visible',
         pointerEvents: zenMode ? 'none' : 'auto',
@@ -2846,15 +2858,15 @@ function DriveReaderMode({ pdfUrl, bookTitle, onClose }: PdfReaderModalProps) {
           position: 'relative',
           zIndex: 1,
           overflow: 'hidden',
-          borderRadius: isFull ? 0 : 20,
+          borderRadius: 18,
           boxShadow: isFull
-            ? '0 0 0 rgba(0,0,0,0)'
-            : (T.isDark ? '0 20px 60px rgba(0,0,0,0.55)' : '0 20px 60px rgba(0,0,0,0.22)'),
+            ? (T.isDark ? '0 24px 64px rgba(0,0,0,0.65)' : '0 24px 64px rgba(0,0,0,0.22)')
+            : (T.isDark ? '0 16px 48px rgba(0,0,0,0.50)' : '0 16px 48px rgba(0,0,0,0.18)'),
           margin: isFull ? 0 : '12px 20px 20px 20px',
           transform: isFull ? 'scale(1)' : 'scale(0.97)',
           transformOrigin: 'center center',
-          transition: 'transform 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), border-radius 0.38s cubic-bezier(0.2, 0.9, 0.3, 1), box-shadow 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)',
-          willChange: 'transform, box-shadow, border-radius',
+          transition: 'transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), box-shadow 0.42s cubic-bezier(0.32, 0.72, 0, 1), margin 0.42s cubic-bezier(0.32, 0.72, 0, 1)',
+          willChange: 'transform, box-shadow',
         }}
       >
         {embedUrl ? (
